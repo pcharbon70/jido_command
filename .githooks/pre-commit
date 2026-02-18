@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR="$(git rev-parse --show-toplevel)"
+cd "$ROOT_DIR"
+
+if command -v asdf >/dev/null 2>&1; then
+  MIX_CMD=(asdf exec mix)
+else
+  MIX_CMD=(mix)
+fi
+
+run_check() {
+  local label="$1"
+  shift
+  echo "[pre-commit] Running ${label}..."
+  "${MIX_CMD[@]}" "$@"
+}
+
+run_check "tests" test
+run_check "credo" credo --strict
+run_check "dialyzer" dialyzer
+
+echo "[pre-commit] All checks passed."

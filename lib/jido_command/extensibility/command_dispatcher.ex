@@ -5,9 +5,9 @@ defmodule JidoCommand.Extensibility.CommandDispatcher do
 
   use GenServer
 
-  alias JidoCommand.Extensibility.ExtensionRegistry
   alias Jido.Signal
   alias Jido.Signal.Bus
+  alias JidoCommand.Extensibility.ExtensionRegistry
 
   require Logger
 
@@ -81,11 +81,13 @@ defmodule JidoCommand.Extensibility.CommandDispatcher do
   defp process_invoke(_signal, _state), do: :ok
 
   defp emit_result(bus, type, payload) do
-    with {:ok, signal} <- Signal.new(type, payload, source: "/dispatcher") do
-      _ = Bus.publish(bus, [signal])
-      :ok
-    else
-      _ -> :ok
+    case Signal.new(type, payload, source: "/dispatcher") do
+      {:ok, signal} ->
+        _ = Bus.publish(bus, [signal])
+        :ok
+
+      {:error, _reason} ->
+        :ok
     end
   end
 
@@ -95,12 +97,9 @@ defmodule JidoCommand.Extensibility.CommandDispatcher do
         value
 
       :error ->
-        atom_key = safe_existing_atom(key)
-
-        if is_atom(atom_key) do
-          Map.get(map, atom_key, default)
-        else
-          default
+        case safe_existing_atom(key) do
+          nil -> default
+          atom_key -> Map.get(map, atom_key, default)
         end
     end
   end
@@ -113,6 +112,4 @@ defmodule JidoCommand.Extensibility.CommandDispatcher do
   rescue
     ArgumentError -> nil
   end
-
-  defp safe_existing_atom(_), do: nil
 end

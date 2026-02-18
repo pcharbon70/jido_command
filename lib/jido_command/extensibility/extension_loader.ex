@@ -22,7 +22,9 @@ defmodule JidoCommand.Extensibility.ExtensionLoader do
   @spec discover_manifest_paths(String.t()) :: [String.t()]
   def discover_manifest_paths(extensions_root) do
     if File.dir?(extensions_root) do
-      Path.wildcard(Path.join([extensions_root, "*", ".jido-extension", "extension.json"]))
+      Path.wildcard(Path.join([extensions_root, "*", ".jido-extension", "extension.json"]),
+        match_dot: true
+      )
     else
       []
     end
@@ -39,10 +41,15 @@ defmodule JidoCommand.Extensibility.ExtensionLoader do
     )
   end
 
+  @spec load_manifest(String.t()) :: {:ok, ExtensionManifest.t()} | {:error, term()}
+  def load_manifest(manifest_path) do
+    ExtensionManifest.from_file(manifest_path)
+  end
+
   @spec load_manifest_and_commands(String.t()) ::
           {:ok, {ExtensionManifest.t(), command_index()}} | {:error, term()}
   def load_manifest_and_commands(manifest_path) do
-    with {:ok, manifest} <- ExtensionManifest.from_file(manifest_path),
+    with {:ok, manifest} <- load_manifest(manifest_path),
          {:ok, commands} <- load_from_manifest(manifest) do
       {:ok, {manifest, commands}}
     end

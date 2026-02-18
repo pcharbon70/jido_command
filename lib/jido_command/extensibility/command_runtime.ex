@@ -3,9 +3,9 @@ defmodule JidoCommand.Extensibility.CommandRuntime do
   Executes command bodies and emits predefined `pre` and `after` hook signals.
   """
 
-  alias JidoCommand.Extensibility.CommandDefinition
   alias Jido.Signal
   alias Jido.Signal.Bus
+  alias JidoCommand.Extensibility.CommandDefinition
 
   @type execute_result :: {:ok, map()} | {:error, term()}
 
@@ -74,12 +74,14 @@ defmodule JidoCommand.Extensibility.CommandRuntime do
 
     signal_attrs = [source: "/commands/#{definition.name}"]
 
-    with {:ok, signal} <- Signal.new(normalize_signal_type(type), payload, signal_attrs) do
-      bus = Map.get(context, :bus, :jido_code_bus)
-      _ = Bus.publish(bus, [signal])
-      :ok
-    else
-      _ -> :ok
+    case Signal.new(normalize_signal_type(type), payload, signal_attrs) do
+      {:ok, signal} ->
+        bus = Map.get(context, :bus, :jido_code_bus)
+        _ = Bus.publish(bus, [signal])
+        :ok
+
+      {:error, _reason} ->
+        :ok
     end
   end
 

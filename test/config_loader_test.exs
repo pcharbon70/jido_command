@@ -94,6 +94,7 @@ defmodule JidoCommand.Config.LoaderTest do
         "jido_command_loader_#{System.unique_integer([:positive, :monotonic])}"
       )
 
+    File.rm_rf!(path)
     File.mkdir_p!(path)
     path
   end

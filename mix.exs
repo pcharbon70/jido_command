@@ -25,7 +25,9 @@ defmodule JidoCommand.MixProject do
       {:jido, git: "https://github.com/agentjido/jido"},
       {:optimus, "0.6.1"},
       {:jason, "~> 1.4"},
-      {:yaml_elixir, "~> 2.12"}
+      {:yaml_elixir, "~> 2.12"},
+      {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
+      {:dialyxir, "~> 1.4", only: [:dev], runtime: false}
     ]
   end
 end

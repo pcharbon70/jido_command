@@ -3,9 +3,9 @@ defmodule JidoCommand do
   Public API for invoking and dispatching markdown-defined Jido commands.
   """
 
-  alias JidoCommand.Extensibility.ExtensionRegistry
   alias Jido.Signal
   alias Jido.Signal.Bus
+  alias JidoCommand.Extensibility.ExtensionRegistry
 
   @spec list_commands(keyword()) :: [String.t()]
   def list_commands(opts \\ []) do

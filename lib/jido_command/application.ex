@@ -28,7 +28,9 @@ defmodule JidoCommand.Application do
        [
          bus: settings.bus_name,
          global_root: Loader.default_global_root(),
-         local_root: Loader.default_local_root()
+         local_root: Loader.default_local_root(),
+         extensions_enabled: settings.extensions_enabled,
+         extensions_disabled: settings.extensions_disabled
        ]},
       {CommandDispatcher, [bus: settings.bus_name, registry: ExtensionRegistry]}
     ]

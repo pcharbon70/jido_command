@@ -6,57 +6,69 @@ defmodule JidoCommand.CLI do
   @spec main([String.t()], (integer() -> no_return())) :: :ok | no_return()
   def main(argv, halt \\ &System.halt/1) do
     parser = parser_spec()
+    result = Optimus.parse(parser, argv)
+    handle_parse_result(result, parser, halt)
+  end
 
-    case Optimus.parse(parser, argv) do
-      {:ok, [:list], _result} ->
-        JidoCommand.list_commands()
-        |> Enum.each(&IO.puts/1)
+  defp handle_parse_result({:ok, [:list], _result}, _parser, _halt) do
+    JidoCommand.list_commands()
+    |> Enum.each(&IO.puts/1)
 
+    :ok
+  end
+
+  defp handle_parse_result({:ok, [:invoke], result}, _parser, halt) do
+    handle_invoke(result, halt)
+  end
+
+  defp handle_parse_result({:error, errors}, parser, halt) do
+    parser
+    |> Optimus.Errors.format(errors)
+    |> Enum.each(&IO.puts/1)
+
+    halt.(1)
+  end
+
+  defp handle_parse_result({:error, subcommand_path, errors}, parser, halt) do
+    parser
+    |> Optimus.Errors.format(subcommand_path, errors)
+    |> Enum.each(&IO.puts/1)
+
+    halt.(1)
+  end
+
+  defp handle_parse_result(:help, parser, halt) do
+    IO.puts(Optimus.help(parser))
+    halt.(0)
+  end
+
+  defp handle_parse_result(:version, _parser, halt) do
+    IO.puts("jido_command 0.1.0")
+    halt.(0)
+  end
+
+  defp handle_parse_result({:help, subcommand_path}, parser, halt) do
+    IO.puts(parser |> Optimus.Help.help(subcommand_path, 100) |> Enum.join("\n"))
+    halt.(0)
+  end
+
+  defp handle_parse_result({:ok, _result}, parser, halt) do
+    IO.puts(Optimus.help(parser))
+    halt.(1)
+  end
+
+  defp handle_invoke(result, halt) do
+    command_name = result.args.command
+    params = result.options.params || %{}
+    context = result.options.context || %{}
+
+    case JidoCommand.invoke(command_name, params, context) do
+      {:ok, value} ->
+        IO.puts(Jason.encode!(value, pretty: true))
         :ok
 
-      {:ok, [:invoke], result} ->
-        command_name = result.args.command
-        params = result.options.params || %{}
-        context = result.options.context || %{}
-
-        case JidoCommand.invoke(command_name, params, context) do
-          {:ok, value} ->
-            IO.puts(Jason.encode!(value, pretty: true))
-            :ok
-
-          {:error, reason} ->
-            IO.puts(:stderr, "invoke failed: #{inspect(reason)}")
-            halt.(1)
-        end
-
-      {:error, errors} ->
-        parser
-        |> Optimus.Errors.format(errors)
-        |> Enum.each(&IO.puts/1)
-
-        halt.(1)
-
-      {:error, subcommand_path, errors} ->
-        parser
-        |> Optimus.Errors.format(subcommand_path, errors)
-        |> Enum.each(&IO.puts/1)
-
-        halt.(1)
-
-      :help ->
-        IO.puts(Optimus.help(parser))
-        halt.(0)
-
-      :version ->
-        IO.puts("jido_command 0.1.0")
-        halt.(0)
-
-      {:help, subcommand_path} ->
-        IO.puts(parser |> Optimus.Help.help(subcommand_path, 100) |> Enum.join("\n"))
-        halt.(0)
-
-      {:ok, _result} ->
-        IO.puts(Optimus.help(parser))
+      {:error, reason} ->
+        IO.puts(:stderr, "invoke failed: #{inspect(reason)}")
         halt.(1)
     end
   end

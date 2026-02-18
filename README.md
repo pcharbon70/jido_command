@@ -66,8 +66,8 @@ mix run -e 'JidoCommand.CLI.main(["invoke", "code-review", "--params", "{\"targe
 - `signal_bus.middleware` (supports logger middleware level)
 - `commands.default_model`
 - `commands.max_concurrent`
-- `extensions.enabled`
-- `extensions.disabled`
+- `extensions.enabled` (if non-empty, only listed extensions are loaded)
+- `extensions.disabled` (always skipped; takes precedence over `enabled`)
 
 ## Contracts
 
@@ -80,4 +80,18 @@ Signal contracts are documented in:
 ```bash
 mix deps.get
 mix test
+```
+
+## Pre-commit Hook
+
+This repo ships a managed Git hook at `.githooks/pre-commit` that blocks commits unless all checks pass:
+
+- `mix test`
+- `mix credo --strict`
+- `mix dialyzer`
+
+Enable it locally with:
+
+```bash
+git config core.hooksPath .githooks
 ```
