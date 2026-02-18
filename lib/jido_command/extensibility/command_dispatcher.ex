@@ -16,9 +16,14 @@ defmodule JidoCommand.Extensibility.CommandDispatcher do
 
   @impl true
   def init(opts) do
+    max_concurrent = parse_max_concurrent(Keyword.get(opts, :max_concurrent, 5))
+
     state = %{
       bus: Keyword.get(opts, :bus, :jido_code_bus),
-      registry: Keyword.get(opts, :registry, ExtensionRegistry)
+      registry: Keyword.get(opts, :registry, ExtensionRegistry),
+      max_concurrent: max_concurrent,
+      in_flight: 0,
+      queue: :queue.new()
     }
 
     case Bus.subscribe(state.bus, "command.invoke", dispatch: {:pid, target: self()}) do
@@ -29,8 +34,12 @@ defmodule JidoCommand.Extensibility.CommandDispatcher do
 
   @impl true
   def handle_info({:signal, %Signal{type: "command.invoke"} = signal}, state) do
-    process_invoke(signal, state)
-    {:noreply, state}
+    {:noreply, process_invoke(signal, state)}
+  end
+
+  def handle_info(:invoke_finished, state) do
+    reduced = %{state | in_flight: max(state.in_flight - 1, 0)}
+    {:noreply, drain_queue(reduced)}
   end
 
   def handle_info(_message, state), do: {:noreply, state}
@@ -38,7 +47,7 @@ defmodule JidoCommand.Extensibility.CommandDispatcher do
   defp process_invoke(%Signal{data: data} = signal, state) when is_map(data) do
     case validate_invoke_payload(data, signal.id) do
       {:ok, invoke} ->
-        execute_invoke(invoke, state)
+        enqueue_or_start(invoke, state)
 
       {:error, reason, name, invocation_id} ->
         emit_result(state.bus, "command.failed", %{
@@ -46,6 +55,8 @@ defmodule JidoCommand.Extensibility.CommandDispatcher do
           "invocation_id" => invocation_id,
           "error" => invalid_payload_message(reason)
         })
+
+        state
     end
   end
 
@@ -55,6 +66,8 @@ defmodule JidoCommand.Extensibility.CommandDispatcher do
       "invocation_id" => signal_id,
       "error" => invalid_payload_message(:payload_must_be_map)
     })
+
+    state
   end
 
   defp execute_invoke(
@@ -92,6 +105,62 @@ defmodule JidoCommand.Extensibility.CommandDispatcher do
         })
     end
   end
+
+  defp enqueue_or_start(invoke, state) do
+    if state.in_flight < state.max_concurrent do
+      start_invoke(state, invoke)
+    else
+      %{state | queue: :queue.in(invoke, state.queue)}
+    end
+  end
+
+  defp start_invoke(state, invoke) do
+    parent = self()
+
+    spawn(fn ->
+      try do
+        execute_invoke(invoke, state)
+      rescue
+        error ->
+          emit_result(state.bus, "command.failed", %{
+            "name" => invoke.name,
+            "invocation_id" => invoke.invocation_id,
+            "error" => inspect(error)
+          })
+      catch
+        kind, reason ->
+          emit_result(state.bus, "command.failed", %{
+            "name" => invoke.name,
+            "invocation_id" => invoke.invocation_id,
+            "error" => inspect({kind, reason})
+          })
+      after
+        send(parent, :invoke_finished)
+      end
+    end)
+
+    %{state | in_flight: state.in_flight + 1}
+  end
+
+  defp drain_queue(state) do
+    if state.in_flight >= state.max_concurrent do
+      state
+    else
+      case :queue.out(state.queue) do
+        {{:value, invoke}, rest} ->
+          state
+          |> Map.put(:queue, rest)
+          |> start_invoke(invoke)
+          |> drain_queue()
+
+        {:empty, _queue} ->
+          state
+      end
+    end
+  end
+
+  defp parse_max_concurrent(value) when is_integer(value) and value > 0, do: value
+  defp parse_max_concurrent(_), do: 5
 
   defp validate_invoke_payload(data, fallback_invocation_id) do
     raw_name = data_get(data, "name")

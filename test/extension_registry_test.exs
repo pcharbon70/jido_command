@@ -38,6 +38,75 @@ defmodule JidoCommand.Extensibility.ExtensionRegistryTest do
     assert String.trim(result["result"]["prompt"]) == "Local greeting"
   end
 
+  test "applies default model when command model is unset" do
+    root = tmp_root()
+    global_root = Path.join(root, "global")
+    local_root = Path.join(root, "local")
+
+    File.mkdir_p!(Path.join(local_root, "commands"))
+
+    File.write!(
+      Path.join(local_root, "commands/analyze.md"),
+      command_markdown("analyze", "Analyze this code")
+    )
+
+    bus = unique_bus_name()
+    registry = unique_registry_name()
+
+    start_supervised!({Jido.Signal.Bus, name: bus})
+
+    start_supervised!(
+      {ExtensionRegistry,
+       name: registry,
+       bus: bus,
+       global_root: global_root,
+       local_root: local_root,
+       default_model: "gpt-5"}
+    )
+
+    assert {:ok, command_module} = ExtensionRegistry.get_command("analyze", registry)
+    assert {:ok, result} = Jido.Exec.run(command_module, %{}, %{bus: bus})
+    assert result["result"]["model"] == "gpt-5"
+  end
+
+  test "keeps command-specific model over default model" do
+    root = tmp_root()
+    global_root = Path.join(root, "global")
+    local_root = Path.join(root, "local")
+
+    File.mkdir_p!(Path.join(local_root, "commands"))
+
+    File.write!(
+      Path.join(local_root, "commands/review.md"),
+      """
+      ---
+      name: review
+      description: review description
+      model: sonnet
+      ---
+      Review code
+      """
+    )
+
+    bus = unique_bus_name()
+    registry = unique_registry_name()
+
+    start_supervised!({Jido.Signal.Bus, name: bus})
+
+    start_supervised!(
+      {ExtensionRegistry,
+       name: registry,
+       bus: bus,
+       global_root: global_root,
+       local_root: local_root,
+       default_model: "gpt-5"}
+    )
+
+    assert {:ok, command_module} = ExtensionRegistry.get_command("review", registry)
+    assert {:ok, result} = Jido.Exec.run(command_module, %{}, %{bus: bus})
+    assert result["result"]["model"] == "sonnet"
+  end
+
   test "loads only enabled extensions when allowlist is set" do
     root = tmp_root()
     global_root = Path.join(root, "global")

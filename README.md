@@ -67,8 +67,8 @@ mix run -e 'JidoCommand.CLI.main(["dispatch", "code-review", "--params", "{\"tar
 
 - `signal_bus.name` (default `:jido_code_bus`)
 - `signal_bus.middleware` (supports logger middleware level)
-- `commands.default_model`
-- `commands.max_concurrent`
+- `commands.default_model` (fallback model when a command omits `model`)
+- `commands.max_concurrent` (max in-flight command executions in dispatcher)
 - `extensions.enabled` (if non-empty, only listed extensions are loaded)
 - `extensions.disabled` (always skipped; takes precedence over `enabled`)
 
