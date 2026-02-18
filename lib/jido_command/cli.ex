@@ -34,6 +34,10 @@ defmodule JidoCommand.CLI do
     handle_register_command(result, halt, runtime)
   end
 
+  defp handle_parse_result({:ok, [:unregister_command], result}, _parser, halt, runtime) do
+    handle_unregister_command(result, halt, runtime)
+  end
+
   defp handle_parse_result({:error, errors}, parser, halt, _runtime) do
     parser
     |> Optimus.Errors.format(errors)
@@ -128,6 +132,20 @@ defmodule JidoCommand.CLI do
     end
   end
 
+  defp handle_unregister_command(result, halt, runtime) do
+    command_name = result.args.command_name
+
+    case runtime.unregister_command(command_name) do
+      :ok ->
+        IO.puts(Jason.encode!(%{"status" => "ok", "command_name" => command_name}))
+        :ok
+
+      {:error, reason} ->
+        IO.puts(:stderr, "unregister-command failed: #{inspect(reason)}")
+        halt.(1)
+    end
+  end
+
   defp parser_spec do
     Optimus.new!(
       name: "jido_command",
@@ -217,6 +235,18 @@ defmodule JidoCommand.CLI do
             command_path: [
               value_name: "COMMAND_PATH",
               help: "Path to command markdown file",
+              required: true,
+              parser: :string
+            ]
+          ]
+        ],
+        unregister_command: [
+          name: "unregister-command",
+          about: "Unregister one command by name at runtime",
+          args: [
+            command_name: [
+              value_name: "COMMAND_NAME",
+              help: "Registered command name",
               required: true,
               parser: :string
             ]

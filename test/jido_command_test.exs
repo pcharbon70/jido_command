@@ -105,6 +105,42 @@ defmodule JidoCommandTest do
     assert ["extra"] == JidoCommand.list_commands(registry: registry)
   end
 
+  test "unregister_command removes a command from registry" do
+    root = tmp_root("unregister")
+    global_root = Path.join(root, "global")
+    local_root = Path.join(root, "local")
+    local_commands_dir = Path.join(local_root, "commands")
+
+    File.mkdir_p!(Path.join(global_root, "commands"))
+    File.mkdir_p!(local_commands_dir)
+
+    File.write!(
+      Path.join(local_commands_dir, "review.md"),
+      """
+      ---
+      name: review
+      description: review command
+      ---
+      review
+      """
+    )
+
+    bus = unique_bus_name()
+    registry = unique_registry_name()
+
+    start_supervised!({Bus, name: bus})
+
+    start_supervised!(
+      {CommandRegistry,
+       name: registry, bus: bus, global_root: global_root, local_root: local_root}
+    )
+
+    assert ["review"] == JidoCommand.list_commands(registry: registry)
+    assert :ok = JidoCommand.unregister_command("review", registry: registry)
+    assert [] == JidoCommand.list_commands(registry: registry)
+    assert {:error, :not_found} = JidoCommand.unregister_command("review", registry: registry)
+  end
+
   defp unique_bus_name do
     :"jido_command_test_bus_#{System.unique_integer([:positive, :monotonic])}"
   end
