@@ -66,8 +66,8 @@ mix run -e 'JidoCommand.CLI.main(["invoke", "code-review", "--params", "{\"targe
 - `signal_bus.middleware` (supports logger middleware level)
 - `commands.default_model`
 - `commands.max_concurrent`
-- `extensions.enabled`
-- `extensions.disabled`
+- `extensions.enabled` (if non-empty, only listed extensions are loaded)
+- `extensions.disabled` (always skipped; takes precedence over `enabled`)
 
 ## Contracts
 

@@ -16,6 +16,7 @@ defmodule JidoCommand.Extensibility.ExtensionRegistry do
           bus: atom(),
           global_root: String.t(),
           local_root: String.t(),
+          extension_policy: %{enabled: MapSet.t(String.t()), disabled: MapSet.t(String.t())},
           commands: map(),
           extensions: map()
         }
@@ -55,11 +56,13 @@ defmodule JidoCommand.Extensibility.ExtensionRegistry do
     global_root = Keyword.get(opts, :global_root, Loader.default_global_root())
     local_root = Keyword.get(opts, :local_root, Loader.default_local_root())
     bus = Keyword.get(opts, :bus, :jido_code_bus)
+    extension_policy = parse_extension_policy(opts)
 
     initial = %{
       bus: bus,
       global_root: global_root,
       local_root: local_root,
+      extension_policy: extension_policy,
       commands: %{},
       extensions: %{}
     }
@@ -98,18 +101,17 @@ defmodule JidoCommand.Extensibility.ExtensionRegistry do
   end
 
   def handle_call({:register_extension, manifest_path}, _from, state) do
-    case ExtensionLoader.load_manifest_and_commands(manifest_path) do
-      {:ok, {manifest, commands}} ->
-        new_state =
-          state
-          |> merge_commands(commands)
-          |> put_in([:extensions, manifest.name], manifest)
-          |> emit_extension_loaded(manifest)
-
-        {:reply, :ok, new_state}
-
+    with {:ok, manifest} <- ExtensionLoader.load_manifest(manifest_path),
+         :ok <- ensure_extension_allowed(state, manifest.name),
+         {:ok, commands} <- ExtensionLoader.load_from_manifest(manifest) do
+      new_state = merge_extension(state, manifest, commands)
+      {:reply, :ok, new_state}
+    else
       {:error, reason} ->
         {:reply, {:error, reason}, state}
+
+      {:extension_not_allowed, extension_name} ->
+        {:reply, {:error, {:extension_not_allowed, extension_name}}, state}
     end
   end
 
@@ -140,17 +142,8 @@ defmodule JidoCommand.Extensibility.ExtensionRegistry do
 
     ExtensionLoader.discover_manifest_paths(extensions_root)
     |> Enum.reduce_while({:ok, state}, fn manifest_path, {:ok, acc_state} ->
-      case ExtensionLoader.load_manifest_and_commands(manifest_path) do
-        {:ok, {manifest, commands}} ->
-          updated =
-            acc_state
-            |> merge_commands(commands)
-            |> put_in([:extensions, manifest.name], %{
-              manifest
-              | extension_root: manifest.extension_root
-            })
-            |> emit_extension_loaded(manifest)
-
+      case load_extension(acc_state, manifest_path) do
+        {:ok, updated} ->
           {:cont, {:ok, updated}}
 
         {:error, reason} ->
@@ -160,8 +153,77 @@ defmodule JidoCommand.Extensibility.ExtensionRegistry do
     end)
   end
 
+  defp load_extension(state, manifest_path) do
+    with {:ok, manifest} <- ExtensionLoader.load_manifest(manifest_path),
+         :ok <- ensure_extension_allowed_for_load(state, manifest, manifest_path),
+         {:ok, commands} <- ExtensionLoader.load_from_manifest(manifest) do
+      {:ok, merge_extension(state, manifest, commands)}
+    end
+  end
+
+  defp ensure_extension_allowed_for_load(state, manifest, manifest_path) do
+    if extension_allowed?(state, manifest.name) do
+      :ok
+    else
+      Logger.debug("Skipping disabled extension #{manifest.name} from #{manifest_path}")
+      {:ok, state}
+    end
+  end
+
   defp merge_commands(state, commands) do
     %{state | commands: Map.merge(state.commands, commands)}
+  end
+
+  defp merge_extension(state, manifest, commands) do
+    state
+    |> merge_commands(commands)
+    |> put_in([:extensions, manifest.name], manifest)
+    |> emit_extension_loaded(manifest)
+  end
+
+  defp parse_extension_policy(opts) do
+    %{
+      enabled:
+        opts
+        |> Keyword.get(:extensions_enabled, [])
+        |> normalize_extension_names()
+        |> MapSet.new(),
+      disabled:
+        opts
+        |> Keyword.get(:extensions_disabled, [])
+        |> normalize_extension_names()
+        |> MapSet.new()
+    }
+  end
+
+  defp normalize_extension_names(values) when is_list(values) do
+    values
+    |> Enum.flat_map(fn
+      value when is_binary(value) ->
+        trimmed = String.trim(value)
+        if trimmed == "", do: [], else: [trimmed]
+
+      _ ->
+        []
+    end)
+    |> Enum.uniq()
+  end
+
+  defp normalize_extension_names(_), do: []
+
+  defp ensure_extension_allowed(state, extension_name) do
+    if extension_allowed?(state, extension_name) do
+      :ok
+    else
+      {:extension_not_allowed, extension_name}
+    end
+  end
+
+  defp extension_allowed?(state, extension_name) do
+    policy = Map.get(state, :extension_policy, %{enabled: MapSet.new(), disabled: MapSet.new()})
+
+    not MapSet.member?(policy.disabled, extension_name) and
+      (MapSet.size(policy.enabled) == 0 or MapSet.member?(policy.enabled, extension_name))
   end
 
   defp emit_extension_loaded(state, manifest) do
