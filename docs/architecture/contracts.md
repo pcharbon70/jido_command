@@ -46,15 +46,6 @@ Data fields:
 - `invocation_id` (string)
 - `error` (string)
 
-## `extension.loaded`
-
-Published by extension registry after loading one extension manifest.
-
-Data fields:
-
-- `extension_name` (string)
-- `version` (string)
-
 ## Command hook signals (`jido.hooks.pre`, `jido.hooks.after`)
 
 These are optional per command and are declared in markdown FrontMatter under `jido.hooks`.
@@ -126,22 +117,3 @@ Any unknown key under `jido` is rejected.
 - supported schema option keys: `type`, `required`, `doc`, `default`
 - unknown schema option keys are rejected
 - `required: true` cannot be combined with `default`
-
-## Extension manifest contract
-
-`extension.json` requires:
-
-- `name` (non-empty string)
-- `version` (non-empty string)
-- `commands` (non-empty string)
-
-Optional:
-
-- `description` (string)
-- `signals` (object)
-
-### `signals` rules
-
-- only `emits` and `subscribes` keys are allowed
-- each value must be an array of non-empty strings
-- each signal path is validated through the signal router validator

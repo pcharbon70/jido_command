@@ -1,0 +1,121 @@
+defmodule JidoCommand.Extensibility.CommandRegistry do
+  @moduledoc """
+  Central registry for loaded command modules.
+  """
+
+  use GenServer
+
+  alias JidoCommand.Config.Loader
+  alias JidoCommand.Extensibility.CommandLoader
+
+  @type state :: %{
+          bus: atom(),
+          global_root: String.t(),
+          local_root: String.t(),
+          default_model: String.t() | nil,
+          commands: map()
+        }
+
+  @spec start_link(keyword()) :: GenServer.on_start()
+  def start_link(opts) do
+    GenServer.start_link(__MODULE__, opts, name: Keyword.get(opts, :name, __MODULE__))
+  end
+
+  @spec get_command(String.t(), GenServer.server()) :: {:ok, module()} | {:error, :not_found}
+  def get_command(name, server \\ __MODULE__) do
+    GenServer.call(server, {:get_command, name})
+  end
+
+  @spec get_command_entry(String.t(), GenServer.server()) :: {:ok, map()} | {:error, :not_found}
+  def get_command_entry(name, server \\ __MODULE__) do
+    GenServer.call(server, {:get_command_entry, name})
+  end
+
+  @spec list_commands(GenServer.server()) :: [String.t()]
+  def list_commands(server \\ __MODULE__) do
+    GenServer.call(server, :list_commands)
+  end
+
+  @spec reload(GenServer.server()) :: :ok | {:error, term()}
+  def reload(server \\ __MODULE__) do
+    GenServer.call(server, :reload)
+  end
+
+  @impl true
+  def init(opts) do
+    global_root = Keyword.get(opts, :global_root, Loader.default_global_root())
+    local_root = Keyword.get(opts, :local_root, Loader.default_local_root())
+    bus = Keyword.get(opts, :bus, :jido_code_bus)
+    default_model = parse_default_model(Keyword.get(opts, :default_model))
+
+    initial = %{
+      bus: bus,
+      global_root: global_root,
+      local_root: local_root,
+      default_model: default_model,
+      commands: %{}
+    }
+
+    case load_all(initial) do
+      {:ok, state} -> {:ok, state}
+      {:error, reason} -> {:stop, reason}
+    end
+  end
+
+  @impl true
+  def handle_call({:get_command, name}, _from, state) do
+    case Map.get(state.commands, name) do
+      %{module: module} -> {:reply, {:ok, module}, state}
+      nil -> {:reply, {:error, :not_found}, state}
+    end
+  end
+
+  def handle_call({:get_command_entry, name}, _from, state) do
+    case Map.get(state.commands, name) do
+      nil -> {:reply, {:error, :not_found}, state}
+      entry -> {:reply, {:ok, entry}, state}
+    end
+  end
+
+  def handle_call(:list_commands, _from, state) do
+    names = state.commands |> Map.keys() |> Enum.sort()
+    {:reply, names, state}
+  end
+
+  def handle_call(:reload, _from, state) do
+    case load_all(%{state | commands: %{}}) do
+      {:ok, reloaded} -> {:reply, :ok, reloaded}
+      {:error, reason} -> {:reply, {:error, reason}, state}
+    end
+  end
+
+  defp load_all(state) do
+    with {:ok, with_global_commands} <- load_commands_dir(state, state.global_root, :global) do
+      load_commands_dir(with_global_commands, state.local_root, :local)
+    end
+  end
+
+  defp load_commands_dir(state, root, scope) do
+    commands_dir = Path.join(root, "commands")
+
+    case CommandLoader.load_from_directory(commands_dir,
+           scope: scope,
+           source: commands_dir,
+           default_model: state.default_model
+         ) do
+      {:ok, commands} -> {:ok, merge_commands(state, commands)}
+      {:error, reason} -> {:error, {:load_commands_failed, scope, commands_dir, reason}}
+    end
+  end
+
+  defp merge_commands(state, commands) do
+    %{state | commands: Map.merge(state.commands, commands)}
+  end
+
+  defp parse_default_model(value) when is_binary(value) do
+    trimmed = String.trim(value)
+    if trimmed == "", do: nil, else: trimmed
+  end
+
+  defp parse_default_model(_), do: nil
+end

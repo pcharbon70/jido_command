@@ -4,7 +4,7 @@ defmodule JidoCommand.Extensibility.CommandDispatcherTest do
   alias Jido.Signal
   alias Jido.Signal.Bus
   alias JidoCommand.Extensibility.CommandDispatcher
-  alias JidoCommand.Extensibility.ExtensionRegistry
+  alias JidoCommand.Extensibility.CommandRegistry
 
   defmodule ProbeExecutor do
     @behaviour JidoCommand.Extensibility.CommandRuntime
@@ -215,7 +215,7 @@ defmodule JidoCommand.Extensibility.CommandDispatcherTest do
     start_supervised!({Bus, name: bus})
 
     start_supervised!(
-      {ExtensionRegistry,
+      {CommandRegistry,
        name: registry, bus: bus, global_root: global_root, local_root: local_root}
     )
 

@@ -15,8 +15,7 @@ defmodule JidoCommand.Config.LoaderTest do
       Path.join(global, "settings.json"),
       Jason.encode!(%{
         "signal_bus" => %{"name" => ":global_bus"},
-        "commands" => %{"max_concurrent" => 2, "default_model" => "global-model"},
-        "extensions" => %{"enabled" => ["a"]}
+        "commands" => %{"max_concurrent" => 2, "default_model" => "global-model"}
       })
     )
 
@@ -24,8 +23,7 @@ defmodule JidoCommand.Config.LoaderTest do
       Path.join(local, "settings.json"),
       Jason.encode!(%{
         "signal_bus" => %{"name" => ":local_bus"},
-        "commands" => %{"max_concurrent" => 10},
-        "extensions" => %{"disabled" => ["x"]}
+        "commands" => %{"max_concurrent" => 10}
       })
     )
 
@@ -33,8 +31,6 @@ defmodule JidoCommand.Config.LoaderTest do
     assert settings.bus_name == "local_bus"
     assert settings.commands_default_model == "global-model"
     assert settings.commands_max_concurrent == 10
-    assert settings.extensions_enabled == ["a"]
-    assert settings.extensions_disabled == ["x"]
   end
 
   test "returns defaults when settings files do not exist" do

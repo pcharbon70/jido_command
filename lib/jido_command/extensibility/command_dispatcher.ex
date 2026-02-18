@@ -7,7 +7,7 @@ defmodule JidoCommand.Extensibility.CommandDispatcher do
 
   alias Jido.Signal
   alias Jido.Signal.Bus
-  alias JidoCommand.Extensibility.ExtensionRegistry
+  alias JidoCommand.Extensibility.CommandRegistry
 
   @spec start_link(keyword()) :: GenServer.on_start()
   def start_link(opts) do
@@ -20,7 +20,7 @@ defmodule JidoCommand.Extensibility.CommandDispatcher do
 
     state = %{
       bus: Keyword.get(opts, :bus, :jido_code_bus),
-      registry: Keyword.get(opts, :registry, ExtensionRegistry),
+      registry: Keyword.get(opts, :registry, CommandRegistry),
       max_concurrent: max_concurrent,
       in_flight: 0,
       queue: :queue.new()
@@ -74,7 +74,7 @@ defmodule JidoCommand.Extensibility.CommandDispatcher do
          %{name: name, params: params, context: context, invocation_id: invocation_id},
          state
        ) do
-    case ExtensionRegistry.get_command(name, state.registry) do
+    case CommandRegistry.get_command(name, state.registry) do
       {:ok, command_module} ->
         exec_context =
           context

@@ -5,21 +5,21 @@ defmodule JidoCommand do
 
   alias Jido.Signal
   alias Jido.Signal.Bus
-  alias JidoCommand.Extensibility.ExtensionRegistry
+  alias JidoCommand.Extensibility.CommandRegistry
 
   @spec list_commands(keyword()) :: [String.t()]
   def list_commands(opts \\ []) do
-    registry = Keyword.get(opts, :registry, ExtensionRegistry)
-    ExtensionRegistry.list_commands(registry)
+    registry = Keyword.get(opts, :registry, CommandRegistry)
+    CommandRegistry.list_commands(registry)
   end
 
   @spec invoke(String.t(), map(), map(), keyword()) :: {:ok, map()} | {:error, term()}
   def invoke(name, params \\ %{}, context \\ %{}, opts \\ []) when is_binary(name) do
-    registry = Keyword.get(opts, :registry, ExtensionRegistry)
+    registry = Keyword.get(opts, :registry, CommandRegistry)
     bus = Keyword.get(opts, :bus, :jido_code_bus)
     invocation_id = Keyword.get(opts, :invocation_id, default_invocation_id())
 
-    with {:ok, module} <- ExtensionRegistry.get_command(name, registry) do
+    with {:ok, module} <- CommandRegistry.get_command(name, registry) do
       run_context =
         context
         |> Map.put_new(:bus, bus)

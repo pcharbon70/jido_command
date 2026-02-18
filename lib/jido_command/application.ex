@@ -8,7 +8,7 @@ defmodule JidoCommand.Application do
   alias JidoCommand.Config.Loader
   alias JidoCommand.Config.Settings
   alias JidoCommand.Extensibility.CommandDispatcher
-  alias JidoCommand.Extensibility.ExtensionRegistry
+  alias JidoCommand.Extensibility.CommandRegistry
 
   @impl true
   def start(_type, _args) do
@@ -24,19 +24,17 @@ defmodule JidoCommand.Application do
 
     children = [
       {Jido.Signal.Bus, Settings.bus_opts(settings)},
-      {ExtensionRegistry,
+      {CommandRegistry,
        [
          bus: settings.bus_name,
          global_root: Loader.default_global_root(),
          local_root: Loader.default_local_root(),
-         default_model: settings.commands_default_model,
-         extensions_enabled: settings.extensions_enabled,
-         extensions_disabled: settings.extensions_disabled
+         default_model: settings.commands_default_model
        ]},
       {CommandDispatcher,
        [
          bus: settings.bus_name,
-         registry: ExtensionRegistry,
+         registry: CommandRegistry,
          max_concurrent: settings.commands_max_concurrent
        ]}
     ]
