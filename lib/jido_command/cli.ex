@@ -26,6 +26,14 @@ defmodule JidoCommand.CLI do
     handle_dispatch(result, halt, runtime)
   end
 
+  defp handle_parse_result({:ok, [:reload], _result}, _parser, halt, runtime) do
+    handle_reload(halt, runtime)
+  end
+
+  defp handle_parse_result({:ok, [:register_extension], result}, _parser, halt, runtime) do
+    handle_register_extension(result, halt, runtime)
+  end
+
   defp handle_parse_result({:error, errors}, parser, halt, _runtime) do
     parser
     |> Optimus.Errors.format(errors)
@@ -90,6 +98,32 @@ defmodule JidoCommand.CLI do
 
       {:error, reason} ->
         IO.puts(:stderr, "dispatch failed: #{inspect(reason)}")
+        halt.(1)
+    end
+  end
+
+  defp handle_reload(halt, runtime) do
+    case runtime.reload() do
+      :ok ->
+        IO.puts(Jason.encode!(%{"status" => "ok"}))
+        :ok
+
+      {:error, reason} ->
+        IO.puts(:stderr, "reload failed: #{inspect(reason)}")
+        halt.(1)
+    end
+  end
+
+  defp handle_register_extension(result, halt, runtime) do
+    manifest_path = result.args.manifest_path
+
+    case runtime.register_extension(manifest_path) do
+      :ok ->
+        IO.puts(Jason.encode!(%{"status" => "ok", "manifest_path" => manifest_path}))
+        :ok
+
+      {:error, reason} ->
+        IO.puts(:stderr, "register-extension failed: #{inspect(reason)}")
         halt.(1)
     end
   end
@@ -169,6 +203,22 @@ defmodule JidoCommand.CLI do
               required: false,
               parser: &parse_json_object/1,
               default: %{}
+            ]
+          ]
+        ],
+        reload: [
+          name: "reload",
+          about: "Reload command and extension registry from configured roots"
+        ],
+        register_extension: [
+          name: "register-extension",
+          about: "Register one extension manifest at runtime",
+          args: [
+            manifest_path: [
+              value_name: "MANIFEST_PATH",
+              help: "Path to extension.json manifest",
+              required: true,
+              parser: :string
             ]
           ]
         ]

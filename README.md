@@ -9,6 +9,7 @@ It supports:
 - Signal-bus command dispatch (`command.invoke` -> `command.completed` / `command.failed`)
 - Global + local config roots with local precedence
 - Extension manifests that package command directories
+- Runtime extension lifecycle operations (`reload`, `register-extension`)
 
 ## Runtime layout
 
@@ -46,6 +47,12 @@ JidoCommand.dispatch("code-review", %{"target_file" => "lib/foo.ex"})
 
 # list currently loaded commands
 JidoCommand.list_commands()
+
+# reload command/extension registry
+JidoCommand.reload()
+
+# register one extension manifest at runtime
+JidoCommand.register_extension("path/to/extension.json")
 ```
 
 ## CLI usage
@@ -59,6 +66,12 @@ mix run -e 'JidoCommand.CLI.main(["invoke", "code-review", "--params", "{\"targe
 
 # dispatch command.invoke signal
 mix run -e 'JidoCommand.CLI.main(["dispatch", "code-review", "--params", "{\"target_file\":\"lib/foo.ex\"}"])'
+
+# reload registry
+mix run -e 'JidoCommand.CLI.main(["reload"])'
+
+# register extension manifest
+mix run -e 'JidoCommand.CLI.main(["register-extension", "path/to/extension.json"])'
 ```
 
 ## Settings

@@ -47,6 +47,18 @@ defmodule JidoCommand do
     end
   end
 
+  @spec reload(keyword()) :: :ok | {:error, term()}
+  def reload(opts \\ []) do
+    registry = Keyword.get(opts, :registry, ExtensionRegistry)
+    ExtensionRegistry.reload(registry)
+  end
+
+  @spec register_extension(String.t(), keyword()) :: :ok | {:error, term()}
+  def register_extension(manifest_path, opts \\ []) when is_binary(manifest_path) do
+    registry = Keyword.get(opts, :registry, ExtensionRegistry)
+    ExtensionRegistry.register_extension(manifest_path, registry)
+  end
+
   defp default_invocation_id do
     Integer.to_string(System.unique_integer([:positive, :monotonic]))
   end

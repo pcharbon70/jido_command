@@ -27,6 +27,20 @@ defmodule JidoCommand.CLITest do
         _ -> {:ok, "invocation-123"}
       end
     end
+
+    def reload do
+      send(self(), :runtime_reload)
+      :ok
+    end
+
+    def register_extension(path) do
+      send(self(), {:runtime_register_extension, path})
+
+      case path do
+        "fail" -> {:error, :register_error}
+        _ -> :ok
+      end
+    end
   end
 
   test "dispatch publishes via runtime and prints invocation id" do
@@ -81,5 +95,54 @@ defmodule JidoCommand.CLITest do
 
     assert_receive {:runtime_dispatch, "fail", %{}, %{}}, 500
     assert stderr =~ "dispatch failed: :dispatch_error"
+  end
+
+  test "reload calls runtime and prints ok status" do
+    output =
+      capture_io(fn ->
+        assert :ok ==
+                 CLI.main(
+                   ["reload"],
+                   fn code -> flunk("unexpected halt with #{code}") end,
+                   RuntimeStub
+                 )
+      end)
+
+    assert_receive :runtime_reload, 500
+    assert %{"status" => "ok"} == Jason.decode!(output)
+  end
+
+  test "register-extension calls runtime and prints ok status" do
+    output =
+      capture_io(fn ->
+        assert :ok ==
+                 CLI.main(
+                   ["register-extension", "ext/.jido-extension/extension.json"],
+                   fn code -> flunk("unexpected halt with #{code}") end,
+                   RuntimeStub
+                 )
+      end)
+
+    assert_receive {:runtime_register_extension, "ext/.jido-extension/extension.json"}, 500
+
+    assert %{"status" => "ok", "manifest_path" => "ext/.jido-extension/extension.json"} ==
+             Jason.decode!(output)
+  end
+
+  test "register-extension failure prints error and halts with 1" do
+    stderr =
+      capture_io(:stderr, fn ->
+        assert {:halt, 1} ==
+                 catch_throw(
+                   CLI.main(
+                     ["register-extension", "fail"],
+                     fn code -> throw({:halt, code}) end,
+                     RuntimeStub
+                   )
+                 )
+      end)
+
+    assert_receive {:runtime_register_extension, "fail"}, 500
+    assert stderr =~ "register-extension failed: :register_error"
   end
 end
