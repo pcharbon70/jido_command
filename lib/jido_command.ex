@@ -47,6 +47,12 @@ defmodule JidoCommand do
     end
   end
 
+  @spec reload(keyword()) :: :ok | {:error, term()}
+  def reload(opts \\ []) do
+    registry = Keyword.get(opts, :registry, CommandRegistry)
+    CommandRegistry.reload(registry)
+  end
+
   defp default_invocation_id do
     Integer.to_string(System.unique_integer([:positive, :monotonic]))
   end

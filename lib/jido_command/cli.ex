@@ -26,6 +26,10 @@ defmodule JidoCommand.CLI do
     handle_dispatch(result, halt, runtime)
   end
 
+  defp handle_parse_result({:ok, [:reload], _result}, _parser, halt, runtime) do
+    handle_reload(halt, runtime)
+  end
+
   defp handle_parse_result({:error, errors}, parser, halt, _runtime) do
     parser
     |> Optimus.Errors.format(errors)
@@ -90,6 +94,18 @@ defmodule JidoCommand.CLI do
 
       {:error, reason} ->
         IO.puts(:stderr, "dispatch failed: #{inspect(reason)}")
+        halt.(1)
+    end
+  end
+
+  defp handle_reload(halt, runtime) do
+    case runtime.reload() do
+      :ok ->
+        IO.puts(Jason.encode!(%{"status" => "ok"}))
+        :ok
+
+      {:error, reason} ->
+        IO.puts(:stderr, "reload failed: #{inspect(reason)}")
         halt.(1)
     end
   end
@@ -171,6 +187,10 @@ defmodule JidoCommand.CLI do
               default: %{}
             ]
           ]
+        ],
+        reload: [
+          name: "reload",
+          about: "Reload command registry from configured roots"
         ]
       ]
     )
