@@ -47,6 +47,9 @@ JidoCommand.list_commands()
 
 # reload command registry from disk
 JidoCommand.reload()
+
+# register one command file at runtime
+JidoCommand.register_command("commands/review.md")
 ```
 
 ## CLI usage
@@ -63,6 +66,9 @@ mix run -e 'JidoCommand.CLI.main(["dispatch", "code-review", "--params", "{\"tar
 
 # reload command registry from configured roots
 mix run -e 'JidoCommand.CLI.main(["reload"])'
+
+# register one command markdown file at runtime
+mix run -e 'JidoCommand.CLI.main(["register-command", "commands/review.md"])'
 ```
 
 ## Settings

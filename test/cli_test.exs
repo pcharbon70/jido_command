@@ -32,12 +32,28 @@ defmodule JidoCommand.CLITest do
       send(self(), :runtime_reload)
       :ok
     end
+
+    def register_command(command_path) do
+      send(self(), {:runtime_register_command, command_path})
+
+      case command_path do
+        "fail" -> {:error, :register_command_error}
+        _ -> :ok
+      end
+    end
   end
 
   defmodule FailingReloadRuntimeStub do
     def reload do
       send(self(), :runtime_reload_failed)
       {:error, :reload_error}
+    end
+  end
+
+  defmodule FailingRegisterCommandRuntimeStub do
+    def register_command(command_path) do
+      send(self(), {:runtime_register_command_failed, command_path})
+      {:error, :register_command_error}
     end
   end
 
@@ -125,5 +141,37 @@ defmodule JidoCommand.CLITest do
 
     assert_receive :runtime_reload_failed, 500
     assert stderr =~ "reload failed: :reload_error"
+  end
+
+  test "register-command calls runtime and prints ok status" do
+    output =
+      capture_io(fn ->
+        assert :ok ==
+                 CLI.main(
+                   ["register-command", "commands/new.md"],
+                   fn code -> flunk("unexpected halt with #{code}") end,
+                   RuntimeStub
+                 )
+      end)
+
+    assert_receive {:runtime_register_command, "commands/new.md"}, 500
+    assert %{"status" => "ok", "command_path" => "commands/new.md"} == Jason.decode!(output)
+  end
+
+  test "register-command failure prints error and halts with 1" do
+    stderr =
+      capture_io(:stderr, fn ->
+        assert {:halt, 1} ==
+                 catch_throw(
+                   CLI.main(
+                     ["register-command", "commands/fail.md"],
+                     fn code -> throw({:halt, code}) end,
+                     FailingRegisterCommandRuntimeStub
+                   )
+                 )
+      end)
+
+    assert_receive {:runtime_register_command_failed, "commands/fail.md"}, 500
+    assert stderr =~ "register-command failed: :register_command_error"
   end
 end

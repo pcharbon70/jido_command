@@ -30,6 +30,10 @@ defmodule JidoCommand.CLI do
     handle_reload(halt, runtime)
   end
 
+  defp handle_parse_result({:ok, [:register_command], result}, _parser, halt, runtime) do
+    handle_register_command(result, halt, runtime)
+  end
+
   defp handle_parse_result({:error, errors}, parser, halt, _runtime) do
     parser
     |> Optimus.Errors.format(errors)
@@ -106,6 +110,20 @@ defmodule JidoCommand.CLI do
 
       {:error, reason} ->
         IO.puts(:stderr, "reload failed: #{inspect(reason)}")
+        halt.(1)
+    end
+  end
+
+  defp handle_register_command(result, halt, runtime) do
+    command_path = result.args.command_path
+
+    case runtime.register_command(command_path) do
+      :ok ->
+        IO.puts(Jason.encode!(%{"status" => "ok", "command_path" => command_path}))
+        :ok
+
+      {:error, reason} ->
+        IO.puts(:stderr, "register-command failed: #{inspect(reason)}")
         halt.(1)
     end
   end
@@ -191,6 +209,18 @@ defmodule JidoCommand.CLI do
         reload: [
           name: "reload",
           about: "Reload command registry from configured roots"
+        ],
+        register_command: [
+          name: "register-command",
+          about: "Register one command markdown file at runtime",
+          args: [
+            command_path: [
+              value_name: "COMMAND_PATH",
+              help: "Path to command markdown file",
+              required: true,
+              parser: :string
+            ]
+          ]
         ]
       ]
     )

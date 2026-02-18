@@ -142,6 +142,63 @@ defmodule JidoCommand.Extensibility.CommandRegistryTest do
     assert ["first", "second"] == CommandRegistry.list_commands(registry)
   end
 
+  test "register_command adds command from file path" do
+    root = tmp_root()
+    global_root = Path.join(root, "global")
+    local_root = Path.join(root, "local")
+    manual_dir = Path.join(root, "manual")
+    manual_file = Path.join(manual_dir, "manual.md")
+
+    File.mkdir_p!(Path.join(global_root, "commands"))
+    File.mkdir_p!(Path.join(local_root, "commands"))
+    File.mkdir_p!(manual_dir)
+
+    File.write!(manual_file, command_markdown("manual", "Manual command"))
+
+    bus = unique_bus_name()
+    registry = unique_registry_name()
+
+    start_supervised!({Jido.Signal.Bus, name: bus})
+
+    start_supervised!(
+      {CommandRegistry,
+       name: registry, bus: bus, global_root: global_root, local_root: local_root}
+    )
+
+    assert [] == CommandRegistry.list_commands(registry)
+    assert :ok = CommandRegistry.register_command(manual_file, registry)
+    assert ["manual"] == CommandRegistry.list_commands(registry)
+
+    assert {:ok, entry} = CommandRegistry.get_command_entry("manual", registry)
+    assert entry.meta[:scope] == :manual
+  end
+
+  test "register_command returns error for missing file" do
+    root = tmp_root()
+    global_root = Path.join(root, "global")
+    local_root = Path.join(root, "local")
+
+    File.mkdir_p!(Path.join(global_root, "commands"))
+    File.mkdir_p!(Path.join(local_root, "commands"))
+
+    bus = unique_bus_name()
+    registry = unique_registry_name()
+
+    start_supervised!({Jido.Signal.Bus, name: bus})
+
+    start_supervised!(
+      {CommandRegistry,
+       name: registry, bus: bus, global_root: global_root, local_root: local_root}
+    )
+
+    missing_file = Path.join(root, "manual/missing.md")
+
+    assert {:error, {:command_file_not_found, missing_path}} =
+             CommandRegistry.register_command(missing_file, registry)
+
+    assert missing_path == Path.expand(missing_file)
+  end
+
   defp command_markdown(name, body) do
     """
     ---

@@ -53,6 +53,12 @@ defmodule JidoCommand do
     CommandRegistry.reload(registry)
   end
 
+  @spec register_command(String.t(), keyword()) :: :ok | {:error, term()}
+  def register_command(command_path, opts \\ []) when is_binary(command_path) do
+    registry = Keyword.get(opts, :registry, CommandRegistry)
+    CommandRegistry.register_command(command_path, registry)
+  end
+
   defp default_invocation_id do
     Integer.to_string(System.unique_integer([:positive, :monotonic]))
   end

@@ -68,6 +68,43 @@ defmodule JidoCommandTest do
     assert ["first", "second"] == JidoCommand.list_commands(registry: registry)
   end
 
+  test "register_command loads a command into registry" do
+    root = tmp_root("register")
+    global_root = Path.join(root, "global")
+    local_root = Path.join(root, "local")
+    manual_dir = Path.join(root, "manual")
+    command_path = Path.join(manual_dir, "extra.md")
+
+    File.mkdir_p!(Path.join(global_root, "commands"))
+    File.mkdir_p!(Path.join(local_root, "commands"))
+    File.mkdir_p!(manual_dir)
+
+    File.write!(
+      command_path,
+      """
+      ---
+      name: extra
+      description: extra command
+      ---
+      extra
+      """
+    )
+
+    bus = unique_bus_name()
+    registry = unique_registry_name()
+
+    start_supervised!({Bus, name: bus})
+
+    start_supervised!(
+      {CommandRegistry,
+       name: registry, bus: bus, global_root: global_root, local_root: local_root}
+    )
+
+    assert [] == JidoCommand.list_commands(registry: registry)
+    assert :ok = JidoCommand.register_command(command_path, registry: registry)
+    assert ["extra"] == JidoCommand.list_commands(registry: registry)
+  end
+
   defp unique_bus_name do
     :"jido_command_test_bus_#{System.unique_integer([:positive, :monotonic])}"
   end
