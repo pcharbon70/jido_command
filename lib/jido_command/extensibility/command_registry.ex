@@ -6,6 +6,7 @@ defmodule JidoCommand.Extensibility.CommandRegistry do
   use GenServer
 
   alias JidoCommand.Config.Loader
+  alias JidoCommand.Extensibility.Command
   alias JidoCommand.Extensibility.CommandLoader
 
   @type state :: %{
@@ -39,6 +40,11 @@ defmodule JidoCommand.Extensibility.CommandRegistry do
   @spec reload(GenServer.server()) :: :ok | {:error, term()}
   def reload(server \\ __MODULE__) do
     GenServer.call(server, :reload)
+  end
+
+  @spec register_command(String.t(), GenServer.server()) :: :ok | {:error, term()}
+  def register_command(command_path, server \\ __MODULE__) when is_binary(command_path) do
+    GenServer.call(server, {:register_command, command_path})
   end
 
   @impl true
@@ -89,6 +95,17 @@ defmodule JidoCommand.Extensibility.CommandRegistry do
     end
   end
 
+  def handle_call({:register_command, command_path}, _from, state) do
+    case load_command_file(command_path, state.default_model) do
+      {:ok, {name, entry}} ->
+        updated = %{state | commands: Map.put(state.commands, name, entry)}
+        {:reply, :ok, updated}
+
+      {:error, reason} ->
+        {:reply, {:error, reason}, state}
+    end
+  end
+
   defp load_all(state) do
     with {:ok, with_global_commands} <- load_commands_dir(state, state.global_root, :global) do
       load_commands_dir(with_global_commands, state.local_root, :local)
@@ -110,6 +127,29 @@ defmodule JidoCommand.Extensibility.CommandRegistry do
 
   defp merge_commands(state, commands) do
     %{state | commands: Map.merge(state.commands, commands)}
+  end
+
+  defp load_command_file(command_path, default_model) do
+    expanded_path = Path.expand(command_path)
+
+    if File.regular?(expanded_path) do
+      case Command.from_markdown(expanded_path, default_model: default_model) do
+        {:ok, compiled} ->
+          entry = %{
+            module: compiled.module,
+            definition: compiled.definition,
+            path: expanded_path,
+            meta: %{scope: :manual, source: Path.dirname(expanded_path)}
+          }
+
+          {:ok, {compiled.name, entry}}
+
+        {:error, reason} ->
+          {:error, {:command_load_failed, expanded_path, reason}}
+      end
+    else
+      {:error, {:command_file_not_found, expanded_path}}
+    end
   end
 
   defp parse_default_model(value) when is_binary(value) do
