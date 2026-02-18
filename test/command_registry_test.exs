@@ -204,6 +204,9 @@ defmodule JidoCommand.Extensibility.CommandRegistryTest do
 
     start_supervised!({Bus, name: bus})
 
+    {:ok, _subscription} =
+      Bus.subscribe(bus, "command.registry.failed", dispatch: {:pid, target: self()})
+
     start_supervised!(
       {CommandRegistry,
        name: registry, bus: bus, global_root: global_root, local_root: local_root}
@@ -215,6 +218,11 @@ defmodule JidoCommand.Extensibility.CommandRegistryTest do
              CommandRegistry.register_command(missing_file, registry)
 
     assert missing_path == Path.expand(missing_file)
+
+    assert_receive {:signal, %Signal{type: "command.registry.failed", data: data}}, 1_000
+    assert data["operation"] == "register"
+    assert data["path"] == Path.expand(missing_file)
+    assert String.contains?(data["error"], "command_file_not_found")
   end
 
   test "unregister_command removes an existing command" do
@@ -266,12 +274,20 @@ defmodule JidoCommand.Extensibility.CommandRegistryTest do
 
     start_supervised!({Bus, name: bus})
 
+    {:ok, _subscription} =
+      Bus.subscribe(bus, "command.registry.failed", dispatch: {:pid, target: self()})
+
     start_supervised!(
       {CommandRegistry,
        name: registry, bus: bus, global_root: global_root, local_root: local_root}
     )
 
     assert {:error, :not_found} = CommandRegistry.unregister_command("missing", registry)
+
+    assert_receive {:signal, %Signal{type: "command.registry.failed", data: data}}, 1_000
+    assert data["operation"] == "unregister"
+    assert data["name"] == "missing"
+    assert data["error"] == "not_found"
   end
 
   test "unregister_command returns invalid_name for blank command name" do
@@ -287,12 +303,69 @@ defmodule JidoCommand.Extensibility.CommandRegistryTest do
 
     start_supervised!({Bus, name: bus})
 
+    {:ok, _subscription} =
+      Bus.subscribe(bus, "command.registry.failed", dispatch: {:pid, target: self()})
+
     start_supervised!(
       {CommandRegistry,
        name: registry, bus: bus, global_root: global_root, local_root: local_root}
     )
 
     assert {:error, :invalid_name} = CommandRegistry.unregister_command("   ", registry)
+
+    assert_receive {:signal, %Signal{type: "command.registry.failed", data: data}}, 1_000
+    assert data["operation"] == "unregister"
+    assert data["name"] == "   "
+    assert data["error"] == "invalid_name"
+  end
+
+  test "reload failure emits command.registry.failed and preserves current registry state" do
+    root = tmp_root()
+    global_root = Path.join(root, "global")
+    local_root = Path.join(root, "local")
+    local_commands = Path.join(local_root, "commands")
+
+    File.mkdir_p!(Path.join(global_root, "commands"))
+    File.mkdir_p!(local_commands)
+
+    valid_path = Path.join(local_commands, "valid.md")
+    File.write!(valid_path, command_markdown("valid", "ok"))
+
+    bus = unique_bus_name()
+    registry = unique_registry_name()
+
+    start_supervised!({Bus, name: bus})
+
+    {:ok, _subscription} =
+      Bus.subscribe(bus, "command.registry.failed", dispatch: {:pid, target: self()})
+
+    start_supervised!(
+      {CommandRegistry,
+       name: registry, bus: bus, global_root: global_root, local_root: local_root}
+    )
+
+    assert ["valid"] == CommandRegistry.list_commands(registry)
+
+    File.write!(
+      valid_path,
+      """
+      ---
+      name: valid
+      ---
+      invalid
+      """
+    )
+
+    assert {:error, {:load_commands_failed, :local, ^local_commands, _reason}} =
+             CommandRegistry.reload(registry)
+
+    assert ["valid"] == CommandRegistry.list_commands(registry)
+
+    assert_receive {:signal, %Signal{type: "command.registry.failed", data: data}}, 1_000
+    assert data["operation"] == "reload"
+    assert data["previous_count"] == 1
+    assert data["current_count"] == 1
+    assert String.contains?(data["error"], "load_commands_failed")
   end
 
   defp command_markdown(name, body) do

@@ -79,6 +79,21 @@ Data fields:
 - `name` (string)
 - `current_count` (integer)
 
+### `command.registry.failed`
+
+Published when a registry lifecycle operation fails.
+
+Common data fields:
+
+- `operation` (string): one of `reload`, `register`, `unregister`
+- `error` (string)
+
+Optional data fields by operation:
+
+- `reload`: `previous_count` (integer), `current_count` (integer)
+- `register`: `path` (string)
+- `unregister`: `name` (string)
+
 ## Command hook signals (`jido.hooks.pre`, `jido.hooks.after`)
 
 These are optional per command and are declared in markdown FrontMatter under `jido.hooks`.

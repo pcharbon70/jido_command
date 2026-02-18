@@ -109,6 +109,11 @@ defmodule JidoCommand.Extensibility.CommandRegistry do
         {:reply, :ok, reloaded}
 
       {:error, reason} ->
+        emit_failure_signal(state, "reload", reason, %{
+          "previous_count" => previous_count,
+          "current_count" => map_size(state.commands)
+        })
+
         {:reply, {:error, reason}, state}
     end
   end
@@ -128,6 +133,7 @@ defmodule JidoCommand.Extensibility.CommandRegistry do
         {:reply, :ok, updated}
 
       {:error, reason} ->
+        emit_failure_signal(state, "register", reason, %{"path" => Path.expand(command_path)})
         {:reply, {:error, reason}, state}
     end
   end
@@ -137,6 +143,7 @@ defmodule JidoCommand.Extensibility.CommandRegistry do
 
     cond do
       normalized_name == "" ->
+        emit_failure_signal(state, "unregister", :invalid_name, %{"name" => command_name})
         {:reply, {:error, :invalid_name}, state}
 
       Map.has_key?(state.commands, normalized_name) ->
@@ -150,6 +157,7 @@ defmodule JidoCommand.Extensibility.CommandRegistry do
         {:reply, :ok, updated}
 
       true ->
+        emit_failure_signal(state, "unregister", :not_found, %{"name" => normalized_name})
         {:reply, {:error, :not_found}, state}
     end
   end
@@ -217,4 +225,21 @@ defmodule JidoCommand.Extensibility.CommandRegistry do
       _ -> :ok
     end
   end
+
+  defp emit_failure_signal(state, operation, reason, extra_data) do
+    data =
+      Map.merge(
+        %{
+          "operation" => operation,
+          "error" => format_error(reason)
+        },
+        extra_data
+      )
+
+    emit_lifecycle_signal(state, "command.registry.failed", data)
+  end
+
+  defp format_error(reason) when is_atom(reason), do: Atom.to_string(reason)
+
+  defp format_error(reason), do: inspect(reason)
 end
