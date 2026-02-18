@@ -3,6 +3,7 @@ defmodule JidoCommandTest do
 
   alias Jido.Signal
   alias Jido.Signal.Bus
+  alias JidoCommand.Extensibility.CommandRegistry
 
   test "dispatch publishes command.invoke signal" do
     bus = unique_bus_name()
@@ -20,7 +21,70 @@ defmodule JidoCommandTest do
     assert data["invocation_id"] == invocation_id
   end
 
+  test "reload refreshes registry command index" do
+    root = tmp_root("reload")
+    global_root = Path.join(root, "global")
+    local_root = Path.join(root, "local")
+    local_commands_dir = Path.join(local_root, "commands")
+
+    File.mkdir_p!(Path.join(global_root, "commands"))
+    File.mkdir_p!(local_commands_dir)
+
+    File.write!(
+      Path.join(local_commands_dir, "first.md"),
+      """
+      ---
+      name: first
+      description: first command
+      ---
+      first
+      """
+    )
+
+    bus = unique_bus_name()
+    registry = unique_registry_name()
+
+    start_supervised!({Bus, name: bus})
+
+    start_supervised!(
+      {CommandRegistry,
+       name: registry, bus: bus, global_root: global_root, local_root: local_root}
+    )
+
+    assert ["first"] == JidoCommand.list_commands(registry: registry)
+
+    File.write!(
+      Path.join(local_commands_dir, "second.md"),
+      """
+      ---
+      name: second
+      description: second command
+      ---
+      second
+      """
+    )
+
+    assert :ok = JidoCommand.reload(registry: registry)
+    assert ["first", "second"] == JidoCommand.list_commands(registry: registry)
+  end
+
   defp unique_bus_name do
     :"jido_command_test_bus_#{System.unique_integer([:positive, :monotonic])}"
+  end
+
+  defp unique_registry_name do
+    :"jido_command_test_registry_#{System.unique_integer([:positive, :monotonic])}"
+  end
+
+  defp tmp_root(suffix) do
+    root =
+      Path.join(
+        System.tmp_dir!(),
+        "jido_command_test_#{suffix}_#{System.unique_integer([:positive, :monotonic])}"
+      )
+
+    File.rm_rf!(root)
+    File.mkdir_p!(root)
+    root
   end
 end

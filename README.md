@@ -44,6 +44,9 @@ JidoCommand.dispatch("code-review", %{"target_file" => "lib/foo.ex"})
 
 # list currently loaded commands
 JidoCommand.list_commands()
+
+# reload command registry from disk
+JidoCommand.reload()
 ```
 
 ## CLI usage
@@ -57,6 +60,9 @@ mix run -e 'JidoCommand.CLI.main(["invoke", "code-review", "--params", "{\"targe
 
 # dispatch command.invoke signal
 mix run -e 'JidoCommand.CLI.main(["dispatch", "code-review", "--params", "{\"target_file\":\"lib/foo.ex\"}"])'
+
+# reload command registry from configured roots
+mix run -e 'JidoCommand.CLI.main(["reload"])'
 ```
 
 ## Settings

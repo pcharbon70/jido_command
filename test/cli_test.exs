@@ -27,6 +27,18 @@ defmodule JidoCommand.CLITest do
         _ -> {:ok, "invocation-123"}
       end
     end
+
+    def reload do
+      send(self(), :runtime_reload)
+      :ok
+    end
+  end
+
+  defmodule FailingReloadRuntimeStub do
+    def reload do
+      send(self(), :runtime_reload_failed)
+      {:error, :reload_error}
+    end
   end
 
   test "dispatch publishes via runtime and prints invocation id" do
@@ -81,5 +93,37 @@ defmodule JidoCommand.CLITest do
 
     assert_receive {:runtime_dispatch, "fail", %{}, %{}}, 500
     assert stderr =~ "dispatch failed: :dispatch_error"
+  end
+
+  test "reload calls runtime and prints ok status" do
+    output =
+      capture_io(fn ->
+        assert :ok ==
+                 CLI.main(
+                   ["reload"],
+                   fn code -> flunk("unexpected halt with #{code}") end,
+                   RuntimeStub
+                 )
+      end)
+
+    assert_receive :runtime_reload, 500
+    assert %{"status" => "ok"} == Jason.decode!(output)
+  end
+
+  test "reload failure prints error and halts with 1" do
+    stderr =
+      capture_io(:stderr, fn ->
+        assert {:halt, 1} ==
+                 catch_throw(
+                   CLI.main(
+                     ["reload"],
+                     fn code -> throw({:halt, code}) end,
+                     FailingReloadRuntimeStub
+                   )
+                 )
+      end)
+
+    assert_receive :runtime_reload_failed, 500
+    assert stderr =~ "reload failed: :reload_error"
   end
 end
