@@ -7,6 +7,7 @@ It supports:
 - Markdown-defined commands (`.md` + YAML FrontMatter)
 - Exactly two optional command hook signals (`jido.hooks.pre`, `jido.hooks.after`)
 - Signal-bus command dispatch (`command.invoke` -> `command.completed` / `command.failed`)
+- Signal-bus registry lifecycle events (`command.registry.reloaded`, `command.registered`, `command.unregistered`)
 - Global + local config roots with local precedence
 
 ## Runtime layout

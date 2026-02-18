@@ -5,6 +5,8 @@ defmodule JidoCommand.Extensibility.CommandRegistry do
 
   use GenServer
 
+  alias Jido.Signal
+  alias Jido.Signal.Bus
   alias JidoCommand.Config.Loader
   alias JidoCommand.Extensibility.Command
   alias JidoCommand.Extensibility.CommandLoader
@@ -95,9 +97,19 @@ defmodule JidoCommand.Extensibility.CommandRegistry do
   end
 
   def handle_call(:reload, _from, state) do
+    previous_count = map_size(state.commands)
+
     case load_all(%{state | commands: %{}}) do
-      {:ok, reloaded} -> {:reply, :ok, reloaded}
-      {:error, reason} -> {:reply, {:error, reason}, state}
+      {:ok, reloaded} ->
+        emit_lifecycle_signal(reloaded, "command.registry.reloaded", %{
+          "previous_count" => previous_count,
+          "current_count" => map_size(reloaded.commands)
+        })
+
+        {:reply, :ok, reloaded}
+
+      {:error, reason} ->
+        {:reply, {:error, reason}, state}
     end
   end
 
@@ -105,6 +117,14 @@ defmodule JidoCommand.Extensibility.CommandRegistry do
     case load_command_file(command_path, state.default_model) do
       {:ok, {name, entry}} ->
         updated = %{state | commands: Map.put(state.commands, name, entry)}
+
+        emit_lifecycle_signal(updated, "command.registered", %{
+          "name" => name,
+          "path" => entry.path,
+          "scope" => to_string(entry.meta[:scope]),
+          "current_count" => map_size(updated.commands)
+        })
+
         {:reply, :ok, updated}
 
       {:error, reason} ->
@@ -121,6 +141,12 @@ defmodule JidoCommand.Extensibility.CommandRegistry do
 
       Map.has_key?(state.commands, normalized_name) ->
         updated = %{state | commands: Map.delete(state.commands, normalized_name)}
+
+        emit_lifecycle_signal(updated, "command.unregistered", %{
+          "name" => normalized_name,
+          "current_count" => map_size(updated.commands)
+        })
+
         {:reply, :ok, updated}
 
       true ->
@@ -180,4 +206,15 @@ defmodule JidoCommand.Extensibility.CommandRegistry do
   end
 
   defp parse_default_model(_), do: nil
+
+  defp emit_lifecycle_signal(state, type, data) do
+    attrs = [source: "/jido_command/registry"]
+
+    with {:ok, signal} <- Signal.new(type, data, attrs),
+         {:ok, _recorded} <- Bus.publish(state.bus, [signal]) do
+      :ok
+    else
+      _ -> :ok
+    end
+  end
 end
