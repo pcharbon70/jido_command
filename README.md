@@ -1,21 +1,83 @@
 # JidoCommand
 
-**TODO: Add description**
+JidoCommand is a command-only extensibility runtime built on `jido`, `jido_action`, and `jido_signal`.
 
-## Installation
+It supports:
 
-If [available in Hex](https://hex.pm/docs/publish), the package can be installed
-by adding `jido_command` to your list of dependencies in `mix.exs`:
+- Markdown-defined commands (`.md` + YAML FrontMatter)
+- Exactly two optional command hook signals (`jido.hooks.pre`, `jido.hooks.after`)
+- Signal-bus command dispatch (`command.invoke` -> `command.completed` / `command.failed`)
+- Global + local config roots with local precedence
+- Extension manifests that package command directories
 
-```elixir
-def deps do
-  [
-    {:jido_command, "~> 0.1.0"}
-  ]
-end
+## Runtime layout
+
+- Global root: `~/.jido_code`
+- Local root: `<cwd>/.jido_code`
+
+Loaded directories:
+
+- `commands/*.md`
+- `extensions/*/.jido-extension/extension.json`
+
+## FrontMatter example
+
+```yaml
+---
+name: code-review
+description: Review changed files
+allowed-tools: Read, Grep
+jido:
+  hooks:
+    pre: commands.code_review.pre
+    after: commands.code_review.after
+---
+Review {{target_file}} and summarize findings.
 ```
 
-Documentation can be generated with [ExDoc](https://github.com/elixir-lang/ex_doc)
-and published on [HexDocs](https://hexdocs.pm). Once published, the docs can
-be found at <https://hexdocs.pm/jido_command>.
+## API usage
 
+```elixir
+# direct invoke
+JidoCommand.invoke("code-review", %{"target_file" => "lib/foo.ex"})
+
+# signal-based dispatch
+JidoCommand.dispatch("code-review", %{"target_file" => "lib/foo.ex"})
+
+# list currently loaded commands
+JidoCommand.list_commands()
+```
+
+## CLI usage
+
+```bash
+# list commands
+mix run -e 'JidoCommand.CLI.main(["list"])'
+
+# invoke command
+mix run -e 'JidoCommand.CLI.main(["invoke", "code-review", "--params", "{\"target_file\":\"lib/foo.ex\"}"])'
+```
+
+## Settings
+
+`settings.json` supports these keys in the current implementation:
+
+- `signal_bus.name` (default `:jido_code_bus`)
+- `signal_bus.middleware` (supports logger middleware level)
+- `commands.default_model`
+- `commands.max_concurrent`
+- `extensions.enabled`
+- `extensions.disabled`
+
+## Contracts
+
+Signal contracts are documented in:
+
+- `/Users/Pascal/code/jido/jido_command/docs/architecture/contracts.md`
+
+## Development
+
+```bash
+mix deps.get
+mix test
+```

@@ -1,19 +1,38 @@
 defmodule JidoCommand.Application do
-  # See https://hexdocs.pm/elixir/Application.html
-  # for more information on OTP Applications
   @moduledoc false
 
   use Application
 
+  require Logger
+
+  alias JidoCommand.Config.Loader
+  alias JidoCommand.Config.Settings
+  alias JidoCommand.Extensibility.CommandDispatcher
+  alias JidoCommand.Extensibility.ExtensionRegistry
+
   @impl true
   def start(_type, _args) do
+    settings =
+      case Loader.load() do
+        {:ok, loaded} ->
+          loaded
+
+        {:error, reason} ->
+          Logger.warning("Failed to load settings.json, using defaults: #{inspect(reason)}")
+          %Settings{}
+      end
+
     children = [
-      # Starts a worker by calling: JidoCommand.Worker.start_link(arg)
-      # {JidoCommand.Worker, arg}
+      {Jido.Signal.Bus, Settings.bus_opts(settings)},
+      {ExtensionRegistry,
+       [
+         bus: settings.bus_name,
+         global_root: Loader.default_global_root(),
+         local_root: Loader.default_local_root()
+       ]},
+      {CommandDispatcher, [bus: settings.bus_name, registry: ExtensionRegistry]}
     ]
 
-    # See https://hexdocs.pm/elixir/Supervisor.html
-    # for other strategies and supported options
     opts = [strategy: :one_for_one, name: JidoCommand.Supervisor]
     Supervisor.start_link(children, opts)
   end

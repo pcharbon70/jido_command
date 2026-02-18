@@ -1,23 +1,26 @@
 # JidoCode Command Extensibility System Design (Jido v2)
 
-**A signal bus-first command architecture using Jido v2 primitives**
+**A command-only architecture with two optional FrontMatter hook signals**
 
-This design keeps extensibility focused on **slash commands** and **hooks**, with all runtime messaging handled through the **Jido Signal Bus**.
+This design keeps extensibility focused on slash commands and Jido Signal Bus pub/sub. Hooks are reduced to exactly two predefined signal hooks declared per command in FrontMatter:
+
+- `pre`: emitted before command execution
+- `after`: emitted after command execution (success or failure)
 
 ## Scope and core primitives
 
-Jido v2 provides the primitives needed for a command-only architecture:
+Jido v2 primitives used in this architecture:
 
 - **Commands**: `Jido.Action` modules with Zoi schemas
-- **Hooks**: lifecycle subscriptions and reactions expressed as `JidoSignal.Signal` events
-- **Pub/Sub**: `JidoSignal.Bus` as the single event backbone
-- **Extensions**: OTP-supervised packages that register commands and hook policies
+- **Hook signals**: two predefined command lifecycle signals (`pre`, `after`)
+- **Pub/Sub**: `JidoSignal.Bus` as the only event transport
+- **Extensions**: packaged command bundles loaded at runtime
 
 | Extensibility Concept | Jido v2 Primitive | Implementation Pattern |
 |-----------------------|-------------------|------------------------|
 | Slash Command | `Jido.Action` | Action module generated from markdown frontmatter |
-| Hook | `JidoSignal.Bus` + `JidoSignal.Signal` | Subscribe to lifecycle paths and emit follow-up signals |
-| Extension | Supervision tree + registry | Runtime registration of commands and hook rules |
+| Pre/After Hook | `JidoSignal.Signal` | Optional signal paths from command FrontMatter |
+| Extension | Supervision + registry | Runtime registration of command modules |
 
 ## Jido v2 dependency structure
 
@@ -35,8 +38,6 @@ jido_signal/    # Signal primitive with Bus (CloudEvents v1.0.2)
 ├── JIDO.md
 ├── commands/
 │   └── *.md
-├── hooks/
-│   └── *.json
 ├── extensions/
 │   └── extension-name/
 │       └── .jido-extension/
@@ -48,14 +49,12 @@ jido_signal/    # Signal primitive with Bus (CloudEvents v1.0.2)
 ├── JIDO.md
 ├── commands/
 │   └── *.md
-├── hooks/
-│   └── *.json
 └── extensions/
 ```
 
 Local config overrides global config during merge.
 
-## settings.json schema (signal bus + signal hooks)
+## settings.json schema (signal bus + command runtime)
 
 ```json
 {
@@ -78,51 +77,6 @@ Local config overrides global config during merge.
     "ask": ["Bash(npm:*)"]
   },
 
-  "hooks": {
-    "PreToolUse": [
-      {
-        "matcher": "Edit",
-        "emit": [
-          {
-            "signal_type": "hooks/pre_tool_use/edit",
-            "data_template": {
-              "tool": "{{tool_name}}",
-              "timestamp": "{{timestamp}}"
-            }
-          }
-        ]
-      }
-    ],
-    "PostToolUse": [
-      {
-        "matcher": "*",
-        "emit": [
-          {
-            "signal_type": "hooks/post_tool_use",
-            "data_template": {
-              "tool": "{{tool_name}}",
-              "duration_ms": "{{duration_ms}}"
-            }
-          }
-        ]
-      }
-    ],
-    "Error": [
-      {
-        "matcher": "*",
-        "emit": [
-          {
-            "signal_type": "hooks/error",
-            "data_template": {
-              "error": "{{error_message}}",
-              "context": "{{context}}"
-            }
-          }
-        ]
-      }
-    ]
-  },
-
   "commands": {
     "default_model": "claude-sonnet-4-20250514",
     "max_concurrent": 5
@@ -141,17 +95,9 @@ Local config overrides global config during merge.
 }
 ```
 
-### Hook action specification
+## Markdown format for commands with predefined hooks
 
-Only one hook action type is supported:
-
-| Action Type | Fields | Description |
-|-------------|--------|-------------|
-| `signal` | `signal_type`, `data_template`, `bus` (optional) | Emit a Jido signal when a hook matcher is triggered |
-
-## Markdown format for slash commands
-
-Commands remain markdown-first with YAML frontmatter and Jido extensions:
+Commands remain markdown-first with YAML frontmatter and Jido extensions.
 
 ```yaml
 ---
@@ -166,12 +112,9 @@ jido:
     review_depth: Zoi.atom(values: [:quick, :standard, :thorough], default: :standard)
     focus_areas: Zoi.list(Zoi.string(), default: [:security, :performance])
 
-  signals:
-    emit:
-      on_start: "commands/code_review/started"
-      on_finding: "commands/code_review/finding"
-      on_complete: "commands/code_review/completed"
-      on_error: "commands/code_review/error"
+  hooks:
+    pre: "commands/code_review/pre"
+    after: "commands/code_review/after"
 ---
 
 You are an expert Elixir code reviewer.
@@ -182,23 +125,20 @@ You are an expert Elixir code reviewer.
 - Info: Style and clarity improvements
 ```
 
-### In-prompt signal directive syntax
+### Hook behavior
 
-```markdown
-@signal(path) { JSON payload with {{variable}} interpolation }
-@signal(commands/code_review/progress) { "step": {{current_step}}, "total": {{total_steps}} }
-```
+- `jido.hooks.pre` is optional; if present, it is emitted immediately before execution.
+- `jido.hooks.after` is optional; if present, it is emitted once execution finishes.
+- `after` is emitted for both success and failure with a `status` field (`"ok"` or `"error"`).
 
-Directives compile to `JidoSignal.Signal` emissions on the configured bus.
-
-## Extension manifest (commands + hook signals)
+## Extension manifest (commands only)
 
 ```json
 {
   "$schema": "https://jidocode.dev/schemas/extension.json",
   "name": "code-quality",
   "version": "2.1.0",
-  "description": "Code quality and security command pack",
+  "description": "Code quality command pack",
   "author": {
     "name": "JidoCode Community",
     "email": "extensions@jidocode.dev"
@@ -219,17 +159,15 @@ Directives compile to `JidoSignal.Signal` emissions on the configured bus.
   },
 
   "commands": "./commands",
-  "hooks": "./config/hooks.json",
 
   "signals": {
     "emits": [
-      "commands/code_review/finding",
-      "commands/code_review/completed",
-      "hooks/post_tool_use"
+      "commands/code_review/pre",
+      "commands/code_review/after",
+      "command/completed",
+      "command/failed"
     ],
     "subscribes": [
-      "lifecycle/pre_tool_use",
-      "lifecycle/post_tool_use",
       "command/invoke"
     ]
   }
@@ -243,14 +181,14 @@ Directives compile to `JidoSignal.Signal` emissions on the configured bus.
 ```elixir
 defmodule JidoCode.Extensibility.ExtensionRegistry do
   @moduledoc """
-  Central registry for loaded extensions, commands, and hook rules.
+  Central registry for loaded extensions and commands.
   """
   use GenServer
 
   alias JidoSignal.Signal
   alias JidoSignal.Bus
 
-  defstruct extensions: %{}, commands: %{}, hooks: %{}
+  defstruct extensions: %{}, commands: %{}
 
   def start_link(opts), do: GenServer.start_link(__MODULE__, opts, name: __MODULE__)
 
@@ -275,8 +213,7 @@ defmodule JidoCode.Extensibility.ExtensionRegistry do
 
     new_state = %{state |
       extensions: Map.put(state.extensions, manifest.name, extension),
-      commands: Map.merge(state.commands, extension.commands),
-      hooks: merge_hook_rules(state.hooks, extension.hooks)
+      commands: Map.merge(state.commands, extension.commands)
     }
 
     {:reply, {:ok, extension}, new_state}
@@ -290,28 +227,18 @@ end
 defmodule JidoCode.Extensibility.Command do
   @moduledoc """
   Slash commands implemented as Jido Actions with markdown configuration.
+  Only two predefined hooks are supported: pre and after.
   """
 
   alias JidoSignal.Signal
   alias JidoSignal.Bus
-
-  defmacro __using__(opts) do
-    quote do
-      use Jido.Action,
-        name: unquote(opts[:name]),
-        description: unquote(opts[:description]),
-        schema: unquote(opts[:schema] || Zoi.object(%{}))
-
-      @command_config unquote(opts)
-      def __command_config__, do: @command_config
-    end
-  end
 
   def from_markdown(path) do
     {:ok, content} = File.read(path)
     {frontmatter, body} = parse_frontmatter(content)
 
     schema = build_zoi_schema_from_frontmatter(frontmatter)
+    hooks = get_in(frontmatter, ["jido", "hooks"]) || %{}
     module_name = module_name_from_path(path)
 
     Module.create(module_name, quote do
@@ -322,87 +249,39 @@ defmodule JidoCode.Extensibility.Command do
 
       @allowed_tools unquote(parse_tools(frontmatter["allowed-tools"]))
       @prompt_body unquote(body)
-      @signal_config unquote(get_in(frontmatter, ["jido", "signals"]) || %{})
+      @hook_pre unquote(hooks["pre"])
+      @hook_after unquote(hooks["after"])
 
       @impl true
       def run(params, context) do
-        emit_signal(@signal_config["emit"]["on_start"], %{command: __MODULE__, params: params})
+        emit_hook(@hook_pre, %{command: __MODULE__, params: params})
 
-        result = execute_with_tools(interpolate_prompt(@prompt_body, params), @allowed_tools, context)
+        case safe_execute(params, context) do
+          {:ok, result} ->
+            emit_hook(@hook_after, %{command: __MODULE__, status: "ok", result: result})
+            result
 
-        emit_signal(@signal_config["emit"]["on_complete"], %{command: __MODULE__, result: result})
-        result
-      rescue
-        error ->
-          emit_signal(@signal_config["emit"]["on_error"], %{command: __MODULE__, error: inspect(error)})
-          reraise(error, __STACKTRACE__)
+          {:error, error, stacktrace} ->
+            emit_hook(@hook_after, %{command: __MODULE__, status: "error", error: inspect(error)})
+            :erlang.raise(:error, error, stacktrace)
+        end
       end
 
-      defp emit_signal(nil, _payload), do: :ok
+      defp safe_execute(params, context) do
+        {:ok, execute_with_tools(interpolate_prompt(@prompt_body, params), @allowed_tools, context)}
+      rescue
+        error -> {:error, error, __STACKTRACE__}
+      end
 
-      defp emit_signal(type, payload) do
+      defp emit_hook(nil, _payload), do: :ok
+
+      defp emit_hook(type, payload) do
         {:ok, signal} = Signal.new(type, payload, source: "/commands/#{__MODULE__}")
         Bus.publish(:jido_code_bus, [signal])
       end
     end, Macro.Env.location(__ENV__))
 
     {:ok, module_name}
-  end
-end
-```
-
-### Hook runner using only signals
-
-```elixir
-defmodule JidoCode.Extensibility.HookRunner do
-  @moduledoc """
-  Subscribes to lifecycle signals and emits configured hook signals.
-  """
-
-  alias JidoSignal.Signal
-  alias JidoSignal.Bus
-
-  @lifecycle_paths [
-    "lifecycle/pre_tool_use",
-    "lifecycle/post_tool_use",
-    "lifecycle/permission_request",
-    "lifecycle/session_start",
-    "lifecycle/session_stop",
-    "lifecycle/user_prompt_submit",
-    "lifecycle/error"
-  ]
-
-  def init(hook_config) do
-    Enum.each(@lifecycle_paths, fn path ->
-      Bus.subscribe(:jido_code_bus, path, dispatch: {:pid, target: self()})
-    end)
-
-    %{hooks: normalize_hooks(hook_config)}
-  end
-
-  def handle_info({:signal, signal}, state) do
-    event = signal.type
-
-    state.hooks
-    |> matching_rules(event, signal.data)
-    |> Enum.each(fn rule -> emit_rule_signals(rule, signal) end)
-
-    {:noreply, state}
-  end
-
-  defp emit_rule_signals(rule, source_signal) do
-    Enum.each(rule.emit, fn emission ->
-      payload = interpolate_template(emission.data_template, source_signal.data)
-      bus = String.to_atom(emission.bus || ":jido_code_bus")
-
-      {:ok, signal} = Signal.new(
-        emission.signal_type,
-        Map.merge(payload, %{source_signal: source_signal.id}),
-        source: "/hooks/#{rule.id}"
-      )
-
-      Bus.publish(bus, [signal])
-    end)
   end
 end
 ```
@@ -456,7 +335,6 @@ defmodule JidoCode.Application do
         global_path: Path.expand("~/.jido_code"),
         local_path: ".jido_code"
       ]},
-      {JidoCode.Extensibility.HookRunner, [settings_path: ".jido_code/settings.json"]},
       JidoCode.Extensibility.CommandDispatcher
     ]
 
@@ -468,9 +346,9 @@ end
 ## Key integration points
 
 - **Commands are the only execution abstraction**: each command is a `Jido.Action` compiled from markdown.
-- **Hooks are signal-only**: hook matches emit Jido signals; non-signal hook actions are not supported in this model.
-- **Pub/Sub is signal bus-only**: all lifecycle, command, and extension events use `JidoSignal.Bus` path routing.
-- **Progressive adoption remains intact**: teams can start with markdown commands, then add richer hook signal policies and packaged extensions.
+- **Exactly two predefined hooks exist**: `pre` and `after`, both declared optionally in command FrontMatter.
+- **Hook transport is signal-only**: hooks emit `JidoSignal.Signal` events on `JidoSignal.Bus`.
+- **No global hook registry is needed**: hook behavior lives with each command declaration.
 
 ## Jido v1 to v2 notes for this design
 

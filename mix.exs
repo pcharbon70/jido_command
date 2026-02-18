@@ -22,7 +22,10 @@ defmodule JidoCommand.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      {:jido, git: "https://github.com/agentjido/jido"}
+      {:jido, git: "https://github.com/agentjido/jido"},
+      {:optimus, "0.6.1"},
+      {:jason, "~> 1.4"},
+      {:yaml_elixir, "~> 2.12"}
     ]
   end
 end
