@@ -9,8 +9,6 @@ defmodule JidoCommand.Extensibility.CommandDispatcher do
   alias Jido.Signal.Bus
   alias JidoCommand.Extensibility.ExtensionRegistry
 
-  require Logger
-
   @spec start_link(keyword()) :: GenServer.on_start()
   def start_link(opts) do
     GenServer.start_link(__MODULE__, opts, name: Keyword.get(opts, :name, __MODULE__))
@@ -38,47 +36,154 @@ defmodule JidoCommand.Extensibility.CommandDispatcher do
   def handle_info(_message, state), do: {:noreply, state}
 
   defp process_invoke(%Signal{data: data} = signal, state) when is_map(data) do
-    command_name = data_get(data, "name")
-    params = ensure_map(data_get(data, "params", %{}))
-    context = ensure_map(data_get(data, "context", %{}))
-    invocation_id = data_get(data, "invocation_id", signal.id)
+    case validate_invoke_payload(data, signal.id) do
+      {:ok, invoke} ->
+        execute_invoke(invoke, state)
 
-    with name when is_binary(name) <- command_name,
-         {:ok, command_module} <- ExtensionRegistry.get_command(name, state.registry) do
-      exec_context =
-        context
-        |> Map.put(:bus, state.bus)
-        |> Map.put(:invocation_id, invocation_id)
+      {:error, reason, name, invocation_id} ->
+        emit_result(state.bus, "command.failed", %{
+          "name" => name,
+          "invocation_id" => invocation_id,
+          "error" => invalid_payload_message(reason)
+        })
+    end
+  end
 
-      case Jido.Exec.run(command_module, params, exec_context) do
-        {:ok, result} ->
-          emit_result(state.bus, "command.completed", %{
-            "name" => name,
-            "invocation_id" => invocation_id,
-            "result" => result
-          })
+  defp process_invoke(%Signal{id: signal_id}, state) do
+    emit_result(state.bus, "command.failed", %{
+      "name" => "<invalid>",
+      "invocation_id" => signal_id,
+      "error" => invalid_payload_message(:payload_must_be_map)
+    })
+  end
 
-        {:error, reason} ->
-          emit_result(state.bus, "command.failed", %{
-            "name" => name,
-            "invocation_id" => invocation_id,
-            "error" => inspect(reason)
-          })
-      end
-    else
-      nil ->
-        Logger.warning("command.invoke signal missing command name")
+  defp execute_invoke(
+         %{name: name, params: params, context: context, invocation_id: invocation_id},
+         state
+       ) do
+    case ExtensionRegistry.get_command(name, state.registry) do
+      {:ok, command_module} ->
+        exec_context =
+          context
+          |> Map.put(:bus, state.bus)
+          |> Map.put(:invocation_id, invocation_id)
+
+        case Jido.Exec.run(command_module, params, exec_context) do
+          {:ok, result} ->
+            emit_result(state.bus, "command.completed", %{
+              "name" => name,
+              "invocation_id" => invocation_id,
+              "result" => result
+            })
+
+          {:error, reason} ->
+            emit_result(state.bus, "command.failed", %{
+              "name" => name,
+              "invocation_id" => invocation_id,
+              "error" => inspect(reason)
+            })
+        end
 
       {:error, :not_found} ->
         emit_result(state.bus, "command.failed", %{
-          "name" => command_name,
+          "name" => name,
           "invocation_id" => invocation_id,
           "error" => "command not found"
         })
     end
   end
 
-  defp process_invoke(_signal, _state), do: :ok
+  defp validate_invoke_payload(data, fallback_invocation_id) do
+    raw_name = data_get(data, "name")
+    normalized_name = normalize_name(raw_name)
+
+    normalized_invocation_id =
+      normalize_invocation_id(data_get(data, "invocation_id"), fallback_invocation_id)
+
+    with {:ok, name} <- validate_name(raw_name),
+         {:ok, params} <- validate_params(data_get(data, "params", :missing)),
+         {:ok, context} <- validate_context(data_get(data, "context", :missing)),
+         {:ok, invocation_id} <-
+           validate_invocation_id(
+             data_get(data, "invocation_id", :missing),
+             fallback_invocation_id
+           ) do
+      {:ok, %{name: name, params: params, context: context, invocation_id: invocation_id}}
+    else
+      {:error, reason} ->
+        {:error, reason, normalized_name, normalized_invocation_id}
+    end
+  end
+
+  defp validate_name(value) when is_binary(value) do
+    trimmed = String.trim(value)
+
+    if trimmed == "" do
+      {:error, :invalid_name}
+    else
+      {:ok, trimmed}
+    end
+  end
+
+  defp validate_name(nil), do: {:error, :missing_name}
+  defp validate_name(_), do: {:error, :invalid_name}
+
+  defp validate_params(:missing), do: {:error, :missing_params}
+  defp validate_params(params) when is_map(params), do: {:ok, params}
+  defp validate_params(_), do: {:error, :invalid_params}
+
+  defp validate_context(:missing), do: {:ok, %{}}
+  defp validate_context(context) when is_map(context), do: {:ok, context}
+  defp validate_context(_), do: {:error, :invalid_context}
+
+  defp validate_invocation_id(:missing, fallback), do: {:ok, fallback}
+
+  defp validate_invocation_id(value, _fallback) when is_binary(value) do
+    trimmed = String.trim(value)
+
+    if trimmed == "" do
+      {:error, :invalid_invocation_id}
+    else
+      {:ok, trimmed}
+    end
+  end
+
+  defp validate_invocation_id(_value, _fallback), do: {:error, :invalid_invocation_id}
+
+  defp normalize_name(value) when is_binary(value) do
+    trimmed = String.trim(value)
+    if trimmed == "", do: "<invalid>", else: trimmed
+  end
+
+  defp normalize_name(_), do: "<invalid>"
+
+  defp normalize_invocation_id(value, fallback) when is_binary(value) do
+    trimmed = String.trim(value)
+    if trimmed == "", do: fallback, else: trimmed
+  end
+
+  defp normalize_invocation_id(_value, fallback), do: fallback
+
+  defp invalid_payload_message(:payload_must_be_map),
+    do: "invalid command.invoke payload: data must be an object"
+
+  defp invalid_payload_message(:missing_name),
+    do: "invalid command.invoke payload: name is required"
+
+  defp invalid_payload_message(:invalid_name),
+    do: "invalid command.invoke payload: name must be a non-empty string"
+
+  defp invalid_payload_message(:missing_params),
+    do: "invalid command.invoke payload: params is required"
+
+  defp invalid_payload_message(:invalid_params),
+    do: "invalid command.invoke payload: params must be an object"
+
+  defp invalid_payload_message(:invalid_context),
+    do: "invalid command.invoke payload: context must be an object when provided"
+
+  defp invalid_payload_message(:invalid_invocation_id),
+    do: "invalid command.invoke payload: invocation_id must be a non-empty string when provided"
 
   defp emit_result(bus, type, payload) do
     case Signal.new(type, payload, source: "/dispatcher") do
@@ -103,9 +208,6 @@ defmodule JidoCommand.Extensibility.CommandDispatcher do
         end
     end
   end
-
-  defp ensure_map(map) when is_map(map), do: map
-  defp ensure_map(_), do: %{}
 
   defp safe_existing_atom(key) when is_binary(key) do
     String.to_existing_atom(key)

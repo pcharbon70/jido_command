@@ -16,6 +16,16 @@ Optional data fields:
 - `context` (object): execution context merged into dispatcher context
 - `invocation_id` (string): caller-supplied ID; if absent dispatcher uses the inbound signal ID
 
+Validation rules:
+
+- payload data must be an object
+- `name` must be a non-empty string
+- `params` is required and must be an object
+- `context` must be an object when provided
+- `invocation_id` must be a non-empty string when provided
+
+Invalid payloads are rejected and result in a `command.failed` signal with a validation error message.
+
 ## `command.completed`
 
 Published by the dispatcher when execution succeeds.
@@ -116,3 +126,22 @@ Any unknown key under `jido` is rejected.
 - supported schema option keys: `type`, `required`, `doc`, `default`
 - unknown schema option keys are rejected
 - `required: true` cannot be combined with `default`
+
+## Extension manifest contract
+
+`extension.json` requires:
+
+- `name` (non-empty string)
+- `version` (non-empty string)
+- `commands` (non-empty string)
+
+Optional:
+
+- `description` (string)
+- `signals` (object)
+
+### `signals` rules
+
+- only `emits` and `subscribes` keys are allowed
+- each value must be an array of non-empty strings
+- each signal path is validated through the signal router validator
