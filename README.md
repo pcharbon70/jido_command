@@ -8,7 +8,6 @@ It supports:
 - Exactly two optional command hook signals (`jido.hooks.pre`, `jido.hooks.after`)
 - Signal-bus command dispatch (`command.invoke` -> `command.completed` / `command.failed`)
 - Global + local config roots with local precedence
-- Extension manifests that package command directories
 
 ## Runtime layout
 
@@ -18,7 +17,6 @@ It supports:
 Loaded directories:
 
 - `commands/*.md`
-- `extensions/*/.jido-extension/extension.json`
 
 ## FrontMatter example
 
@@ -69,8 +67,6 @@ mix run -e 'JidoCommand.CLI.main(["dispatch", "code-review", "--params", "{\"tar
 - `signal_bus.middleware` (supports logger middleware level)
 - `commands.default_model` (fallback model when a command omits `model`)
 - `commands.max_concurrent` (max in-flight command executions in dispatcher)
-- `extensions.enabled` (if non-empty, only listed extensions are loaded)
-- `extensions.disabled` (always skipped; takes precedence over `enabled`)
 
 ## Contracts
 

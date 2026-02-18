@@ -7,31 +7,24 @@ defmodule JidoCommand.Config.Settings do
           bus_name: atom() | String.t(),
           bus_middleware: [{module(), keyword()}],
           commands_default_model: String.t() | nil,
-          commands_max_concurrent: pos_integer(),
-          extensions_enabled: [String.t()],
-          extensions_disabled: [String.t()]
+          commands_max_concurrent: pos_integer()
         }
 
   defstruct bus_name: :jido_code_bus,
             bus_middleware: [{Jido.Signal.Bus.Middleware.Logger, level: :debug}],
             commands_default_model: nil,
-            commands_max_concurrent: 5,
-            extensions_enabled: [],
-            extensions_disabled: []
+            commands_max_concurrent: 5
 
   @spec from_map(map()) :: t()
   def from_map(map) when is_map(map) do
     signal_bus = Map.get(map, "signal_bus", %{})
     commands = Map.get(map, "commands", %{})
-    extensions = Map.get(map, "extensions", %{})
 
     %__MODULE__{
       bus_name: to_bus_name(Map.get(signal_bus, "name", ":jido_code_bus")),
       bus_middleware: parse_middleware(Map.get(signal_bus, "middleware", [])),
       commands_default_model: parse_default_model(Map.get(commands, "default_model")),
-      commands_max_concurrent: to_positive_integer(Map.get(commands, "max_concurrent", 5), 5),
-      extensions_enabled: normalize_string_list(Map.get(extensions, "enabled", [])),
-      extensions_disabled: normalize_string_list(Map.get(extensions, "disabled", []))
+      commands_max_concurrent: to_positive_integer(Map.get(commands, "max_concurrent", 5), 5)
     }
   end
 
@@ -110,15 +103,6 @@ defmodule JidoCommand.Config.Settings do
   end
 
   defp maybe_to_atom(_), do: :info
-
-  defp normalize_string_list(list) when is_list(list) do
-    Enum.flat_map(list, fn
-      value when is_binary(value) -> [value]
-      _ -> []
-    end)
-  end
-
-  defp normalize_string_list(_), do: []
 
   defp to_positive_integer(value, _fallback) when is_integer(value) and value > 0, do: value
   defp to_positive_integer(_, fallback), do: fallback
