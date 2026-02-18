@@ -1,6 +1,8 @@
 defmodule JidoCommand.Extensibility.CommandDispatcherTest do
   use ExUnit.Case, async: true
 
+  alias Jido.Signal
+  alias Jido.Signal.Bus
   alias JidoCommand.Extensibility.CommandDispatcher
   alias JidoCommand.Extensibility.ExtensionRegistry
 
@@ -27,7 +29,7 @@ defmodule JidoCommand.Extensibility.CommandDispatcherTest do
     registry = unique_registry_name()
     dispatcher = unique_dispatcher_name()
 
-    start_supervised!({Jido.Signal.Bus, name: bus})
+    start_supervised!({Bus, name: bus})
 
     start_supervised!(
       {ExtensionRegistry,
@@ -37,18 +39,18 @@ defmodule JidoCommand.Extensibility.CommandDispatcherTest do
     start_supervised!({CommandDispatcher, name: dispatcher, bus: bus, registry: registry})
 
     {:ok, _completed_sub} =
-      Jido.Signal.Bus.subscribe(bus, "command.completed", dispatch: {:pid, target: self()})
+      Bus.subscribe(bus, "command.completed", dispatch: {:pid, target: self()})
 
     {:ok, invoke_signal} =
-      Jido.Signal.new(
+      Signal.new(
         "command.invoke",
         %{"name" => "hello", "params" => %{"user" => "Pascal"}},
         source: "/test"
       )
 
-    assert {:ok, _} = Jido.Signal.Bus.publish(bus, [invoke_signal])
+    assert {:ok, _} = Bus.publish(bus, [invoke_signal])
 
-    assert_receive {:signal, %Jido.Signal{type: "command.completed", data: data}}, 2_000
+    assert_receive {:signal, %Signal{type: "command.completed", data: data}}, 2_000
     assert data["name"] == "hello"
     assert data["result"]["result"]["prompt"] == "Hi Pascal\n"
   end

@@ -5,10 +5,10 @@ defmodule JidoCommand.Extensibility.ExtensionRegistry do
 
   use GenServer
 
-  alias JidoCommand.Config.Loader
-  alias JidoCommand.Extensibility.ExtensionLoader
   alias Jido.Signal
   alias Jido.Signal.Bus
+  alias JidoCommand.Config.Loader
+  alias JidoCommand.Extensibility.ExtensionLoader
 
   require Logger
 
@@ -118,10 +118,8 @@ defmodule JidoCommand.Extensibility.ExtensionRegistry do
          {:ok, with_global_extensions} <-
            load_extensions(with_global_commands, state.global_root, :global),
          {:ok, with_local_commands} <-
-           load_commands_dir(with_global_extensions, state.local_root, :local),
-         {:ok, with_local_extensions} <-
-           load_extensions(with_local_commands, state.local_root, :local) do
-      {:ok, with_local_extensions}
+           load_commands_dir(with_global_extensions, state.local_root, :local) do
+      load_extensions(with_local_commands, state.local_root, :local)
     end
   end
 
@@ -172,12 +170,13 @@ defmodule JidoCommand.Extensibility.ExtensionRegistry do
       "version" => manifest.version
     }
 
-    with {:ok, signal} <-
-           Signal.new("extension.loaded", payload, source: "/extensions/#{manifest.name}") do
-      _ = Bus.publish(state.bus, [signal])
-      state
-    else
-      _ -> state
+    case Signal.new("extension.loaded", payload, source: "/extensions/#{manifest.name}") do
+      {:ok, signal} ->
+        _ = Bus.publish(state.bus, [signal])
+        state
+
+      {:error, _reason} ->
+        state
     end
   end
 end

@@ -81,3 +81,38 @@ Failure data fields:
 - `duration_ms` (integer)
 - `status` = `"error"`
 - `error` (string)
+
+## Command FrontMatter contract (Phase 3)
+
+Markdown command declarations must include YAML frontmatter with these required keys:
+
+- `name` (non-empty string)
+- `description` (non-empty string)
+
+Optional keys:
+
+- `model` (string)
+- `allowed-tools` / `allowed_tools` (comma string or list of strings/atoms)
+- `jido` (map)
+
+### `jido` allowed keys
+
+- `command_module` (Elixir module string, e.g. `MyApp.Commands.Run`)
+- `hooks` (map with only `pre` and `after`)
+- `schema` (map of field definitions)
+
+Any unknown key under `jido` is rejected.
+
+### Hook value rules
+
+- `pre` and `after` are optional
+- each value must be a non-empty string
+- path is validated after `/` to `.` normalization against the signal router path validator
+
+### Schema field rules
+
+- field names must match `^[a-z][a-zA-Z0-9_]*$`
+- supported `type` values: `string`, `integer`, `float`, `boolean`, `map`, `atom`, `list`
+- supported schema option keys: `type`, `required`, `doc`, `default`
+- unknown schema option keys are rejected
+- `required: true` cannot be combined with `default`

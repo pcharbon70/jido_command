@@ -23,7 +23,6 @@ defmodule JidoCommand.Extensibility.ExtensionManifest do
       {:ok, manifest}
     else
       {:error, _} = error -> error
-      other -> {:error, {:invalid_manifest, path, other}}
     end
   end
 

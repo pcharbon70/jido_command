@@ -3,15 +3,22 @@ defmodule JidoCommand.Extensibility.CommandFrontmatter do
   Parses markdown command files with YAML frontmatter into `CommandDefinition` structs.
   """
 
+  alias Jido.Signal.Router.Validator
   alias JidoCommand.Extensibility.CommandDefinition
 
   @frontmatter_regex ~r/\A---\s*\n(?<frontmatter>.*?)\n---\s*\n(?<body>.*)\z/s
+
   @allowed_hook_keys ["pre", "after"]
+  @allowed_jido_keys ["command_module", "schema", "hooks"]
+  @allowed_schema_option_keys ["type", "required", "doc", "default"]
+
+  @supported_schema_types [:string, :integer, :float, :boolean, :map, :atom, :list]
 
   @spec parse_file(String.t()) :: {:ok, CommandDefinition.t()} | {:error, term()}
   def parse_file(path) do
-    with {:ok, content} <- File.read(path) do
-      parse_string(content, path)
+    case File.read(path) do
+      {:ok, content} -> parse_string(content, path)
+      {:error, reason} -> {:error, {:read_error, path, reason}}
     end
   end
 
@@ -22,129 +29,341 @@ defmodule JidoCommand.Extensibility.CommandFrontmatter do
         {:error, {:missing_frontmatter, source_path}}
 
       %{"frontmatter" => frontmatter_text, "body" => body} ->
-        with {:ok, yaml} <- YamlElixir.read_from_string(frontmatter_text),
-             metadata <- stringify_keys(yaml),
-             {:ok, hooks} <- parse_hooks(metadata),
-             {:ok, schema} <- parse_schema(metadata),
-             {:ok, allowed_tools} <- parse_allowed_tools(metadata) do
-          {:ok,
-           %CommandDefinition{
-             name: parse_name(metadata, source_path),
-             description: parse_description(metadata),
-             model: parse_model(metadata),
-             allowed_tools: allowed_tools,
-             schema: schema,
-             hooks: hooks,
-             body: body,
-             source_path: source_path
-           }}
-        end
+        parse_frontmatter_and_build(frontmatter_text, body, source_path)
     end
   rescue
     error -> {:error, {:frontmatter_parse_failed, source_path, error}}
   end
 
-  defp parse_name(metadata, source_path) do
-    metadata
-    |> Map.get("name", Path.basename(source_path, ".md"))
-    |> to_string()
+  defp parse_frontmatter_and_build(frontmatter_text, body, source_path) do
+    with {:ok, metadata} <- parse_frontmatter_yaml(frontmatter_text, source_path) do
+      build_definition(metadata, body, source_path)
+    end
   end
 
-  defp parse_description(metadata) do
-    metadata
-    |> Map.get("description", "")
-    |> to_string()
+  defp parse_frontmatter_yaml(frontmatter_text, source_path) do
+    with {:ok, yaml} <- YamlElixir.read_from_string(frontmatter_text),
+         true <- is_map(yaml) or {:error, {:invalid_frontmatter, source_path, :root_must_be_map}} do
+      {:ok, stringify_keys(yaml)}
+    end
   end
 
-  defp parse_model(metadata) do
-    case Map.get(metadata, "model") do
-      value when is_binary(value) -> value
-      value when is_atom(value) -> Atom.to_string(value)
-      _ -> nil
+  defp build_definition(metadata, body, source_path) do
+    with {:ok, name} <- parse_required_nonempty_string(metadata, "name"),
+         {:ok, description} <- parse_required_nonempty_string(metadata, "description"),
+         {:ok, model} <- parse_optional_string(metadata, "model"),
+         {:ok, allowed_tools} <- parse_allowed_tools(metadata),
+         {:ok, jido_config} <- parse_jido_config(metadata),
+         {:ok, command_module} <- parse_command_module(jido_config),
+         {:ok, hooks} <- parse_hooks(jido_config),
+         {:ok, schema} <- parse_schema(jido_config) do
+      {:ok,
+       %CommandDefinition{
+         name: name,
+         description: description,
+         command_module: command_module,
+         model: model,
+         allowed_tools: allowed_tools,
+         schema: schema,
+         hooks: hooks,
+         body: body,
+         source_path: source_path
+       }}
+    end
+  end
+
+  defp parse_required_nonempty_string(metadata, key) do
+    case Map.get(metadata, key) do
+      value when is_binary(value) ->
+        trimmed = String.trim(value)
+
+        if trimmed == "" do
+          {:error, {:invalid_frontmatter_field, key, :must_be_nonempty_string}}
+        else
+          {:ok, trimmed}
+        end
+
+      _ ->
+        {:error, {:invalid_frontmatter_field, key, :must_be_nonempty_string}}
+    end
+  end
+
+  defp parse_optional_string(metadata, key) do
+    case Map.get(metadata, key) do
+      nil -> {:ok, nil}
+      value when is_binary(value) -> {:ok, String.trim(value)}
+      value when is_atom(value) -> {:ok, value |> Atom.to_string() |> String.trim()}
+      _ -> {:error, {:invalid_frontmatter_field, key, :must_be_string}}
     end
   end
 
   defp parse_allowed_tools(metadata) do
     case Map.get(metadata, "allowed-tools") || Map.get(metadata, "allowed_tools") do
-      nil -> {:ok, []}
-      value when is_binary(value) -> {:ok, split_csv(value)}
-      value when is_list(value) -> {:ok, Enum.map(value, &to_string/1)}
-      _ -> {:error, {:invalid_allowed_tools, :expected_string_or_list}}
+      nil ->
+        {:ok, []}
+
+      value when is_binary(value) ->
+        value
+        |> String.split(",")
+        |> parse_tools_list()
+
+      value when is_list(value) ->
+        parse_tools_list(value)
+
+      _ ->
+        {:error, {:invalid_allowed_tools, :expected_string_or_list}}
     end
   end
 
-  defp split_csv(value) do
-    value
-    |> String.split(",")
-    |> Enum.map(&String.trim/1)
-    |> Enum.reject(&(&1 == ""))
+  defp parse_tools_list(list) when is_list(list) do
+    list
+    |> Enum.reduce_while([], &accumulate_tool/2)
+    |> finalize_tools()
   end
 
-  defp parse_hooks(metadata) do
-    hooks = metadata |> get_in(["jido", "hooks"]) |> normalize_map()
+  defp accumulate_tool(item, acc) do
+    case normalize_tool(item) do
+      {:ok, nil} -> {:cont, acc}
+      {:ok, tool} -> {:cont, [tool | acc]}
+      {:error, reason} -> {:halt, {:error, reason}}
+    end
+  end
 
-    unknown_keys = hooks |> Map.keys() |> Enum.reject(&(&1 in @allowed_hook_keys))
+  defp finalize_tools({:error, reason}), do: {:error, reason}
+  defp finalize_tools(tools), do: {:ok, tools |> Enum.reverse() |> Enum.uniq()}
 
-    if unknown_keys != [] do
-      {:error, {:invalid_hooks, {:unknown_keys, unknown_keys}}}
+  defp normalize_tool(value) when is_atom(value), do: normalize_tool(Atom.to_string(value))
+
+  defp normalize_tool(value) when is_binary(value) do
+    trimmed = String.trim(value)
+
+    if trimmed == "" do
+      {:ok, nil}
     else
-      with {:ok, pre_hook} <- validate_hook_value(Map.get(hooks, "pre")),
-           {:ok, after_hook} <- validate_hook_value(Map.get(hooks, "after")) do
-        {:ok, %{pre: pre_hook, after: after_hook}}
-      end
+      {:ok, trimmed}
     end
   end
 
-  defp validate_hook_value(nil), do: {:ok, nil}
-  defp validate_hook_value(value) when is_binary(value), do: {:ok, value}
-  defp validate_hook_value(_), do: {:error, {:invalid_hook_value, :expected_string_or_nil}}
+  defp normalize_tool(_), do: {:error, {:invalid_allowed_tools, :items_must_be_strings_or_atoms}}
 
-  defp parse_schema(metadata) do
-    schema = metadata |> get_in(["jido", "schema"])
+  defp parse_jido_config(metadata) do
+    case Map.get(metadata, "jido") do
+      nil ->
+        {:ok, %{}}
+
+      jido when is_map(jido) ->
+        normalized = normalize_map(jido)
+        unknown_keys = normalized |> Map.keys() |> Enum.reject(&(&1 in @allowed_jido_keys))
+
+        if unknown_keys == [] do
+          {:ok, normalized}
+        else
+          {:error, {:invalid_jido_keys, unknown_keys}}
+        end
+
+      _ ->
+        {:error, {:invalid_jido, :must_be_map}}
+    end
+  end
+
+  defp parse_command_module(jido_config) do
+    case Map.get(jido_config, "command_module") do
+      nil ->
+        {:ok, nil}
+
+      value when is_binary(value) ->
+        module_name = String.trim(value)
+
+        cond do
+          module_name == "" ->
+            {:error, {:invalid_command_module, :must_be_nonempty_string}}
+
+          valid_module_name?(module_name) ->
+            {:ok, Module.concat([module_name])}
+
+          true ->
+            {:error, {:invalid_command_module, :invalid_format}}
+        end
+
+      _ ->
+        {:error, {:invalid_command_module, :must_be_string}}
+    end
+  end
+
+  defp valid_module_name?(module_name) do
+    Regex.match?(~r/^([A-Z][A-Za-z0-9_]*)(\.[A-Z][A-Za-z0-9_]*)*$/, module_name)
+  end
+
+  defp parse_hooks(jido_config) do
+    case Map.get(jido_config, "hooks") do
+      nil ->
+        {:ok, %{pre: nil, after: nil}}
+
+      hooks when is_map(hooks) ->
+        hooks
+        |> normalize_map()
+        |> parse_hooks_map()
+
+      _ ->
+        {:error, {:invalid_hooks, :must_be_map}}
+    end
+  end
+
+  defp parse_hooks_map(hooks) do
+    with :ok <- validate_allowed_keys(hooks, @allowed_hook_keys, :invalid_hooks),
+         {:ok, pre_hook} <- validate_hook_value("pre", Map.get(hooks, "pre")),
+         {:ok, after_hook} <- validate_hook_value("after", Map.get(hooks, "after")) do
+      {:ok, %{pre: pre_hook, after: after_hook}}
+    end
+  end
+
+  defp validate_hook_value(_hook_name, nil), do: {:ok, nil}
+
+  defp validate_hook_value(hook_name, value) when is_binary(value) do
+    path = String.trim(value)
+
+    if path == "" do
+      {:error, {:invalid_hook_value, hook_name, :must_be_nonempty_string}}
+    else
+      validate_hook_path(hook_name, path)
+    end
+  end
+
+  defp validate_hook_value(hook_name, _value) do
+    {:error, {:invalid_hook_value, hook_name, :must_be_string_or_nil}}
+  end
+
+  defp validate_hook_path(hook_name, path) do
+    normalized = normalize_signal_path(path)
+
+    case Validator.validate_path(normalized) do
+      {:ok, _} -> {:ok, path}
+      {:error, reason} -> {:error, {:invalid_hook_path, hook_name, path, reason}}
+    end
+  end
+
+  defp normalize_signal_path(path) do
+    path
+    |> String.replace("/", ".")
+  end
+
+  defp parse_schema(jido_config) do
+    schema = Map.get(jido_config, "schema")
 
     case schema do
       nil ->
         {:ok, []}
 
       map when is_map(map) ->
-        map
-        |> Enum.reduce_while({:ok, []}, fn {field, spec}, {:ok, acc} ->
-          with {:ok, entry} <- parse_schema_entry(field, spec) do
-            {:cont, {:ok, [entry | acc]}}
-          end
-        end)
-        |> case do
-          {:ok, entries} -> {:ok, Enum.reverse(entries)}
-          {:error, reason} -> {:error, reason}
-        end
+        parse_schema_map(map)
 
       _ ->
         {:error, {:invalid_schema, :expected_map}}
     end
   end
 
+  defp parse_schema_map(map) do
+    map
+    |> Enum.sort_by(fn {field, _} -> to_string(field) end)
+    |> Enum.reduce_while([], &accumulate_schema_entry/2)
+    |> finalize_schema_entries()
+  end
+
+  defp accumulate_schema_entry({field, spec}, acc) do
+    case parse_schema_entry(field, spec) do
+      {:ok, entry} -> {:cont, [entry | acc]}
+      {:error, reason} -> {:halt, {:error, reason}}
+    end
+  end
+
+  defp finalize_schema_entries({:error, reason}), do: {:error, reason}
+  defp finalize_schema_entries(entries), do: {:ok, Enum.reverse(entries)}
+
   defp parse_schema_entry(field, spec) when is_map(spec) do
-    field_atom = String.to_atom(to_string(field))
+    field_name = field |> to_string() |> String.trim()
 
-    type =
-      spec
-      |> Map.get("type", "string")
-      |> to_type_atom()
-
-    if type == :unsupported do
-      {:error, {:invalid_schema_type, field}}
-    else
-      required = Map.get(spec, "required", false) == true
-      doc = Map.get(spec, "doc")
-
+    with :ok <- validate_schema_field_name(field_name),
+         {:ok, spec_map} <- normalize_schema_spec(field_name, spec),
+         {:ok, type} <- parse_schema_type(field_name, spec_map),
+         {:ok, required} <- parse_schema_required(field_name, spec_map),
+         {:ok, doc} <- parse_schema_doc(field_name, spec_map),
+         {:ok, default} <- parse_schema_default(spec_map),
+         :ok <- validate_required_default(field_name, required, default) do
       opts = [type: type, required: required]
       opts = if is_binary(doc), do: Keyword.put(opts, :doc, doc), else: opts
+      opts = if default == :__missing__, do: opts, else: Keyword.put(opts, :default, default)
 
-      {:ok, {field_atom, opts}}
+      {:ok, {String.to_atom(field_name), opts}}
     end
   end
 
   defp parse_schema_entry(field, _spec), do: {:error, {:invalid_schema_entry, field}}
+
+  defp validate_schema_field_name("") do
+    {:error, {:invalid_schema_field, :empty}}
+  end
+
+  defp validate_schema_field_name(field_name) do
+    if Regex.match?(~r/^[a-z][a-zA-Z0-9_]*$/, field_name) do
+      :ok
+    else
+      {:error, {:invalid_schema_field, field_name}}
+    end
+  end
+
+  defp normalize_schema_spec(field_name, spec) do
+    normalized = normalize_map(spec)
+
+    case validate_allowed_keys(normalized, @allowed_schema_option_keys, :invalid_schema_options) do
+      :ok ->
+        {:ok, normalized}
+
+      {:error, {:invalid_schema_options, {:unknown_keys, unknown_keys}}} ->
+        {:error, {:invalid_schema_options, field_name, unknown_keys}}
+    end
+  end
+
+  defp parse_schema_type(field_name, spec_map) do
+    type =
+      spec_map
+      |> Map.get("type", "string")
+      |> to_type_atom()
+
+    if type in @supported_schema_types do
+      {:ok, type}
+    else
+      {:error, {:invalid_schema_type, field_name, type}}
+    end
+  end
+
+  defp parse_schema_required(field_name, spec_map) do
+    case Map.get(spec_map, "required", false) do
+      value when is_boolean(value) -> {:ok, value}
+      _ -> {:error, {:invalid_schema_required, field_name}}
+    end
+  end
+
+  defp parse_schema_doc(_field_name, spec_map) do
+    case Map.get(spec_map, "doc") do
+      nil -> {:ok, nil}
+      value when is_binary(value) -> {:ok, String.trim(value)}
+      _ -> {:error, {:invalid_schema_doc, :must_be_string}}
+    end
+  end
+
+  defp parse_schema_default(spec_map) do
+    if Map.has_key?(spec_map, "default") do
+      {:ok, Map.get(spec_map, "default")}
+    else
+      {:ok, :__missing__}
+    end
+  end
+
+  defp validate_required_default(field_name, true, default) when default != :__missing__ do
+    {:error, {:invalid_schema_default, field_name, :required_cannot_define_default}}
+  end
+
+  defp validate_required_default(_field_name, _required, _default), do: :ok
 
   defp to_type_atom(value) when is_atom(value), do: value
 
@@ -164,7 +383,16 @@ defmodule JidoCommand.Extensibility.CommandFrontmatter do
   defp to_type_atom(_), do: :unsupported
 
   defp normalize_map(map) when is_map(map), do: stringify_keys(map)
-  defp normalize_map(_), do: %{}
+
+  defp validate_allowed_keys(map, allowed_keys, error_tag) do
+    unknown_keys = map |> Map.keys() |> Enum.reject(&(&1 in allowed_keys))
+
+    if unknown_keys == [] do
+      :ok
+    else
+      {:error, {error_tag, {:unknown_keys, unknown_keys}}}
+    end
+  end
 
   defp stringify_keys(map) when is_map(map) do
     map

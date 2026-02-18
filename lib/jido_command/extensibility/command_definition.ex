@@ -8,6 +8,7 @@ defmodule JidoCommand.Extensibility.CommandDefinition do
   @type t :: %__MODULE__{
           name: String.t(),
           description: String.t(),
+          command_module: module() | nil,
           model: String.t() | nil,
           allowed_tools: [String.t()],
           schema: keyword(),
@@ -18,6 +19,7 @@ defmodule JidoCommand.Extensibility.CommandDefinition do
 
   defstruct name: nil,
             description: nil,
+            command_module: nil,
             model: nil,
             allowed_tools: [],
             schema: [],

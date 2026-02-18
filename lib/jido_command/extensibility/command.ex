@@ -5,6 +5,7 @@ defmodule JidoCommand.Extensibility.Command do
 
   alias JidoCommand.Extensibility.CommandDefinition
   alias JidoCommand.Extensibility.CommandFrontmatter
+  alias JidoCommand.Extensibility.CommandRuntime
 
   @type compiled_command :: %{
           name: String.t(),
@@ -42,7 +43,7 @@ defmodule JidoCommand.Extensibility.Command do
 
         @impl true
         def run(params, context) do
-          JidoCommand.Extensibility.CommandRuntime.execute(@command_definition, params, context)
+          CommandRuntime.execute(@command_definition, params, context)
         end
       end
 
@@ -62,6 +63,10 @@ defmodule JidoCommand.Extensibility.Command do
       normalized -> normalized
     end
   end
+
+  defp module_name_from_definition(%CommandDefinition{command_module: module})
+       when is_atom(module) and not is_nil(module),
+       do: module
 
   defp module_name_from_definition(%CommandDefinition{name: name, source_path: source_path}) do
     digest =
