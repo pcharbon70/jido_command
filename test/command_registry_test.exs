@@ -1,6 +1,8 @@
 defmodule JidoCommand.Extensibility.CommandRegistryTest do
   use ExUnit.Case, async: true
 
+  alias Jido.Signal
+  alias Jido.Signal.Bus
   alias JidoCommand.Extensibility.CommandRegistry
 
   test "loads global and local commands with local override" do
@@ -24,7 +26,7 @@ defmodule JidoCommand.Extensibility.CommandRegistryTest do
     bus = unique_bus_name()
     registry = unique_registry_name()
 
-    start_supervised!({Jido.Signal.Bus, name: bus})
+    start_supervised!({Bus, name: bus})
 
     start_supervised!(
       {CommandRegistry,
@@ -53,7 +55,7 @@ defmodule JidoCommand.Extensibility.CommandRegistryTest do
     bus = unique_bus_name()
     registry = unique_registry_name()
 
-    start_supervised!({Jido.Signal.Bus, name: bus})
+    start_supervised!({Bus, name: bus})
 
     start_supervised!(
       {CommandRegistry,
@@ -91,7 +93,7 @@ defmodule JidoCommand.Extensibility.CommandRegistryTest do
     bus = unique_bus_name()
     registry = unique_registry_name()
 
-    start_supervised!({Jido.Signal.Bus, name: bus})
+    start_supervised!({Bus, name: bus})
 
     start_supervised!(
       {CommandRegistry,
@@ -124,7 +126,10 @@ defmodule JidoCommand.Extensibility.CommandRegistryTest do
     bus = unique_bus_name()
     registry = unique_registry_name()
 
-    start_supervised!({Jido.Signal.Bus, name: bus})
+    start_supervised!({Bus, name: bus})
+
+    {:ok, _subscription} =
+      Bus.subscribe(bus, "command.registry.reloaded", dispatch: {:pid, target: self()})
 
     start_supervised!(
       {CommandRegistry,
@@ -140,6 +145,10 @@ defmodule JidoCommand.Extensibility.CommandRegistryTest do
 
     assert :ok = CommandRegistry.reload(registry)
     assert ["first", "second"] == CommandRegistry.list_commands(registry)
+
+    assert_receive {:signal, %Signal{type: "command.registry.reloaded", data: data}}, 1_000
+    assert data["previous_count"] == 1
+    assert data["current_count"] == 2
   end
 
   test "register_command adds command from file path" do
@@ -158,7 +167,10 @@ defmodule JidoCommand.Extensibility.CommandRegistryTest do
     bus = unique_bus_name()
     registry = unique_registry_name()
 
-    start_supervised!({Jido.Signal.Bus, name: bus})
+    start_supervised!({Bus, name: bus})
+
+    {:ok, _subscription} =
+      Bus.subscribe(bus, "command.registered", dispatch: {:pid, target: self()})
 
     start_supervised!(
       {CommandRegistry,
@@ -171,6 +183,12 @@ defmodule JidoCommand.Extensibility.CommandRegistryTest do
 
     assert {:ok, entry} = CommandRegistry.get_command_entry("manual", registry)
     assert entry.meta[:scope] == :manual
+
+    assert_receive {:signal, %Signal{type: "command.registered", data: data}}, 1_000
+    assert data["name"] == "manual"
+    assert data["path"] == Path.expand(manual_file)
+    assert data["scope"] == "manual"
+    assert data["current_count"] == 1
   end
 
   test "register_command returns error for missing file" do
@@ -184,7 +202,7 @@ defmodule JidoCommand.Extensibility.CommandRegistryTest do
     bus = unique_bus_name()
     registry = unique_registry_name()
 
-    start_supervised!({Jido.Signal.Bus, name: bus})
+    start_supervised!({Bus, name: bus})
 
     start_supervised!(
       {CommandRegistry,
@@ -215,7 +233,10 @@ defmodule JidoCommand.Extensibility.CommandRegistryTest do
     bus = unique_bus_name()
     registry = unique_registry_name()
 
-    start_supervised!({Jido.Signal.Bus, name: bus})
+    start_supervised!({Bus, name: bus})
+
+    {:ok, _subscription} =
+      Bus.subscribe(bus, "command.unregistered", dispatch: {:pid, target: self()})
 
     start_supervised!(
       {CommandRegistry,
@@ -226,6 +247,10 @@ defmodule JidoCommand.Extensibility.CommandRegistryTest do
     assert :ok = CommandRegistry.unregister_command("review", registry)
     assert [] == CommandRegistry.list_commands(registry)
     assert {:error, :not_found} = CommandRegistry.get_command("review", registry)
+
+    assert_receive {:signal, %Signal{type: "command.unregistered", data: data}}, 1_000
+    assert data["name"] == "review"
+    assert data["current_count"] == 0
   end
 
   test "unregister_command returns not_found for unknown command" do
@@ -239,7 +264,7 @@ defmodule JidoCommand.Extensibility.CommandRegistryTest do
     bus = unique_bus_name()
     registry = unique_registry_name()
 
-    start_supervised!({Jido.Signal.Bus, name: bus})
+    start_supervised!({Bus, name: bus})
 
     start_supervised!(
       {CommandRegistry,
@@ -260,7 +285,7 @@ defmodule JidoCommand.Extensibility.CommandRegistryTest do
     bus = unique_bus_name()
     registry = unique_registry_name()
 
-    start_supervised!({Jido.Signal.Bus, name: bus})
+    start_supervised!({Bus, name: bus})
 
     start_supervised!(
       {CommandRegistry,

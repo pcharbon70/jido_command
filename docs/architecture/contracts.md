@@ -46,6 +46,39 @@ Data fields:
 - `invocation_id` (string)
 - `error` (string)
 
+## Registry lifecycle signals
+
+Published by `CommandRegistry` when runtime command catalog changes.
+
+### `command.registry.reloaded`
+
+Published after a successful `reload`.
+
+Data fields:
+
+- `previous_count` (integer)
+- `current_count` (integer)
+
+### `command.registered`
+
+Published after registering one command file at runtime.
+
+Data fields:
+
+- `name` (string)
+- `path` (string): absolute path to markdown file
+- `scope` (string): current value is `"manual"`
+- `current_count` (integer)
+
+### `command.unregistered`
+
+Published after unregistering a command by name.
+
+Data fields:
+
+- `name` (string)
+- `current_count` (integer)
+
 ## Command hook signals (`jido.hooks.pre`, `jido.hooks.after`)
 
 These are optional per command and are declared in markdown FrontMatter under `jido.hooks`.
