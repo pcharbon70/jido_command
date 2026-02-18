@@ -16,6 +16,7 @@ defmodule JidoCommand.Extensibility.ExtensionRegistry do
           bus: atom(),
           global_root: String.t(),
           local_root: String.t(),
+          default_model: String.t() | nil,
           extension_policy: %{enabled: MapSet.t(String.t()), disabled: MapSet.t(String.t())},
           commands: map(),
           extensions: map()
@@ -56,12 +57,14 @@ defmodule JidoCommand.Extensibility.ExtensionRegistry do
     global_root = Keyword.get(opts, :global_root, Loader.default_global_root())
     local_root = Keyword.get(opts, :local_root, Loader.default_local_root())
     bus = Keyword.get(opts, :bus, :jido_code_bus)
+    default_model = parse_default_model(Keyword.get(opts, :default_model))
     extension_policy = parse_extension_policy(opts)
 
     initial = %{
       bus: bus,
       global_root: global_root,
       local_root: local_root,
+      default_model: default_model,
       extension_policy: extension_policy,
       commands: %{},
       extensions: %{}
@@ -103,7 +106,8 @@ defmodule JidoCommand.Extensibility.ExtensionRegistry do
   def handle_call({:register_extension, manifest_path}, _from, state) do
     with {:ok, manifest} <- ExtensionLoader.load_manifest(manifest_path),
          :ok <- ensure_extension_allowed(state, manifest.name),
-         {:ok, commands} <- ExtensionLoader.load_from_manifest(manifest) do
+         {:ok, commands} <-
+           ExtensionLoader.load_from_manifest(manifest, default_model: state.default_model) do
       new_state = merge_extension(state, manifest, commands)
       {:reply, :ok, new_state}
     else
@@ -130,7 +134,8 @@ defmodule JidoCommand.Extensibility.ExtensionRegistry do
 
     case ExtensionLoader.load_commands_from_directory(commands_dir,
            scope: scope,
-           source: commands_dir
+           source: commands_dir,
+           default_model: state.default_model
          ) do
       {:ok, commands} -> {:ok, merge_commands(state, commands)}
       {:error, reason} -> {:error, {:load_commands_failed, scope, commands_dir, reason}}
@@ -156,7 +161,8 @@ defmodule JidoCommand.Extensibility.ExtensionRegistry do
   defp load_extension(state, manifest_path) do
     with {:ok, manifest} <- ExtensionLoader.load_manifest(manifest_path),
          :ok <- ensure_extension_allowed_for_load(state, manifest, manifest_path),
-         {:ok, commands} <- ExtensionLoader.load_from_manifest(manifest) do
+         {:ok, commands} <-
+           ExtensionLoader.load_from_manifest(manifest, default_model: state.default_model) do
       {:ok, merge_extension(state, manifest, commands)}
     end
   end
@@ -210,6 +216,13 @@ defmodule JidoCommand.Extensibility.ExtensionRegistry do
   end
 
   defp normalize_extension_names(_), do: []
+
+  defp parse_default_model(value) when is_binary(value) do
+    trimmed = String.trim(value)
+    if trimmed == "", do: nil, else: trimmed
+  end
+
+  defp parse_default_model(_), do: nil
 
   defp ensure_extension_allowed(state, extension_name) do
     if extension_allowed?(state, extension_name) do

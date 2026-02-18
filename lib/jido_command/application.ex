@@ -29,10 +29,16 @@ defmodule JidoCommand.Application do
          bus: settings.bus_name,
          global_root: Loader.default_global_root(),
          local_root: Loader.default_local_root(),
+         default_model: settings.commands_default_model,
          extensions_enabled: settings.extensions_enabled,
          extensions_disabled: settings.extensions_disabled
        ]},
-      {CommandDispatcher, [bus: settings.bus_name, registry: ExtensionRegistry]}
+      {CommandDispatcher,
+       [
+         bus: settings.bus_name,
+         registry: ExtensionRegistry,
+         max_concurrent: settings.commands_max_concurrent
+       ]}
     ]
 
     opts = [strategy: :one_for_one, name: JidoCommand.Supervisor]

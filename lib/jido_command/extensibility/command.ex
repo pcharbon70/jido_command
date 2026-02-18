@@ -13,9 +13,10 @@ defmodule JidoCommand.Extensibility.Command do
           definition: CommandDefinition.t()
         }
 
-  @spec from_markdown(String.t()) :: {:ok, compiled_command()} | {:error, term()}
-  def from_markdown(path) do
-    with {:ok, definition} <- CommandFrontmatter.parse_file(path),
+  @spec from_markdown(String.t(), keyword()) :: {:ok, compiled_command()} | {:error, term()}
+  def from_markdown(path, opts \\ []) do
+    with {:ok, parsed} <- CommandFrontmatter.parse_file(path),
+         definition <- apply_defaults(parsed, opts),
          {:ok, module_name} <- compile(definition) do
       {:ok, %{name: definition.name, module: module_name, definition: definition}}
     end
@@ -63,6 +64,30 @@ defmodule JidoCommand.Extensibility.Command do
       normalized -> normalized
     end
   end
+
+  defp apply_defaults(%CommandDefinition{} = definition, opts) do
+    case parse_default_model(Keyword.get(opts, :default_model)) do
+      nil ->
+        definition
+
+      default_model ->
+        if blank_string?(definition.model) do
+          %{definition | model: default_model}
+        else
+          definition
+        end
+    end
+  end
+
+  defp parse_default_model(value) when is_binary(value) do
+    trimmed = String.trim(value)
+    if trimmed == "", do: nil, else: trimmed
+  end
+
+  defp parse_default_model(_), do: nil
+
+  defp blank_string?(nil), do: true
+  defp blank_string?(value) when is_binary(value), do: String.trim(value) == ""
 
   defp module_name_from_definition(%CommandDefinition{command_module: module})
        when is_atom(module) and not is_nil(module),

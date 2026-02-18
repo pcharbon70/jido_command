@@ -30,15 +30,22 @@ defmodule JidoCommand.Extensibility.ExtensionLoader do
     end
   end
 
-  @spec load_from_manifest(ExtensionManifest.t()) :: {:ok, command_index()} | {:error, term()}
-  def load_from_manifest(%ExtensionManifest{} = manifest) do
+  @spec load_from_manifest(ExtensionManifest.t(), keyword()) ::
+          {:ok, command_index()} | {:error, term()}
+  def load_from_manifest(%ExtensionManifest{} = manifest, meta \\ []) do
     command_dir = Path.expand(manifest.commands, manifest.extension_root)
 
-    load_commands_from_directory(command_dir,
-      extension: manifest.name,
-      extension_version: manifest.version,
-      source: manifest.manifest_path
-    )
+    command_meta =
+      Keyword.merge(
+        [
+          extension: manifest.name,
+          extension_version: manifest.version,
+          source: manifest.manifest_path
+        ],
+        meta
+      )
+
+    load_commands_from_directory(command_dir, command_meta)
   end
 
   @spec load_manifest(String.t()) :: {:ok, ExtensionManifest.t()} | {:error, term()}
@@ -46,24 +53,27 @@ defmodule JidoCommand.Extensibility.ExtensionLoader do
     ExtensionManifest.from_file(manifest_path)
   end
 
-  @spec load_manifest_and_commands(String.t()) ::
+  @spec load_manifest_and_commands(String.t(), keyword()) ::
           {:ok, {ExtensionManifest.t(), command_index()}} | {:error, term()}
-  def load_manifest_and_commands(manifest_path) do
+  def load_manifest_and_commands(manifest_path, meta \\ []) do
     with {:ok, manifest} <- load_manifest(manifest_path),
-         {:ok, commands} <- load_from_manifest(manifest) do
+         {:ok, commands} <- load_from_manifest(manifest, meta) do
       {:ok, {manifest, commands}}
     end
   end
 
   defp load_command_files(files, meta) do
+    default_model = Keyword.get(meta, :default_model)
+    stored_meta = meta |> Keyword.delete(:default_model) |> Map.new()
+
     Enum.reduce_while(files, {:ok, %{}}, fn file, {:ok, acc} ->
-      case Command.from_markdown(file) do
+      case Command.from_markdown(file, default_model: default_model) do
         {:ok, compiled} ->
           entry = %{
             module: compiled.module,
             definition: compiled.definition,
             path: file,
-            meta: Map.new(meta)
+            meta: stored_meta
           }
 
           {:cont, {:ok, Map.put(acc, compiled.name, entry)}}

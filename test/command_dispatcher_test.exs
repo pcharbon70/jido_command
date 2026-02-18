@@ -6,6 +6,21 @@ defmodule JidoCommand.Extensibility.CommandDispatcherTest do
   alias JidoCommand.Extensibility.CommandDispatcher
   alias JidoCommand.Extensibility.ExtensionRegistry
 
+  defmodule ProbeExecutor do
+    @behaviour JidoCommand.Extensibility.CommandRuntime
+
+    @impl true
+    def execute(_definition, _prompt, params, context) do
+      test_pid = Map.get(context, :test_pid)
+      id = Map.get(params, "id")
+      sleep_ms = Map.get(params, "sleep_ms", 200)
+
+      if is_pid(test_pid), do: send(test_pid, {:probe_started, id})
+      Process.sleep(sleep_ms)
+      {:ok, %{"id" => id}}
+    end
+  end
+
   test "dispatches command.invoke and emits command.completed" do
     %{bus: bus} =
       start_runtime([
@@ -80,7 +95,107 @@ defmodule JidoCommand.Extensibility.CommandDispatcherTest do
              "invalid command.invoke payload: invocation_id must be a non-empty string when provided"
   end
 
-  defp start_runtime(commands \\ []) do
+  test "runs invokes concurrently up to max_concurrent limit" do
+    %{bus: bus} =
+      start_runtime(
+        [
+          {"probe.md",
+           """
+           ---
+           name: probe
+           description: probe command
+           ---
+           probe
+           """}
+        ],
+        max_concurrent: 2
+      )
+
+    assert {:ok, first} =
+             Signal.new(
+               "command.invoke",
+               %{
+                 "name" => "probe",
+                 "params" => %{"id" => "one", "sleep_ms" => 250},
+                 "context" => %{command_executor: ProbeExecutor, test_pid: self()}
+               },
+               source: "/test"
+             )
+
+    assert {:ok, second} =
+             Signal.new(
+               "command.invoke",
+               %{
+                 "name" => "probe",
+                 "params" => %{"id" => "two", "sleep_ms" => 250},
+                 "context" => %{command_executor: ProbeExecutor, test_pid: self()}
+               },
+               source: "/test"
+             )
+
+    assert {:ok, _} = Bus.publish(bus, [first])
+    assert {:ok, _} = Bus.publish(bus, [second])
+
+    assert_receive {:probe_started, first_id}, 500
+    assert first_id in ["one", "two"]
+
+    assert_receive {:probe_started, second_id}, 150
+    assert second_id in ["one", "two"]
+    refute second_id == first_id
+  end
+
+  test "queues invokes when max_concurrent is reached" do
+    %{bus: bus} =
+      start_runtime(
+        [
+          {"probe.md",
+           """
+           ---
+           name: probe
+           description: probe command
+           ---
+           probe
+           """}
+        ],
+        max_concurrent: 1
+      )
+
+    assert {:ok, first} =
+             Signal.new(
+               "command.invoke",
+               %{
+                 "name" => "probe",
+                 "params" => %{"id" => "one", "sleep_ms" => 250},
+                 "context" => %{command_executor: ProbeExecutor, test_pid: self()}
+               },
+               source: "/test"
+             )
+
+    assert {:ok, second} =
+             Signal.new(
+               "command.invoke",
+               %{
+                 "name" => "probe",
+                 "params" => %{"id" => "two", "sleep_ms" => 250},
+                 "context" => %{command_executor: ProbeExecutor, test_pid: self()}
+               },
+               source: "/test"
+             )
+
+    assert {:ok, _} = Bus.publish(bus, [first])
+    assert {:ok, _} = Bus.publish(bus, [second])
+
+    assert_receive {:probe_started, first_id}, 500
+    assert first_id in ["one", "two"]
+
+    refute_receive {:probe_started, _second_id}, 120
+
+    assert_receive {:probe_started, second_id}, 500
+    assert second_id in ["one", "two"]
+    refute second_id == first_id
+  end
+
+  defp start_runtime(commands \\ [], dispatcher_opts \\ []) do
     root = tmp_root()
     global_root = Path.join(root, "global")
     local_root = Path.join(root, "local")
@@ -104,7 +219,9 @@ defmodule JidoCommand.Extensibility.CommandDispatcherTest do
        name: registry, bus: bus, global_root: global_root, local_root: local_root}
     )
 
-    start_supervised!({CommandDispatcher, name: dispatcher, bus: bus, registry: registry})
+    start_supervised!(
+      {CommandDispatcher, [name: dispatcher, bus: bus, registry: registry] ++ dispatcher_opts}
+    )
 
     %{bus: bus, registry: registry, dispatcher: dispatcher}
   end
