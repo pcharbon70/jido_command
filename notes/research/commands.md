@@ -1,90 +1,75 @@
-# JidoCode Extensibility System Design (Jido v2)
+# JidoCode Command Extensibility System Design (Jido v2)
 
-**A Phoenix channel-integrated extension architecture mapping ClaudeCode patterns to Jido v2 primitives**
+**A signal bus-first command architecture using Jido v2 primitives**
 
-JidoCode can leverage Jido v2's powerful agentic primitives—Actions, Signals, Agents, and Skills—to create an extensibility system that mirrors ClaudeCode's architecture while adding real-time Phoenix channel integration for state broadcasting. This design enables markdown-based definitions compatible with ClaudeCode, native Elixir module hooks, and seamless pub/sub messaging throughout the agent lifecycle.
+This design keeps extensibility focused on **slash commands** and **hooks**, with all runtime messaging handled through the **Jido Signal Bus**.
 
-> **Jido v2 Architecture Note**: Jido v2 introduces a modular dependency structure (`jido_action`, `jido_signal`) and a pure-functional Agent API with explicit directives. See the API changes section below.
+## Scope and core primitives
 
-## Jido v2 primitives map naturally to extensibility concepts
+Jido v2 provides the primitives needed for a command-only architecture:
 
-The Jido v2 framework provides ideal building blocks for an extension system. **Actions** (`jido_action` dep) serve as schema-validated, discrete units of work—perfect for slash commands and tool implementations. **Signals** (`jido_signal` dep) provide CloudEvents-compliant pub/sub for hooks and Phoenix channel integration. **Agents** are pure-functional data structures with a directive-based execution model. **Skills** compose multiple actions with routing logic.
+- **Commands**: `Jido.Action` modules with Zoi schemas
+- **Hooks**: lifecycle subscriptions and reactions expressed as `JidoSignal.Signal` events
+- **Pub/Sub**: `JidoSignal.Bus` as the single event backbone
+- **Extensions**: OTP-supervised packages that register commands and hook policies
 
-| ClaudeCode Component | Jido v2 Primitive | Implementation Pattern |
-|---------------------|-------------------|------------------------|
-| Slash Commands | `Jido.Action` | Actions with Zoi schemas |
-| Sub-agents | `Jido.Agent` + `Jido.AgentServer` | Pure-functional agents with directive execution |
-| Skills | `Jido.Skill` | Bundles actions + signal routing + state |
-| Hooks | `Jido.Signal.Bus` + dispatch adapters | Signal subscriptions triggering handlers |
-| Extensions | Supervision tree + runtime registration | OTP-supervised extension containers |
+| Extensibility Concept | Jido v2 Primitive | Implementation Pattern |
+|-----------------------|-------------------|------------------------|
+| Slash Command | `Jido.Action` | Action module generated from markdown frontmatter |
+| Hook | `JidoSignal.Bus` + `JidoSignal.Signal` | Subscribe to lifecycle paths and emit follow-up signals |
+| Extension | Supervision tree + registry | Runtime registration of commands and hook rules |
 
-## Jido v2 Dependency Structure
+## Jido v2 dependency structure
 
-```
-jido/           # Core: Agent, Skill, AgentServer, Directive
+```text
+jido/           # Core runtime
 jido_action/    # Action primitive with Zoi validation
 jido_signal/    # Signal primitive with Bus (CloudEvents v1.0.2)
 ```
 
-## Directory structure follows ClaudeCode conventions
+## Directory layout (global + project)
 
-The extensibility system uses a two-tier configuration approach with global and local settings that merge at runtime, with local settings taking precedence.
-
-```
-~/.jido_code/                          # Global configuration
-├── settings.json                      # Global settings + hooks
-├── JIDO.md                           # Global agent memory/instructions
-├── commands/                          # Personal slash commands
+```text
+~/.jido_code/
+├── settings.json
+├── JIDO.md
+├── commands/
 │   └── *.md
-├── agents/                            # Personal sub-agent definitions
-│   └── *.md
-├── skills/                            # Personal skills
-│   └── skill-name/
-│       ├── SKILL.md
-│       └── scripts/
-├── extensions/                           # Installed extensions
+├── hooks/
+│   └── *.json
+├── extensions/
 │   └── extension-name/
 │       └── .jido-extension/
 │           └── extension.json
 └── logs/
 
-.jido_code/                            # Project-level configuration
-├── settings.json                      # Project settings (overrides global)
-├── JIDO.md                           # Project memory/instructions
+.jido_code/
+├── settings.json
+├── JIDO.md
 ├── commands/
 │   └── *.md
-├── agents/
-│   └── *.md
-├── skills/
-│   └── skill-name/
-│       └── SKILL.md
-├── hooks/                             # Native Elixir hook modules
-│   └── *.ex
+├── hooks/
+│   └── *.json
 └── extensions/
 ```
 
-## JSON configuration schema with Phoenix channel directives
+Local config overrides global config during merge.
 
-The settings.json schema extends ClaudeCode's format with Phoenix channel configuration and native Elixir hook support:
+## settings.json schema (signal bus + signal hooks)
 
 ```json
 {
   "$schema": "https://jidocode.dev/schemas/settings.json",
   "version": "2.0.0",
 
-  "channels": {
-    "default": {
-      "socket": "ws://localhost:4000/socket",
-      "topic": "jido:agent",
-      "auth": {
-        "type": "token",
-        "token_env": "JIDO_CHANNEL_TOKEN"
+  "signal_bus": {
+    "name": ":jido_code_bus",
+    "middleware": [
+      {
+        "module": "JidoSignal.Bus.Middleware.Logger",
+        "opts": { "level": "debug" }
       }
-    },
-    "ui_state": {
-      "topic": "jido:ui",
-      "broadcast_events": ["state_change", "progress", "error"]
-    }
+    ]
   },
 
   "permissions": {
@@ -97,27 +82,13 @@ The settings.json schema extends ClaudeCode's format with Phoenix channel config
     "PreToolUse": [
       {
         "matcher": "Edit",
-        "hooks": [
+        "emit": [
           {
-            "type": "command",
-            "command": "echo 'Editing file' >> ~/.jido_code/logs/audit.log",
-            "timeout": 5000
-          },
-          {
-            "type": "channel",
-            "channel": "ui_state",
-            "event": "tool_starting",
-            "payload_template": "{\"tool\": \"{{tool_name}}\", \"timestamp\": \"{{timestamp}}\"}"
-          }
-        ]
-      },
-      {
-        "matcher": "*",
-        "hooks": [
-          {
-            "type": "elixir",
-            "module": "MyApp.Hooks.AuditLogger",
-            "function": "log_tool_use"
+            "signal_type": "hooks/pre_tool_use/edit",
+            "data_template": {
+              "tool": "{{tool_name}}",
+              "timestamp": "{{timestamp}}"
+            }
           }
         ]
       }
@@ -125,31 +96,34 @@ The settings.json schema extends ClaudeCode's format with Phoenix channel config
     "PostToolUse": [
       {
         "matcher": "*",
-        "hooks": [
+        "emit": [
           {
-            "type": "signal",
-            "signal_type": "jido/tool/completed",
-            "bus": ":jido_code_bus"
+            "signal_type": "hooks/post_tool_use",
+            "data_template": {
+              "tool": "{{tool_name}}",
+              "duration_ms": "{{duration_ms}}"
+            }
           }
         ]
       }
     ],
-    "AgentStateChange": [
+    "Error": [
       {
         "matcher": "*",
-        "hooks": [
+        "emit": [
           {
-            "type": "channel",
-            "channel": "ui_state",
-            "event": "agent_state",
-            "payload_template": "{\"agent_id\": \"{{agent_id}}\", \"state\": {{state_json}}}"
+            "signal_type": "hooks/error",
+            "data_template": {
+              "error": "{{error_message}}",
+              "context": "{{context}}"
+            }
           }
         ]
       }
     ]
   },
 
-  "agents": {
+  "commands": {
     "default_model": "claude-sonnet-4-20250514",
     "max_concurrent": 5
   },
@@ -167,266 +141,142 @@ The settings.json schema extends ClaudeCode's format with Phoenix channel config
 }
 ```
 
-### Hook type specifications
+### Hook action specification
 
-| Type | Fields | Description |
-|------|--------|-------------|
-| `command` | `command`, `timeout`, `env` | Shell command execution |
-| `elixir` | `module`, `function`, `args` | Native Elixir callback |
-| `channel` | `channel`, `event`, `payload_template` | Phoenix channel broadcast |
-| `signal` | `signal_type`, `bus`, `data_template` | Jido Signal emission |
-| `prompt` | `prompt`, `model` | LLM evaluation |
+Only one hook action type is supported:
 
-## Markdown format for sub-agents with channel directives
+| Action Type | Fields | Description |
+|-------------|--------|-------------|
+| `signal` | `signal_type`, `data_template`, `bus` (optional) | Emit a Jido signal when a hook matcher is triggered |
 
-Sub-agents use YAML frontmatter compatible with ClaudeCode, extended with Jido v2-specific options. Note that Jido v2 uses **Zoi schemas** instead of NimbleOptions:
+## Markdown format for slash commands
+
+Commands remain markdown-first with YAML frontmatter and Jido extensions:
 
 ```yaml
 ---
-name: code-reviewer
-description: Expert code review specialist. Analyzes code quality, security vulnerabilities, and maintainability issues.
+name: code-review
+description: Review changed files for quality and security concerns.
 model: sonnet
-tools: Read, Grep, Glob, Bash(git diff:*)
+allowed-tools: Read, Grep, Glob, Bash(git diff:*)
 
-# Jido v2-specific extensions
 jido:
-  agent_module: JidoCode.Agents.CodeReviewer    # Optional: custom Elixir module
+  command_module: JidoCode.Commands.CodeReview
   schema:
-    # Zoi schema format (v2)
     review_depth: Zoi.atom(values: [:quick, :standard, :thorough], default: :standard)
     focus_areas: Zoi.list(Zoi.string(), default: [:security, :performance])
 
-  channels:
-    broadcast_to: ui_state
-    events:
-      on_start: review_started
-      on_finding: finding_detected
-      on_complete: review_completed
-
   signals:
     emit:
-      - type: "code/review/finding"        # Path format (v2)
-        on: finding
-      - type: "code/review/complete"
-        on: complete
-    subscribe:
-      - path: "code/changed"               # Path-based subscription (v2)
-        action: trigger_review
+      on_start: "commands/code_review/started"
+      on_finding: "commands/code_review/finding"
+      on_complete: "commands/code_review/completed"
+      on_error: "commands/code_review/error"
 ---
 
-You are an expert code reviewer specializing in Elixir and functional programming patterns.
+You are an expert Elixir code reviewer.
 
-## Review Process
-1. Read the target files using available tools
-2. Analyze for code quality issues
-3. Check security vulnerabilities
-4. Evaluate performance implications
-5. Suggest improvements with code examples
-
-## Channel Broadcasting
-When you discover findings, emit them for real-time UI updates:
-@channel(finding_detected) { "severity": "{{severity}}", "file": "{{file}}", "line": {{line}}, "message": "{{message}}" }
-
-## Output Format
-Structure findings as:
-- **Critical**: Security vulnerabilities, data exposure risks
-- **Warning**: Performance issues, code smells
-- **Info**: Style suggestions, minor improvements
+## Output
+- Critical: Security vulnerabilities
+- Warning: Performance and maintainability issues
+- Info: Style and clarity improvements
 ```
 
-### Channel directive syntax within markdown
-
-The `@channel()` directive enables agents to broadcast messages directly from their prompts:
+### In-prompt signal directive syntax
 
 ```markdown
-@channel(event_name) { JSON payload with {{variable}} interpolation }
-@channel(ui_state:progress) { "step": {{current_step}}, "total": {{total_steps}} }
+@signal(path) { JSON payload with {{variable}} interpolation }
+@signal(commands/code_review/progress) { "step": {{current_step}}, "total": {{total_steps}} }
 ```
 
-This compiles to Jido Signal emissions that dispatch to configured Phoenix channels.
+Directives compile to `JidoSignal.Signal` emissions on the configured bus.
 
-## Skill definitions mirror ClaudeCode with signal routing
-
-Jido v2 Skills use the `mount/2` lifecycle callback and path-based routing:
-
-```yaml
----
-name: pdf-processor
-description: Extract text, tables, and forms from PDF documents. Use when working with PDF files or document analysis tasks.
-version: 1.2.0
-allowed-tools: Read, Write, Bash(python:*)
-
-jido:
-  skill_module: JidoCode.Skills.PdfProcessor
-  actions:
-    - JidoCode.Actions.ExtractPdfText
-    - JidoCode.Actions.ExtractPdfTables
-    - JidoCode.Actions.FillPdfForm
-
-  channels:
-    broadcast_to: ui_state
-    progress_events: true
-
-  # Path-based router (v2)
-  router:
-    - "pdf/extract/text": ExtractPdfText
-    - "pdf/extract/tables": ExtractPdfTables
-    - "pdf/form/fill": FillPdfForm
----
-
-# PDF Processing Skill
-
-## Quick Start
-
-Extract text from a PDF:
-```python
-import pdfplumber
-with pdfplumber.open("document.pdf") as pdf:
-    for page in pdf.pages:
-        text = page.extract_text()
-        print(text)
-```
-
-## Progress Reporting
-@channel(progress) { "operation": "extracting", "page": {{current_page}}, "total": {{total_pages}} }
-
-## Available Operations
-- **Text Extraction**: Full-text extraction with layout preservation
-- **Table Extraction**: Structured table data to CSV/JSON
-- **Form Filling**: Populate PDF forms programmatically
-
-See [TABLES.md](TABLES.md) for advanced table extraction options.
-```
-
-## Extension manifest bundles all extensibility components
+## Extension manifest (commands + hook signals)
 
 ```json
 {
   "$schema": "https://jidocode.dev/schemas/extension.json",
   "name": "code-quality",
   "version": "2.1.0",
-  "description": "Comprehensive code quality tools including review, linting, and security analysis",
+  "description": "Code quality and security command pack",
   "author": {
     "name": "JidoCode Community",
     "email": "extensions@jidocode.dev"
   },
   "license": "MIT",
   "repository": "https://github.com/jidocode/extension-code-quality",
-  "keywords": ["code-review", "linting", "security"],
+  "keywords": ["commands", "linting", "security"],
 
   "elixir": {
     "application": "JidoCodeQuality",
     "mix_deps": [
-      {:jido, "~> 2.0"},
-      {:jido_signal, "~> 1.2"},
-      {:jido_action, "~> 1.0"},
-      {:credo, "~> 1.7"},
-      {:sobelow, "~> 0.13"}
+      {":jido", "~> 2.0"},
+      {":jido_signal", "~> 1.2"},
+      {":jido_action", "~> 1.0"},
+      {":credo", "~> 1.7"},
+      {":sobelow", "~> 0.13"}
     ]
   },
 
   "commands": "./commands",
-  "agents": ["./agents"],
-  "skills": "./skills",
   "hooks": "./config/hooks.json",
-
-  "channels": {
-    "required": ["ui_state"],
-    "optional": ["notifications"]
-  },
 
   "signals": {
     "emits": [
-      "code/quality/issue",
-      "code/review/complete",
-      "security/vulnerability"
+      "commands/code_review/finding",
+      "commands/code_review/completed",
+      "hooks/post_tool_use"
     ],
     "subscribes": [
-      "file/saved",
-      "git/commit"
+      "lifecycle/pre_tool_use",
+      "lifecycle/post_tool_use",
+      "command/invoke"
     ]
-  },
-
-  "mcp_servers": {
-    "credo-server": {
-      "command": "elixir",
-      "args": ["${JIDO_EXTENSION_ROOT}/servers/credo_server.exs"],
-      "env": {
-        "MIX_ENV": "prod"
-      }
-    }
   }
 }
 ```
 
-## Elixir code architecture using Jido v2 patterns
+## Elixir architecture using command + signal patterns
 
-### Core extension registry and loader
+### Extension registry and loader
 
 ```elixir
 defmodule JidoCode.Extensibility.ExtensionRegistry do
   @moduledoc """
-  Central registry for all loaded extensions, commands, agents, skills, and hooks.
-  Uses Jido's Signal bus for extension lifecycle events.
+  Central registry for loaded extensions, commands, and hook rules.
   """
   use GenServer
 
   alias JidoSignal.Signal
   alias JidoSignal.Bus
 
-  defstruct extensions: %{},
-            commands: %{},
-            agents: %{},
-            skills: %{},
-            hooks: %{},
-            channels: %{}
+  defstruct extensions: %{}, commands: %{}, hooks: %{}
 
-  def start_link(opts) do
-    GenServer.start_link(__MODULE__, opts, name: __MODULE__)
-  end
+  def start_link(opts), do: GenServer.start_link(__MODULE__, opts, name: __MODULE__)
 
   def init(opts) do
-    # Subscribe to extension lifecycle signals (path-based in v2)
-    Bus.subscribe(:jido_code_bus, "extension/created",
-      dispatch: {:pid, target: self()})
-
-    state = %__MODULE__{
-      channels: load_channel_config(opts[:settings_path])
-    }
-
-    # Load global and local extensions
-    {:ok, load_all_extensions(state, opts)}
+    Bus.subscribe(:jido_code_bus, "extension/created", dispatch: {:pid, target: self()})
+    {:ok, load_all_extensions(%__MODULE__{}, opts)}
   end
 
-  def register_extension(extension_manifest) do
-    GenServer.call(__MODULE__, {:register_extension, extension_manifest})
-  end
-
+  def register_extension(manifest), do: GenServer.call(__MODULE__, {:register_extension, manifest})
   def get_command(name), do: GenServer.call(__MODULE__, {:get_command, name})
-  def get_agent(name), do: GenServer.call(__MODULE__, {:get_agent, name})
-  def get_skill(name), do: GenServer.call(__MODULE__, {:get_skill, name})
 
   def handle_call({:register_extension, manifest}, _from, state) do
     extension = load_extension_from_manifest(manifest)
 
-    # Emit extension loaded signal (CloudEvents v1.0.2 format)
     {:ok, signal} = Signal.new(
       "extension/loaded",
-      %{
-        extension_name: manifest.name,
-        version: manifest.version,
-        capabilities: extract_capabilities(extension)
-      },
+      %{extension_name: manifest.name, version: manifest.version},
       source: "/extensions/#{manifest.name}"
     )
+
     Bus.publish(:jido_code_bus, [signal])
 
     new_state = %{state |
       extensions: Map.put(state.extensions, manifest.name, extension),
       commands: Map.merge(state.commands, extension.commands),
-      agents: Map.merge(state.agents, extension.agents),
-      skills: Map.merge(state.skills, extension.skills),
-      hooks: merge_hooks(state.hooks, extension.hooks)
+      hooks: merge_hook_rules(state.hooks, extension.hooks)
     }
 
     {:reply, {:ok, extension}, new_state}
@@ -434,40 +284,34 @@ defmodule JidoCode.Extensibility.ExtensionRegistry do
 end
 ```
 
-### Action-based slash command implementation (Jido v2)
+### Action-based slash command implementation
 
 ```elixir
 defmodule JidoCode.Extensibility.Command do
   @moduledoc """
-  Defines slash commands as Jido Actions with markdown-parsed configuration.
-
-  Jido v2 uses Zoi schemas for validation.
+  Slash commands implemented as Jido Actions with markdown configuration.
   """
+
+  alias JidoSignal.Signal
+  alias JidoSignal.Bus
 
   defmacro __using__(opts) do
     quote do
       use Jido.Action,
         name: unquote(opts[:name]),
         description: unquote(opts[:description]),
-        # Zoi schema in v2
         schema: unquote(opts[:schema] || Zoi.object(%{}))
 
       @command_config unquote(opts)
-
       def __command_config__, do: @command_config
     end
   end
 
-  @doc """
-  Parses a markdown command file into a Jido Action module at runtime.
-  """
   def from_markdown(path) do
     {:ok, content} = File.read(path)
     {frontmatter, body} = parse_frontmatter(content)
 
-    # Build Zoi schema from frontmatter (v2)
     schema = build_zoi_schema_from_frontmatter(frontmatter)
-
     module_name = module_name_from_path(path)
 
     Module.create(module_name, quote do
@@ -477,28 +321,28 @@ defmodule JidoCode.Extensibility.Command do
         schema: unquote(schema)
 
       @allowed_tools unquote(parse_tools(frontmatter["allowed-tools"]))
-      @model_override unquote(frontmatter["model"])
       @prompt_body unquote(body)
-      @channel_config unquote(frontmatter["jido"]["channels"])
+      @signal_config unquote(get_in(frontmatter, ["jido", "signals"]) || %{})
 
       @impl true
       def run(params, context) do
-        prompt = interpolate_prompt(@prompt_body, params)
+        emit_signal(@signal_config["emit"]["on_start"], %{command: __MODULE__, params: params})
 
-        # Broadcast command start to configured channel
-        maybe_broadcast_channel(@channel_config, "command_started", %{
-          command: __MODULE__,
-          params: params
-        })
+        result = execute_with_tools(interpolate_prompt(@prompt_body, params), @allowed_tools, context)
 
-        result = execute_with_tools(prompt, @allowed_tools, context)
-
-        maybe_broadcast_channel(@channel_config, "command_completed", %{
-          command: __MODULE__,
-          result: result
-        })
-
+        emit_signal(@signal_config["emit"]["on_complete"], %{command: __MODULE__, result: result})
         result
+      rescue
+        error ->
+          emit_signal(@signal_config["emit"]["on_error"], %{command: __MODULE__, error: inspect(error)})
+          reraise(error, __STACKTRACE__)
+      end
+
+      defp emit_signal(nil, _payload), do: :ok
+
+      defp emit_signal(type, payload) do
+        {:ok, signal} = Signal.new(type, payload, source: "/commands/#{__MODULE__}")
+        Bus.publish(:jido_code_bus, [signal])
       end
     end, Macro.Env.location(__ENV__))
 
@@ -507,463 +351,91 @@ defmodule JidoCode.Extensibility.Command do
 end
 ```
 
-### Signal-based hook system with channel dispatch (Jido v2)
+### Hook runner using only signals
 
 ```elixir
 defmodule JidoCode.Extensibility.HookRunner do
   @moduledoc """
-  Executes hooks based on lifecycle events, supporting shell commands,
-  Elixir modules, Phoenix channels, and Jido signals.
-
-  Jido v2 uses path-based signal routing.
+  Subscribes to lifecycle signals and emits configured hook signals.
   """
 
   alias JidoSignal.Signal
   alias JidoSignal.Bus
-  alias JidoSignal.Dispatch
 
-  @lifecycle_events [
-    :pre_tool_use,
-    :post_tool_use,
-    :permission_request,
-    :agent_state_change,
-    :session_start,
-    :session_stop,
-    :subagent_start,
-    :subagent_stop,
-    :user_prompt_submit,
-    :error
+  @lifecycle_paths [
+    "lifecycle/pre_tool_use",
+    "lifecycle/post_tool_use",
+    "lifecycle/permission_request",
+    "lifecycle/session_start",
+    "lifecycle/session_stop",
+    "lifecycle/user_prompt_submit",
+    "lifecycle/error"
   ]
 
-  def init(hook_config, channel_config) do
-    # Subscribe to lifecycle signals (path-based in v2)
-    Enum.each(@lifecycle_events, fn event ->
-      path = "lifecycle/#{event}"  # Path format
-      Bus.subscribe(:jido_code_bus, path,
-        dispatch: {:pid, target: self()})
+  def init(hook_config) do
+    Enum.each(@lifecycle_paths, fn path ->
+      Bus.subscribe(:jido_code_bus, path, dispatch: {:pid, target: self()})
     end)
 
-    %{
-      hooks: normalize_hooks(hook_config),
-      channels: channel_config,
-      channel_connections: connect_channels(channel_config)
-    }
+    %{hooks: normalize_hooks(hook_config)}
   end
 
   def handle_info({:signal, signal}, state) do
-    # Extract event type from signal path (v2)
-    event_type = signal_path_to_event(signal.type)
-    matching_hooks = find_matching_hooks(state.hooks, event_type, signal.data)
+    event = signal.type
 
-    # Run all matching hooks in parallel
-    tasks = Enum.map(matching_hooks, fn hook ->
-      Task.async(fn -> execute_hook(hook, signal, state) end)
+    state.hooks
+    |> matching_rules(event, signal.data)
+    |> Enum.each(fn rule -> emit_rule_signals(rule, signal) end)
+
+    {:noreply, state}
+  end
+
+  defp emit_rule_signals(rule, source_signal) do
+    Enum.each(rule.emit, fn emission ->
+      payload = interpolate_template(emission.data_template, source_signal.data)
+      bus = String.to_atom(emission.bus || ":jido_code_bus")
+
+      {:ok, signal} = Signal.new(
+        emission.signal_type,
+        Map.merge(payload, %{source_signal: source_signal.id}),
+        source: "/hooks/#{rule.id}"
+      )
+
+      Bus.publish(bus, [signal])
     end)
-
-    results = Task.await_many(tasks, :timer.seconds(60))
-
-    # Process hook decisions (approve/deny/ask)
-    decision = aggregate_decisions(results)
-
-    {:noreply, state, decision}
-  end
-
-  defp execute_hook(%{type: "command"} = hook, signal, _state) do
-    env = build_env_vars(signal)
-    {output, exit_code} = System.cmd("sh", ["-c", hook.command], env: env)
-    parse_hook_output(output, exit_code)
-  end
-
-  defp execute_hook(%{type: "elixir"} = hook, signal, _state) do
-    module = String.to_existing_atom("Elixir.#{hook.module}")
-    function = String.to_atom(hook.function)
-    args = [signal.data | hook.args || []]
-
-    apply(module, function, args)
-  end
-
-  defp execute_hook(%{type: "channel"} = hook, signal, state) do
-    channel_name = hook.channel
-    event = hook.event
-    payload = interpolate_template(hook.payload_template, signal.data)
-
-    case Map.get(state.channel_connections, channel_name) do
-      nil -> {:error, :channel_not_connected}
-      channel ->
-        Phoenix.Channel.push(channel, event, payload)
-        {:ok, :broadcast_sent}
-    end
-  end
-
-  defp execute_hook(%{type: "signal"} = hook, signal, _state) do
-    # Create signal with CloudEvents v1.0.2 compliance (v2)
-    {:ok, new_signal} = Signal.new(
-      hook.signal_type,
-      Map.merge(signal.data, %{source_signal: signal.id}),
-      source: "/hooks/#{hook.id}"
-    )
-
-    Bus.publish(String.to_atom(hook.bus), [new_signal])
-    {:ok, :signal_emitted}
   end
 end
 ```
 
-### Sub-agent implementation as Jido v2 Agent
-
-Jido v2 introduces a **pure-functional Agent API** with explicit **Directives**:
+### Command dispatch loop via signal paths
 
 ```elixir
-defmodule JidoCode.Extensibility.SubAgent do
+defmodule JidoCode.Extensibility.CommandDispatcher do
   @moduledoc """
-  Sub-agents implemented as Jido v2 Agents with Phoenix channel state broadcasting.
-
-  Jido v2 Key Concepts:
-  - Agents are pure-functional data structures
-  - Agent.cmd/2 returns {agent, directives}
-  - Directives describe external effects
-  - AgentServer manages runtime execution
+  Listens for command invocation signals and executes registered commands.
   """
 
-  defmacro __using__(opts) do
-    quote do
-      use Jido.Agent,
-        name: unquote(opts[:name]),
-        description: unquote(opts[:description]),
-        actions: unquote(opts[:actions] || []),
-        # Zoi schema in v2
-        schema: unquote(opts[:schema] || Zoi.object(%{}))
-
-      alias Jido.Agent.Directive
-      alias JidoSignal.Signal
-      alias JidoSignal.Bus
-
-      @channel_config unquote(opts[:channels])
-      @signal_config unquote(opts[:signals])
-      @system_prompt unquote(opts[:system_prompt])
-
-      def start_link(opts) do
-        Jido.AgentServer.start_link(__MODULE__, opts)
-      end
-
-      # Convenience wrapper for cmd with channel broadcasting
-      def cmd_with_broadcast(agent, action, opts \\ []) do
-        {agent, directives} = Jido.Agent.cmd(agent, action)
-
-        # Emit channel broadcast directive
-        channel_directive = maybe_emit_channel_directive(
-          @channel_config,
-          action,
-          agent
-        )
-
-        final_directives =
-          if channel_directive, do: [channel_directive | directives],
-          else: directives
-
-        {agent, final_directives}
-      end
-    end
-  end
-
-  @doc """
-  Parses a markdown sub-agent definition into a module.
-  """
-  def from_markdown(path) do
-    {:ok, content} = File.read(path)
-    {frontmatter, body} = parse_frontmatter(content)
-
-    jido_config = frontmatter["jido"] || %{}
-
-    module_name = module_name_from_path(path)
-
-    Module.create(module_name, quote do
-      use JidoCode.Extensibility.SubAgent,
-        name: unquote(frontmatter["name"]),
-        description: unquote(frontmatter["description"]),
-        schema: unquote(build_zoi_schema(jido_config["schema"])),
-        channels: unquote(jido_config["channels"]),
-        signals: unquote(jido_config["signals"]),
-        system_prompt: unquote(body)
-
-      @tools unquote(parse_tools(frontmatter["tools"]))
-      @model unquote(frontmatter["model"] || "sonnet")
-    end, Macro.Env.location(__ENV__))
-
-    {:ok, module_name}
-  end
-end
-```
-
-### Jido v2 Directive System
-
-Jido v2 introduces explicit directives for external effects:
-
-```elixir
-# Built-in directives in Jido v2
-%Directive.Emit{
-  signal: signal,
-  dispatch: {:pubsub, topic: "events"}  # or {:pid, target: pid}
-}
-
-%Directive.Spawn{
-  child_spec: child_spec
-}
-
-%Directive.Schedule{
-  delay: 5000,
-  message: :timeout
-}
-
-%Directive.Stop{
-  reason: :normal
-}
-
-%Directive.Error{
-  error: error_struct
-}
-```
-
-### Phoenix channel integration module
-
-```elixir
-defmodule JidoCode.Channels.AgentStateChannel do
-  @moduledoc """
-  Phoenix channel for real-time agent state broadcasting.
-  Integrates with Jido Signal bus for event distribution.
-
-  Jido v2 uses path-based signal routing.
-  """
-
-  use Phoenix.Channel
-
+  alias JidoSignal.Signal
   alias JidoSignal.Bus
+  alias JidoCode.Extensibility.ExtensionRegistry
 
-  def join("jido:agent:" <> agent_id, _params, socket) do
-    # Subscribe to agent-specific signals (path-based in v2)
-    Bus.subscribe(:jido_code_bus, "agent/#{agent_id}",
-      dispatch: {:pid, target: self()})
-
-    {:ok, assign(socket, :agent_id, agent_id)}
+  def init do
+    Bus.subscribe(:jido_code_bus, "command/invoke", dispatch: {:pid, target: self()})
+    :ok
   end
 
-  def join("jido:ui", _params, socket) do
-    # Subscribe to all UI-relevant signals (path-based in v2)
-    Bus.subscribe(:jido_code_bus, "ui",
-      dispatch: {:pid, target: self()})
-
-    {:ok, socket}
-  end
-
-  # Handle signals from Jido bus and broadcast to channel
-  def handle_info({:signal, signal}, socket) do
-    event_name = signal_type_to_event(signal.type)
-    push(socket, event_name, signal.data)
-    {:noreply, socket}
-  end
-
-  # Handle incoming channel events and convert to signals
-  def handle_in("user_input", %{"content" => content}, socket) do
-    {:ok, signal} = JidoSignal.Signal.new(
-      "user/input",  # Path format (v2)
-      %{
-        content: content,
-        agent_id: socket.assigns[:agent_id],
-        channel: socket.topic
-      },
-      source: "/channels/#{socket.topic}"
-    )
-
-    Bus.publish(:jido_code_bus, [signal])
-
-    {:noreply, socket}
-  end
-
-  defp signal_type_to_event(type) do
-    type
-    |> String.replace("/", "_")  # v2 uses / separator
-    |> String.replace("jido_", "")
-  end
-end
-```
-
-### Skill implementation with action bundling (Jido v2)
-
-```elixir
-defmodule JidoCode.Extensibility.Skill do
-  @moduledoc """
-  Skills as Jido.Skill implementations with channel integration.
-
-  Jido v2 Skill callbacks:
-  - mount/2: Initialize skill state (pure function)
-  - router/1: Return signal path -> action mappings
-  - handle_signal/2: Intercept and handle signals
-  - transform_result/3: Wrap action results
-  """
-
-  defmacro __using__(opts) do
-    quote do
-      use Jido.Skill,
-        name: unquote(opts[:name]),
-        state_key: unquote(opts[:state_key]),
-        actions: unquote(opts[:actions] || [])
-
-      @description unquote(opts[:description])
-      @version unquote(opts[:version])
-      @channel_config unquote(opts[:channels])
-      @router_config unquote(opts[:router])
-
-      @impl Jido.Skill
-      def mount(agent, config) do
-        # Initialize skill state (pure function in v2)
-        {:ok, %{initialized_at: DateTime.utc_now()}}
-      end
-
-      @impl Jido.Skill
-      def router(_config) do
-        # Path-based routing (v2)
-        Enum.map(@router_config, fn {path, action} ->
-          {path, %Jido.Instruction{action: action}}
-        end)
-      end
-
-      @impl Jido.Skill
-      def handle_signal(signal, _skill_opts) do
-        # Check if signal path matches our routes
-        case find_matching_route(signal.type, @router_config) do
-          nil -> {:skip, signal}
-          action -> {:ok, %Jido.Instruction{action: action, params: signal.data}}
-        end
-      end
-
-      @impl Jido.Skill
-      def transform_result(result, _action, _skill_opts) do
-        # Wrap result with channel broadcast if configured
-        if @channel_config do
-          {:ok, result, [emit_channel_directive(result, @channel_config)]}
-        else
-          {:ok, result, []}
-        end
-      end
+  def handle_info({:signal, %{type: "command/invoke", data: %{"name" => name, "params" => params}}}, state) do
+    with {:ok, command} <- ExtensionRegistry.get_command(name),
+         {:ok, result} <- command.run(params, %{}) do
+      {:ok, completed} = Signal.new("command/completed", %{name: name, result: result}, source: "/dispatcher")
+      Bus.publish(:jido_code_bus, [completed])
+      {:noreply, state}
+    else
+      {:error, reason} ->
+        {:ok, failed} = Signal.new("command/failed", %{name: name, error: inspect(reason)}, source: "/dispatcher")
+        Bus.publish(:jido_code_bus, [failed])
+        {:noreply, state}
     end
-  end
-
-  def from_markdown(path) do
-    skill_dir = Path.dirname(path)
-    {:ok, content} = File.read(path)
-    {frontmatter, body} = parse_frontmatter(content)
-
-    jido_config = frontmatter["jido"] || %{}
-
-    module_name = module_name_from_path(path)
-
-    # Load and compile action modules if specified
-    actions = compile_skill_actions(jido_config["actions"], skill_dir)
-
-    Module.create(module_name, quote do
-      use JidoCode.Extensibility.Skill,
-        name: unquote(frontmatter["name"]),
-        description: unquote(frontmatter["description"]),
-        version: unquote(frontmatter["version"]),
-        state_key: :skill_state,
-        actions: unquote(actions),
-        channels: unquote(jido_config["channels"]),
-        router: unquote(jido_config["router"])
-
-      @allowed_tools unquote(parse_tools(frontmatter["allowed-tools"]))
-      @skill_body unquote(body)
-
-      def skill_documentation, do: @skill_body
-    end, Macro.Env.location(__ENV__))
-
-    {:ok, module_name}
-  end
-end
-```
-
-## TermUI integration for state representation
-
-The extensibility system integrates with TermUI's Elm Architecture for real-time state display:
-
-```elixir
-defmodule JidoCode.UI.ExtensibilityPanel do
-  @moduledoc """
-  TermUI component for displaying extension/agent state.
-  Receives updates via Phoenix channel subscriptions.
-  """
-
-  alias TermUI.Renderer.Style
-
-  defstruct agents: %{},
-            active_hooks: [],
-            loaded_extensions: [],
-            channel_status: :disconnected
-
-  def init(_opts) do
-    %__MODULE__{}
-  end
-
-  def event_to_msg(%{type: :channel_event, event: "agent_state"} = event, _state) do
-    {:msg, {:agent_state_update, event.payload}}
-  end
-
-  def event_to_msg(%{type: :channel_event, event: "hook_triggered"} = event, _state) do
-    {:msg, {:hook_triggered, event.payload}}
-  end
-
-  def event_to_msg(_, _state), do: :ignore
-
-  def update({:agent_state_update, payload}, state) do
-    agent_id = payload["agent_id"]
-    updated_agents = Map.put(state.agents, agent_id, %{
-      status: payload["status"],
-      last_update: payload["timestamp"],
-      context: payload["context"]
-    })
-
-    {%{state | agents: updated_agents}, []}
-  end
-
-  def update({:hook_triggered, payload}, state) do
-    hook_entry = %{
-      name: payload["hook_name"],
-      event: payload["event"],
-      timestamp: DateTime.utc_now()
-    }
-
-    # Keep last 10 hooks
-    hooks = [hook_entry | state.active_hooks] |> Enum.take(10)
-
-    {%{state | active_hooks: hooks}, []}
-  end
-
-  def view(state) do
-    import TermUI.Elements
-
-    stack(:vertical, [
-      panel("Agent Status", agent_status_view(state.agents)),
-      panel("Recent Hooks", hooks_view(state.active_hooks)),
-      panel("Loaded Extensions", extensions_view(state.loaded_extensions)),
-      status_bar(state.channel_status)
-    ])
-  end
-
-  defp agent_status_view(agents) do
-    agents
-    |> Enum.map(fn {id, agent} ->
-      status_style = case agent.status do
-        :idle -> Style.new(fg: :green)
-        :executing -> Style.new(fg: :yellow, attrs: [:bold])
-        :error -> Style.new(fg: :red)
-      end
-
-      row([
-        text(truncate(id, 12), Style.new(fg: :cyan)),
-        text(to_string(agent.status), status_style),
-        text(format_time(agent.last_update), Style.new(fg: :white))
-      ])
-    end)
-    |> stack(:vertical)
   end
 end
 ```
@@ -976,60 +448,36 @@ defmodule JidoCode.Application do
 
   def start(_type, _args) do
     children = [
-      # Core Jido Signal bus for extensibility events
       {JidoSignal.Bus, [
         name: :jido_code_bus,
-        middleware: [
-          {JidoSignal.Bus.Middleware.Logger, level: :debug}
-        ]
+        middleware: [{JidoSignal.Bus.Middleware.Logger, level: :debug}]
       ]},
-
-      # Extension registry - loads all extensions at startup
       {JidoCode.Extensibility.ExtensionRegistry, [
         global_path: Path.expand("~/.jido_code"),
         local_path: ".jido_code"
       ]},
-
-      # Hook runner - handles all lifecycle hooks
-      {JidoCode.Extensibility.HookRunner, [
-        settings_path: ".jido_code/settings.json"
-      ]},
-
-      # Phoenix endpoint for channel connections
-      JidoCode.Endpoint,
-
-      # TermUI application
-      {TermUI.Application, app: JidoCode.UI.App},
-
-      # Dynamic supervisor for sub-agents (Jido v2 AgentServer)
-      {DynamicSupervisor, name: JidoCode.AgentSupervisor, strategy: :one_for_one}
+      {JidoCode.Extensibility.HookRunner, [settings_path: ".jido_code/settings.json"]},
+      JidoCode.Extensibility.CommandDispatcher
     ]
 
-    opts = [strategy: :one_for_one, name: JidoCode.Supervisor]
-    Supervisor.start_link(children, opts)
+    Supervisor.start_link(children, strategy: :one_for_one, name: JidoCode.Supervisor)
   end
 end
 ```
 
-## Summary of key integration points
+## Key integration points
 
-The extensibility system creates a cohesive architecture where **ClaudeCode compatibility** is maintained through markdown-based definitions with YAML frontmatter, enabling potential reuse of existing ClaudeCode skills and agents. The `jido:` frontmatter extension adds Elixir-native capabilities without breaking compatibility.
+- **Commands are the only execution abstraction**: each command is a `Jido.Action` compiled from markdown.
+- **Hooks are signal-only**: hook matches emit Jido signals; non-signal hook actions are not supported in this model.
+- **Pub/Sub is signal bus-only**: all lifecycle, command, and extension events use `JidoSignal.Bus` path routing.
+- **Progressive adoption remains intact**: teams can start with markdown commands, then add richer hook signal policies and packaged extensions.
 
-**Phoenix channels** integrate at three levels: hook definitions can include `type: "channel"` entries that broadcast on lifecycle events; sub-agents and skills can specify `channels.broadcast_to` for automatic state synchronization; and the `@channel()` directive in markdown prompts enables agents to emit real-time updates during execution.
-
-**Jido v2 primitives** provide the foundation: Actions implement commands with Zoi schema validation, Signals (CloudEvents v1.0.2) flow through the bus connecting all components, Agents use a pure-functional `cmd/2` API with directive-based effects, and Skills compose actions with path-based routing. The Signal bus acts as the central nervous system, with Phoenix channel dispatch adapters bridging to the TermUI for real-time visualization.
-
-This design enables **progressive adoption**—teams can start with simple markdown commands and gradually add channel broadcasting, native Elixir hooks, and full extension bundles as needs grow.
-
-## Key API Changes from Jido v1 to v2
+## Jido v1 to v2 notes for this design
 
 | Aspect | Jido v1 | Jido v2 |
 |--------|---------|---------|
-| **Agent API** | GenServer.call(agent, action) | Pure `Agent.cmd(agent, action)` |
-| **Execution Model** | Direct side effects | Explicit directives |
-| **Signal Routing** | Pattern-based (`"extension.**"`) | Path-based (`"extension/loaded"`) |
-| **Schema** | NimbleOptions | Zoi schemas |
-| **Dependencies** | Monolithic `jido` | Modular (`jido`, `jido_action`, `jido_signal`) |
-| **Signals** | Custom format | CloudEvents v1.0.2 compliant |
-| **Skill mount** | Side effects | Pure function |
-| **Directive types** | Implicit | 5 explicit directives (Emit, Spawn, Schedule, Stop, Error) |
+| Routing style | Pattern-based (`"extension.**"`) | Path-based (`"extension/loaded"`) |
+| Command schema | NimbleOptions | Zoi schemas |
+| Signal format | Custom | CloudEvents v1.0.2 |
+| Dependencies | Monolithic | Modular (`jido`, `jido_action`, `jido_signal`) |
+| Runtime effects | Implicit | Explicit event flow through `JidoSignal.Bus` |
