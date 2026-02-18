@@ -56,6 +56,9 @@ mix run -e 'JidoCommand.CLI.main(["list"])'
 
 # invoke command
 mix run -e 'JidoCommand.CLI.main(["invoke", "code-review", "--params", "{\"target_file\":\"lib/foo.ex\"}"])'
+
+# dispatch command.invoke signal
+mix run -e 'JidoCommand.CLI.main(["dispatch", "code-review", "--params", "{\"target_file\":\"lib/foo.ex\"}"])'
 ```
 
 ## Settings

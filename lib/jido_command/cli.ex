@@ -3,25 +3,30 @@ defmodule JidoCommand.CLI do
   Optimus-based CLI for invoking and listing registered commands.
   """
 
+  @spec main([String.t()], (integer() -> no_return()), module()) :: :ok | no_return()
   @spec main([String.t()], (integer() -> no_return())) :: :ok | no_return()
-  def main(argv, halt \\ &System.halt/1) do
+  def main(argv, halt \\ &System.halt/1, runtime \\ JidoCommand) do
     parser = parser_spec()
     result = Optimus.parse(parser, argv)
-    handle_parse_result(result, parser, halt)
+    handle_parse_result(result, parser, halt, runtime)
   end
 
-  defp handle_parse_result({:ok, [:list], _result}, _parser, _halt) do
-    JidoCommand.list_commands()
+  defp handle_parse_result({:ok, [:list], _result}, _parser, _halt, runtime) do
+    runtime.list_commands()
     |> Enum.each(&IO.puts/1)
 
     :ok
   end
 
-  defp handle_parse_result({:ok, [:invoke], result}, _parser, halt) do
-    handle_invoke(result, halt)
+  defp handle_parse_result({:ok, [:invoke], result}, _parser, halt, runtime) do
+    handle_invoke(result, halt, runtime)
   end
 
-  defp handle_parse_result({:error, errors}, parser, halt) do
+  defp handle_parse_result({:ok, [:dispatch], result}, _parser, halt, runtime) do
+    handle_dispatch(result, halt, runtime)
+  end
+
+  defp handle_parse_result({:error, errors}, parser, halt, _runtime) do
     parser
     |> Optimus.Errors.format(errors)
     |> Enum.each(&IO.puts/1)
@@ -29,7 +34,7 @@ defmodule JidoCommand.CLI do
     halt.(1)
   end
 
-  defp handle_parse_result({:error, subcommand_path, errors}, parser, halt) do
+  defp handle_parse_result({:error, subcommand_path, errors}, parser, halt, _runtime) do
     parser
     |> Optimus.Errors.format(subcommand_path, errors)
     |> Enum.each(&IO.puts/1)
@@ -37,38 +42,54 @@ defmodule JidoCommand.CLI do
     halt.(1)
   end
 
-  defp handle_parse_result(:help, parser, halt) do
+  defp handle_parse_result(:help, parser, halt, _runtime) do
     IO.puts(Optimus.help(parser))
     halt.(0)
   end
 
-  defp handle_parse_result(:version, _parser, halt) do
+  defp handle_parse_result(:version, _parser, halt, _runtime) do
     IO.puts("jido_command 0.1.0")
     halt.(0)
   end
 
-  defp handle_parse_result({:help, subcommand_path}, parser, halt) do
+  defp handle_parse_result({:help, subcommand_path}, parser, halt, _runtime) do
     IO.puts(parser |> Optimus.Help.help(subcommand_path, 100) |> Enum.join("\n"))
     halt.(0)
   end
 
-  defp handle_parse_result({:ok, _result}, parser, halt) do
+  defp handle_parse_result({:ok, _result}, parser, halt, _runtime) do
     IO.puts(Optimus.help(parser))
     halt.(1)
   end
 
-  defp handle_invoke(result, halt) do
+  defp handle_invoke(result, halt, runtime) do
     command_name = result.args.command
     params = result.options.params || %{}
     context = result.options.context || %{}
 
-    case JidoCommand.invoke(command_name, params, context) do
+    case runtime.invoke(command_name, params, context) do
       {:ok, value} ->
         IO.puts(Jason.encode!(value, pretty: true))
         :ok
 
       {:error, reason} ->
         IO.puts(:stderr, "invoke failed: #{inspect(reason)}")
+        halt.(1)
+    end
+  end
+
+  defp handle_dispatch(result, halt, runtime) do
+    command_name = result.args.command
+    params = result.options.params || %{}
+    context = result.options.context || %{}
+
+    case runtime.dispatch(command_name, params, context) do
+      {:ok, invocation_id} ->
+        IO.puts(Jason.encode!(%{"invocation_id" => invocation_id}, pretty: true))
+        :ok
+
+      {:error, reason} ->
+        IO.puts(:stderr, "dispatch failed: #{inspect(reason)}")
         halt.(1)
     end
   end
@@ -113,6 +134,38 @@ defmodule JidoCommand.CLI do
               long: "--context",
               short: "-c",
               help: "JSON object with invoke context",
+              required: false,
+              parser: &parse_json_object/1,
+              default: %{}
+            ]
+          ]
+        ],
+        dispatch: [
+          name: "dispatch",
+          about: "Publish a command.invoke signal",
+          args: [
+            command: [
+              value_name: "COMMAND",
+              help: "Command name",
+              required: true,
+              parser: :string
+            ]
+          ],
+          options: [
+            params: [
+              value_name: "JSON",
+              long: "--params",
+              short: "-p",
+              help: "JSON object with command params",
+              required: false,
+              parser: &parse_json_object/1,
+              default: %{}
+            ],
+            context: [
+              value_name: "JSON",
+              long: "--context",
+              short: "-c",
+              help: "JSON object with dispatch context",
               required: false,
               parser: &parse_json_object/1,
               default: %{}
