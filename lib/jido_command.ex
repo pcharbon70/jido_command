@@ -59,6 +59,12 @@ defmodule JidoCommand do
     CommandRegistry.register_command(command_path, registry)
   end
 
+  @spec unregister_command(String.t(), keyword()) :: :ok | {:error, :not_found | :invalid_name}
+  def unregister_command(command_name, opts \\ []) when is_binary(command_name) do
+    registry = Keyword.get(opts, :registry, CommandRegistry)
+    CommandRegistry.unregister_command(command_name, registry)
+  end
+
   defp default_invocation_id do
     Integer.to_string(System.unique_integer([:positive, :monotonic]))
   end

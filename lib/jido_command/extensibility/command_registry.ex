@@ -47,6 +47,12 @@ defmodule JidoCommand.Extensibility.CommandRegistry do
     GenServer.call(server, {:register_command, command_path})
   end
 
+  @spec unregister_command(String.t(), GenServer.server()) ::
+          :ok | {:error, :not_found | :invalid_name}
+  def unregister_command(command_name, server \\ __MODULE__) when is_binary(command_name) do
+    GenServer.call(server, {:unregister_command, command_name})
+  end
+
   @impl true
   def init(opts) do
     global_root = Keyword.get(opts, :global_root, Loader.default_global_root())
@@ -103,6 +109,22 @@ defmodule JidoCommand.Extensibility.CommandRegistry do
 
       {:error, reason} ->
         {:reply, {:error, reason}, state}
+    end
+  end
+
+  def handle_call({:unregister_command, command_name}, _from, state) do
+    normalized_name = String.trim(command_name)
+
+    cond do
+      normalized_name == "" ->
+        {:reply, {:error, :invalid_name}, state}
+
+      Map.has_key?(state.commands, normalized_name) ->
+        updated = %{state | commands: Map.delete(state.commands, normalized_name)}
+        {:reply, :ok, updated}
+
+      true ->
+        {:reply, {:error, :not_found}, state}
     end
   end
 

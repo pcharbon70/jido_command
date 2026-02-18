@@ -199,6 +199,77 @@ defmodule JidoCommand.Extensibility.CommandRegistryTest do
     assert missing_path == Path.expand(missing_file)
   end
 
+  test "unregister_command removes an existing command" do
+    root = tmp_root()
+    global_root = Path.join(root, "global")
+    local_root = Path.join(root, "local")
+
+    File.mkdir_p!(Path.join(global_root, "commands"))
+    File.mkdir_p!(Path.join(local_root, "commands"))
+
+    File.write!(
+      Path.join(local_root, "commands/review.md"),
+      command_markdown("review", "Review command")
+    )
+
+    bus = unique_bus_name()
+    registry = unique_registry_name()
+
+    start_supervised!({Jido.Signal.Bus, name: bus})
+
+    start_supervised!(
+      {CommandRegistry,
+       name: registry, bus: bus, global_root: global_root, local_root: local_root}
+    )
+
+    assert ["review"] == CommandRegistry.list_commands(registry)
+    assert :ok = CommandRegistry.unregister_command("review", registry)
+    assert [] == CommandRegistry.list_commands(registry)
+    assert {:error, :not_found} = CommandRegistry.get_command("review", registry)
+  end
+
+  test "unregister_command returns not_found for unknown command" do
+    root = tmp_root()
+    global_root = Path.join(root, "global")
+    local_root = Path.join(root, "local")
+
+    File.mkdir_p!(Path.join(global_root, "commands"))
+    File.mkdir_p!(Path.join(local_root, "commands"))
+
+    bus = unique_bus_name()
+    registry = unique_registry_name()
+
+    start_supervised!({Jido.Signal.Bus, name: bus})
+
+    start_supervised!(
+      {CommandRegistry,
+       name: registry, bus: bus, global_root: global_root, local_root: local_root}
+    )
+
+    assert {:error, :not_found} = CommandRegistry.unregister_command("missing", registry)
+  end
+
+  test "unregister_command returns invalid_name for blank command name" do
+    root = tmp_root()
+    global_root = Path.join(root, "global")
+    local_root = Path.join(root, "local")
+
+    File.mkdir_p!(Path.join(global_root, "commands"))
+    File.mkdir_p!(Path.join(local_root, "commands"))
+
+    bus = unique_bus_name()
+    registry = unique_registry_name()
+
+    start_supervised!({Jido.Signal.Bus, name: bus})
+
+    start_supervised!(
+      {CommandRegistry,
+       name: registry, bus: bus, global_root: global_root, local_root: local_root}
+    )
+
+    assert {:error, :invalid_name} = CommandRegistry.unregister_command("   ", registry)
+  end
+
   defp command_markdown(name, body) do
     """
     ---

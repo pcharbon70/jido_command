@@ -41,6 +41,15 @@ defmodule JidoCommand.CLITest do
         _ -> :ok
       end
     end
+
+    def unregister_command(command_name) do
+      send(self(), {:runtime_unregister_command, command_name})
+
+      case command_name do
+        "missing" -> {:error, :not_found}
+        _ -> :ok
+      end
+    end
   end
 
   defmodule FailingReloadRuntimeStub do
@@ -54,6 +63,13 @@ defmodule JidoCommand.CLITest do
     def register_command(command_path) do
       send(self(), {:runtime_register_command_failed, command_path})
       {:error, :register_command_error}
+    end
+  end
+
+  defmodule FailingUnregisterCommandRuntimeStub do
+    def unregister_command(command_name) do
+      send(self(), {:runtime_unregister_command_failed, command_name})
+      {:error, :unregister_command_error}
     end
   end
 
@@ -173,5 +189,37 @@ defmodule JidoCommand.CLITest do
 
     assert_receive {:runtime_register_command_failed, "commands/fail.md"}, 500
     assert stderr =~ "register-command failed: :register_command_error"
+  end
+
+  test "unregister-command calls runtime and prints ok status" do
+    output =
+      capture_io(fn ->
+        assert :ok ==
+                 CLI.main(
+                   ["unregister-command", "review"],
+                   fn code -> flunk("unexpected halt with #{code}") end,
+                   RuntimeStub
+                 )
+      end)
+
+    assert_receive {:runtime_unregister_command, "review"}, 500
+    assert %{"status" => "ok", "command_name" => "review"} == Jason.decode!(output)
+  end
+
+  test "unregister-command failure prints error and halts with 1" do
+    stderr =
+      capture_io(:stderr, fn ->
+        assert {:halt, 1} ==
+                 catch_throw(
+                   CLI.main(
+                     ["unregister-command", "review"],
+                     fn code -> throw({:halt, code}) end,
+                     FailingUnregisterCommandRuntimeStub
+                   )
+                 )
+      end)
+
+    assert_receive {:runtime_unregister_command_failed, "review"}, 500
+    assert stderr =~ "unregister-command failed: :unregister_command_error"
   end
 end
