@@ -11,6 +11,7 @@ It supports:
 - Global + local config roots with local precedence
 - Runtime-registered command files are reapplied on `reload`
 - Re-registering the same command file path replaces its prior manual command entry
+- For duplicate manual command names, the most recent registration wins (including after `reload`)
 
 ## Runtime layout
 

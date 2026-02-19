@@ -185,7 +185,8 @@ defmodule JidoCommand.Extensibility.CommandRegistry do
   end
 
   defp load_manual_commands(state) do
-    Enum.reduce_while(state.manual_paths, {:ok, state}, fn path, {:ok, acc} ->
+    # Apply oldest first so the most recently registered path remains the final winner.
+    Enum.reduce_while(Enum.reverse(state.manual_paths), {:ok, state}, fn path, {:ok, acc} ->
       case load_command_file(path, acc.default_model) do
         {:ok, {name, entry}} ->
           {:cont, {:ok, %{acc | commands: Map.put(acc.commands, name, entry)}}}

@@ -288,6 +288,43 @@ defmodule JidoCommand.Extensibility.CommandRegistryTest do
     assert {:ok, _module} = CommandRegistry.get_command("manual-new", registry)
   end
 
+  test "reload preserves most recent manual registration for duplicate command names" do
+    root = tmp_root()
+    global_root = Path.join(root, "global")
+    local_root = Path.join(root, "local")
+    manual_dir = Path.join(root, "manual")
+    manual_file_one = Path.join(manual_dir, "one.md")
+    manual_file_two = Path.join(manual_dir, "two.md")
+
+    File.mkdir_p!(Path.join(global_root, "commands"))
+    File.mkdir_p!(Path.join(local_root, "commands"))
+    File.mkdir_p!(manual_dir)
+
+    File.write!(manual_file_one, command_markdown("shared", "from one"))
+    File.write!(manual_file_two, command_markdown("shared", "from two"))
+
+    bus = unique_bus_name()
+    registry = unique_registry_name()
+
+    start_supervised!({Bus, name: bus})
+
+    start_supervised!(
+      {CommandRegistry,
+       name: registry, bus: bus, global_root: global_root, local_root: local_root}
+    )
+
+    assert :ok = CommandRegistry.register_command(manual_file_one, registry)
+    assert :ok = CommandRegistry.register_command(manual_file_two, registry)
+
+    assert {:ok, entry_before_reload} = CommandRegistry.get_command_entry("shared", registry)
+    assert entry_before_reload.path == Path.expand(manual_file_two)
+
+    assert :ok = CommandRegistry.reload(registry)
+
+    assert {:ok, entry_after_reload} = CommandRegistry.get_command_entry("shared", registry)
+    assert entry_after_reload.path == Path.expand(manual_file_two)
+  end
+
   test "register_command returns error for missing file" do
     root = tmp_root()
     global_root = Path.join(root, "global")
