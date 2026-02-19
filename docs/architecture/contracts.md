@@ -135,6 +135,11 @@ Registry validation rule:
 
 - `register_command` rejects blank command paths with `invalid_path`
 
+Public API validation rules:
+
+- `JidoCommand.register_command/2` requires a non-empty string path and returns `{:error, :invalid_path}` for invalid input
+- `JidoCommand.unregister_command/2` requires a non-empty string name and returns `{:error, :invalid_name}` for invalid input
+
 ## Command hook signals (`jido.hooks.pre`, `jido.hooks.after`)
 
 These are optional per command and are declared in markdown FrontMatter under `jido.hooks`.
