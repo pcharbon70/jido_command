@@ -19,12 +19,30 @@ defmodule JidoCommand.CLITest do
       end
     end
 
+    def invoke(command, params, context, opts) do
+      send(self(), {:runtime_invoke_with_opts, command, params, context, opts})
+
+      case command do
+        "fail" -> {:error, :invoke_error}
+        _ -> {:ok, %{"ok" => true, "command" => command, "invocation_id" => opts[:invocation_id]}}
+      end
+    end
+
     def dispatch(command, params, context) do
       send(self(), {:runtime_dispatch, command, params, context})
 
       case command do
         "fail" -> {:error, :dispatch_error}
         _ -> {:ok, "invocation-123"}
+      end
+    end
+
+    def dispatch(command, params, context, opts) do
+      send(self(), {:runtime_dispatch_with_opts, command, params, context, opts})
+
+      case command do
+        "fail" -> {:error, :dispatch_error}
+        _ -> {:ok, opts[:invocation_id] || "invocation-123"}
       end
     end
 
@@ -110,6 +128,24 @@ defmodule JidoCommand.CLITest do
     assert %{"ok" => true, "command" => "review"} == Jason.decode!(output)
   end
 
+  test "invoke passes invocation-id option to runtime when available" do
+    output =
+      capture_io(fn ->
+        assert :ok ==
+                 CLI.main(
+                   ["invoke", "review", "--invocation-id", "invoke-123"],
+                   fn code -> flunk("unexpected halt with #{code}") end,
+                   RuntimeStub
+                 )
+      end)
+
+    assert_receive {:runtime_invoke_with_opts, "review", %{}, %{}, opts}, 500
+    assert opts[:invocation_id] == "invoke-123"
+
+    assert %{"ok" => true, "command" => "review", "invocation_id" => "invoke-123"} ==
+             Jason.decode!(output)
+  end
+
   test "dispatch failure prints error and halts with 1" do
     stderr =
       capture_io(:stderr, fn ->
@@ -125,6 +161,22 @@ defmodule JidoCommand.CLITest do
 
     assert_receive {:runtime_dispatch, "fail", %{}, %{}}, 500
     assert stderr =~ "dispatch failed: :dispatch_error"
+  end
+
+  test "dispatch passes invocation-id option to runtime when available" do
+    output =
+      capture_io(fn ->
+        assert :ok ==
+                 CLI.main(
+                   ["dispatch", "demo", "--invocation-id", "dispatch-123"],
+                   fn code -> flunk("unexpected halt with #{code}") end,
+                   RuntimeStub
+                 )
+      end)
+
+    assert_receive {:runtime_dispatch_with_opts, "demo", %{}, %{}, opts}, 500
+    assert opts[:invocation_id] == "dispatch-123"
+    assert %{"invocation_id" => "dispatch-123"} == Jason.decode!(output)
   end
 
   test "reload calls runtime and prints ok status" do

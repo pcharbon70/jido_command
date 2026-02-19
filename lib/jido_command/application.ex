@@ -35,7 +35,8 @@ defmodule JidoCommand.Application do
        [
          bus: settings.bus_name,
          registry: CommandRegistry,
-         max_concurrent: settings.commands_max_concurrent
+         max_concurrent: settings.commands_max_concurrent,
+         permissions: Settings.permissions(settings)
        ]}
     ]
 

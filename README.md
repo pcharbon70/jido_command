@@ -69,8 +69,14 @@ mix run -e 'JidoCommand.CLI.main(["list"])'
 # invoke command
 mix run -e 'JidoCommand.CLI.main(["invoke", "code-review", "--params", "{\"target_file\":\"lib/foo.ex\"}"])'
 
+# invoke command with explicit invocation id
+mix run -e 'JidoCommand.CLI.main(["invoke", "code-review", "--invocation-id", "my-invoke-id"])'
+
 # dispatch command.invoke signal
 mix run -e 'JidoCommand.CLI.main(["dispatch", "code-review", "--params", "{\"target_file\":\"lib/foo.ex\"}"])'
+
+# dispatch command.invoke signal with explicit invocation id
+mix run -e 'JidoCommand.CLI.main(["dispatch", "code-review", "--invocation-id", "my-dispatch-id"])'
 
 # reload command registry from configured roots
 mix run -e 'JidoCommand.CLI.main(["reload"])'
@@ -89,8 +95,23 @@ mix run -e 'JidoCommand.CLI.main(["unregister-command", "review"])'
 - `signal_bus.name` (default `:jido_code_bus`)
   Values are normalized to atoms (for example, `"local_bus"` and `":local_bus"` both resolve to `:local_bus`).
 - `signal_bus.middleware` (supports logger middleware level)
+- `permissions.allow` (list of capability strings)
+- `permissions.deny` (list of capability strings)
+- `permissions.ask` (list of capability strings)
 - `commands.default_model` (fallback model when a command omits `model`)
 - `commands.max_concurrent` (max in-flight command executions in dispatcher)
+
+Dispatcher-managed execution injects normalized permissions into command context as:
+
+```elixir
+%{
+  permissions: %{
+    allow: [...],
+    deny: [...],
+    ask: [...]
+  }
+}
+```
 
 ## Contracts
 

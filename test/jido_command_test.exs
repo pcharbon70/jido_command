@@ -105,6 +105,55 @@ defmodule JidoCommandTest do
     assert ["extra"] == JidoCommand.list_commands(registry: registry)
   end
 
+  test "invoke applies permissions from options into execution context" do
+    root = tmp_root("invoke_permissions")
+    global_root = Path.join(root, "global")
+    local_root = Path.join(root, "local")
+    local_commands_dir = Path.join(local_root, "commands")
+
+    File.mkdir_p!(Path.join(global_root, "commands"))
+    File.mkdir_p!(local_commands_dir)
+
+    File.write!(
+      Path.join(local_commands_dir, "review.md"),
+      """
+      ---
+      name: review
+      description: review command
+      ---
+      review
+      """
+    )
+
+    bus = unique_bus_name()
+    registry = unique_registry_name()
+
+    start_supervised!({Bus, name: bus})
+
+    start_supervised!(
+      {CommandRegistry,
+       name: registry, bus: bus, global_root: global_root, local_root: local_root}
+    )
+
+    permissions = %{
+      allow: ["Read"],
+      deny: ["Bash(rm -rf:*)"],
+      ask: ["Bash(npm:*)"]
+    }
+
+    assert {:ok, result} =
+             JidoCommand.invoke(
+               "review",
+               %{},
+               %{},
+               registry: registry,
+               bus: bus,
+               permissions: permissions
+             )
+
+    assert result["result"]["permissions"] == permissions
+  end
+
   test "unregister_command removes a command from registry" do
     root = tmp_root("unregister")
     global_root = Path.join(root, "global")

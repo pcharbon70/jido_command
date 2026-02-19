@@ -16,6 +16,10 @@ Optional data fields:
 - `context` (object): execution context merged into dispatcher context
 - `invocation_id` (string): caller-supplied ID; if absent dispatcher uses the inbound signal ID
 
+Dispatcher-enforced execution context fields:
+
+- `permissions` (object): normalized runtime permissions from settings (`allow`, `deny`, `ask`)
+
 Validation rules:
 
 - payload data must be an object
@@ -25,6 +29,20 @@ Validation rules:
 - `invocation_id` must be a non-empty string when provided
 
 Invalid payloads are rejected and result in a `command.failed` signal with a validation error message.
+
+## Settings contract (`settings.json`)
+
+Implemented runtime keys:
+
+- `signal_bus.name`
+- `signal_bus.middleware`
+- `permissions.allow` (list of strings/atoms)
+- `permissions.deny` (list of strings/atoms)
+- `permissions.ask` (list of strings/atoms)
+- `commands.default_model`
+- `commands.max_concurrent`
+
+Permission lists are normalized by trimming values, removing empties, and de-duplicating while preserving order.
 
 ## `command.completed`
 

@@ -78,8 +78,9 @@ defmodule JidoCommand.CLI do
     command_name = result.args.command
     params = result.options.params || %{}
     context = result.options.context || %{}
+    invocation_id = result.options.invocation_id
 
-    case runtime.invoke(command_name, params, context) do
+    case invoke_runtime(runtime, command_name, params, context, invocation_id) do
       {:ok, value} ->
         IO.puts(Jason.encode!(value, pretty: true))
         :ok
@@ -94,8 +95,9 @@ defmodule JidoCommand.CLI do
     command_name = result.args.command
     params = result.options.params || %{}
     context = result.options.context || %{}
+    invocation_id = result.options.invocation_id
 
-    case runtime.dispatch(command_name, params, context) do
+    case dispatch_runtime(runtime, command_name, params, context, invocation_id) do
       {:ok, invocation_id} ->
         IO.puts(Jason.encode!(%{"invocation_id" => invocation_id}, pretty: true))
         :ok
@@ -189,6 +191,13 @@ defmodule JidoCommand.CLI do
               required: false,
               parser: &parse_json_object/1,
               default: %{}
+            ],
+            invocation_id: [
+              value_name: "ID",
+              long: "--invocation-id",
+              help: "Optional invocation id override",
+              required: false,
+              parser: &parse_nonempty_string/1
             ]
           ]
         ],
@@ -221,6 +230,13 @@ defmodule JidoCommand.CLI do
               required: false,
               parser: &parse_json_object/1,
               default: %{}
+            ],
+            invocation_id: [
+              value_name: "ID",
+              long: "--invocation-id",
+              help: "Optional invocation id override",
+              required: false,
+              parser: &parse_nonempty_string/1
             ]
           ]
         ],
@@ -261,6 +277,42 @@ defmodule JidoCommand.CLI do
       {:ok, map} when is_map(map) -> {:ok, map}
       {:ok, _} -> {:error, "must be a JSON object"}
       {:error, reason} -> {:error, "invalid JSON: #{Exception.message(reason)}"}
+    end
+  end
+
+  defp parse_nonempty_string(value) when is_binary(value) do
+    trimmed = String.trim(value)
+
+    if trimmed == "" do
+      {:error, "must be a non-empty string"}
+    else
+      {:ok, trimmed}
+    end
+  end
+
+  defp parse_nonempty_string(_), do: {:error, "must be a non-empty string"}
+
+  defp invoke_runtime(runtime, command_name, params, context, nil) do
+    runtime.invoke(command_name, params, context)
+  end
+
+  defp invoke_runtime(runtime, command_name, params, context, invocation_id) do
+    if function_exported?(runtime, :invoke, 4) do
+      runtime.invoke(command_name, params, context, invocation_id: invocation_id)
+    else
+      runtime.invoke(command_name, params, Map.put(context, :invocation_id, invocation_id))
+    end
+  end
+
+  defp dispatch_runtime(runtime, command_name, params, context, nil) do
+    runtime.dispatch(command_name, params, context)
+  end
+
+  defp dispatch_runtime(runtime, command_name, params, context, invocation_id) do
+    if function_exported?(runtime, :dispatch, 4) do
+      runtime.dispatch(command_name, params, context, invocation_id: invocation_id)
+    else
+      runtime.dispatch(command_name, params, Map.put(context, :invocation_id, invocation_id))
     end
   end
 end

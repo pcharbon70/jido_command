@@ -21,6 +21,17 @@ defmodule JidoCommand.Extensibility.CommandDispatcherTest do
     end
   end
 
+  defmodule PermissionsProbeExecutor do
+    @behaviour JidoCommand.Extensibility.CommandRuntime
+
+    @impl true
+    def execute(_definition, _prompt, _params, context) do
+      test_pid = Map.get(context, :test_pid)
+      if is_pid(test_pid), do: send(test_pid, {:permissions_seen, Map.get(context, :permissions)})
+      {:ok, %{"ok" => true}}
+    end
+  end
+
   test "dispatches command.invoke and emits command.completed" do
     %{bus: bus} =
       start_runtime([
@@ -193,6 +204,43 @@ defmodule JidoCommand.Extensibility.CommandDispatcherTest do
     assert_receive {:probe_started, second_id}, 500
     assert second_id in ["one", "two"]
     refute second_id == first_id
+  end
+
+  test "injects configured runtime permissions into execution context" do
+    runtime_permissions = %{
+      allow: ["Read", "Write"],
+      deny: ["Bash(rm -rf:*)"],
+      ask: ["Bash(npm:*)"]
+    }
+
+    %{bus: bus} =
+      start_runtime(
+        [
+          {"probe.md",
+           """
+           ---
+           name: probe
+           description: probe command
+           ---
+           probe
+           """}
+        ],
+        permissions: runtime_permissions
+      )
+
+    assert {:ok, invoke_signal} =
+             Signal.new(
+               "command.invoke",
+               %{
+                 "name" => "probe",
+                 "params" => %{},
+                 "context" => %{command_executor: PermissionsProbeExecutor, test_pid: self()}
+               },
+               source: "/test"
+             )
+
+    assert {:ok, _} = Bus.publish(bus, [invoke_signal])
+    assert_receive {:permissions_seen, ^runtime_permissions}, 1_000
   end
 
   defp start_runtime(commands \\ [], dispatcher_opts \\ []) do
