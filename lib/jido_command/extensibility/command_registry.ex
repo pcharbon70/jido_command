@@ -120,29 +120,13 @@ defmodule JidoCommand.Extensibility.CommandRegistry do
   end
 
   def handle_call({:register_command, command_path}, _from, state) do
-    case load_command_file(command_path, state.default_model) do
-      {:ok, {name, entry}} ->
-        commands_without_previous =
-          prune_manual_entries_for_path(state.commands, entry.path)
+    case normalize_register_path(command_path) do
+      {:ok, normalized_path} ->
+        handle_register_path(normalized_path, state)
 
-        updated = %{
-          state
-          | commands: Map.put(commands_without_previous, name, entry),
-            manual_paths: prepend_unique(state.manual_paths, entry.path)
-        }
-
-        emit_lifecycle_signal(updated, "command.registered", %{
-          "name" => name,
-          "path" => entry.path,
-          "scope" => to_string(entry.meta[:scope]),
-          "current_count" => map_size(updated.commands)
-        })
-
-        {:reply, :ok, updated}
-
-      {:error, reason} ->
-        emit_failure_signal(state, "register", reason, %{"path" => Path.expand(command_path)})
-        {:reply, {:error, reason}, state}
+      {:error, :invalid_path} ->
+        emit_failure_signal(state, "register", :invalid_path, %{"path" => command_path})
+        {:reply, {:error, :invalid_path}, state}
     end
   end
 
@@ -214,6 +198,33 @@ defmodule JidoCommand.Extensibility.CommandRegistry do
     end
   end
 
+  defp handle_register_path(command_path, state) when is_binary(command_path) do
+    case load_command_file(command_path, state.default_model) do
+      {:ok, {name, entry}} ->
+        commands_without_previous =
+          prune_manual_entries_for_path(state.commands, entry.path)
+
+        updated = %{
+          state
+          | commands: Map.put(commands_without_previous, name, entry),
+            manual_paths: prepend_unique(state.manual_paths, entry.path)
+        }
+
+        emit_lifecycle_signal(updated, "command.registered", %{
+          "name" => name,
+          "path" => entry.path,
+          "scope" => to_string(entry.meta[:scope]),
+          "current_count" => map_size(updated.commands)
+        })
+
+        {:reply, :ok, updated}
+
+      {:error, reason} ->
+        emit_failure_signal(state, "register", reason, %{"path" => Path.expand(command_path)})
+        {:reply, {:error, reason}, state}
+    end
+  end
+
   defp unregister_entry(state, normalized_name, %{meta: %{scope: :manual}} = entry)
        when is_binary(normalized_name) do
     state
@@ -275,6 +286,16 @@ defmodule JidoCommand.Extensibility.CommandRegistry do
       end
     else
       {:error, {:command_file_not_found, expanded_path}}
+    end
+  end
+
+  defp normalize_register_path(value) when is_binary(value) do
+    trimmed = String.trim(value)
+
+    if trimmed == "" do
+      {:error, :invalid_path}
+    else
+      {:ok, trimmed}
     end
   end
 

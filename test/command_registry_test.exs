@@ -437,6 +437,35 @@ defmodule JidoCommand.Extensibility.CommandRegistryTest do
     assert String.contains?(data["error"], "command_file_not_found")
   end
 
+  test "register_command returns invalid_path for blank command path" do
+    root = tmp_root()
+    global_root = Path.join(root, "global")
+    local_root = Path.join(root, "local")
+
+    File.mkdir_p!(Path.join(global_root, "commands"))
+    File.mkdir_p!(Path.join(local_root, "commands"))
+
+    bus = unique_bus_name()
+    registry = unique_registry_name()
+
+    start_supervised!({Bus, name: bus})
+
+    {:ok, _subscription} =
+      Bus.subscribe(bus, "command.registry.failed", dispatch: {:pid, target: self()})
+
+    start_supervised!(
+      {CommandRegistry,
+       name: registry, bus: bus, global_root: global_root, local_root: local_root}
+    )
+
+    assert {:error, :invalid_path} = CommandRegistry.register_command("   ", registry)
+
+    assert_receive {:signal, %Signal{type: "command.registry.failed", data: data}}, 1_000
+    assert data["operation"] == "register"
+    assert data["path"] == "   "
+    assert data["error"] == "invalid_path"
+  end
+
   test "unregister_command removes an existing command" do
     root = tmp_root()
     global_root = Path.join(root, "global")

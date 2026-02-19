@@ -131,6 +131,10 @@ Optional data fields by operation:
 - `register`: `path` (string)
 - `unregister`: `name` (string)
 
+Registry validation rule:
+
+- `register_command` rejects blank command paths with `invalid_path`
+
 ## Command hook signals (`jido.hooks.pre`, `jido.hooks.after`)
 
 These are optional per command and are declared in markdown FrontMatter under `jido.hooks`.

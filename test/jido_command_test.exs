@@ -136,6 +136,10 @@ defmodule JidoCommandTest do
     assert ["extra"] == JidoCommand.list_commands(registry: registry)
   end
 
+  test "register_command returns invalid_path for blank path" do
+    assert {:error, :invalid_path} = JidoCommand.register_command("   ")
+  end
+
   test "invoke applies permissions from options into execution context" do
     root = tmp_root("invoke_permissions")
     global_root = Path.join(root, "global")
