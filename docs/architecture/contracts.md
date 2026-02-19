@@ -53,6 +53,9 @@ Validation rules:
 - `$schema` must be a non-empty string when provided
 - `version` must be a valid SemVer string when provided
 - `signal_bus.name` must be a string/atom when provided
+- each `signal_bus.middleware` item must use supported module `Jido.Signal.Bus.Middleware.Logger`
+- middleware `opts` only supports key `level`
+- middleware `opts.level` must be one of `debug|info|warn|warning|error`
 - `commands.max_concurrent` must be a positive integer when provided
 - permission entries must be strings/atoms (or a comma-delimited string)
 

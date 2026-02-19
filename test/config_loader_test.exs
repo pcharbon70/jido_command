@@ -96,7 +96,7 @@ defmodule JidoCommand.Config.LoaderTest do
     assert path == Path.join(global, "settings.json")
   end
 
-  test "falls back to default middleware when configured middleware is unsupported" do
+  test "returns invalid_settings for unsupported middleware module" do
     root = tmp_root()
     global = Path.join(root, "global")
     local = Path.join(root, "local")
@@ -116,8 +116,60 @@ defmodule JidoCommand.Config.LoaderTest do
       })
     )
 
-    assert {:ok, settings} = Loader.load(global_root: global, local_root: local)
-    assert settings.bus_middleware == [{Jido.Signal.Bus.Middleware.Logger, level: :debug}]
+    assert {:error, {:invalid_settings, {:invalid_signal_bus_middleware, 0, :unsupported_module}}} =
+             Loader.load(global_root: global, local_root: local)
+  end
+
+  test "returns invalid_settings for unknown middleware opts keys" do
+    root = tmp_root()
+    global = Path.join(root, "global")
+    local = Path.join(root, "local")
+
+    File.mkdir_p!(global)
+    File.mkdir_p!(local)
+
+    File.write!(
+      Path.join(local, "settings.json"),
+      Jason.encode!(%{
+        "signal_bus" => %{
+          "middleware" => [
+            %{
+              "module" => "Jido.Signal.Bus.Middleware.Logger",
+              "opts" => %{"level" => "debug", "format" => "json"}
+            }
+          ]
+        }
+      })
+    )
+
+    assert {:error,
+            {:invalid_settings,
+             {:invalid_signal_bus_middleware, 0,
+              {:invalid_middleware_opts_keys, {:unknown_keys, ["format"]}}}}} =
+             Loader.load(global_root: global, local_root: local)
+  end
+
+  test "returns invalid_settings for invalid middleware log levels" do
+    root = tmp_root()
+    global = Path.join(root, "global")
+    local = Path.join(root, "local")
+
+    File.mkdir_p!(global)
+    File.mkdir_p!(local)
+
+    File.write!(
+      Path.join(local, "settings.json"),
+      Jason.encode!(%{
+        "signal_bus" => %{
+          "middleware" => [
+            %{"module" => "Jido.Signal.Bus.Middleware.Logger", "opts" => %{"level" => "trace"}}
+          ]
+        }
+      })
+    )
+
+    assert {:error, {:invalid_settings, {:invalid_signal_bus_middleware, 0, :invalid_level}}} =
+             Loader.load(global_root: global, local_root: local)
   end
 
   test "falls back to default bus name when configured bus name is blank" do

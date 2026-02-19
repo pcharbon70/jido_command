@@ -6,6 +6,7 @@ defmodule JidoCommand.Config.Settings do
   @allowed_settings_keys ["$schema", "version", "signal_bus", "permissions", "commands"]
   @allowed_signal_bus_keys ["name", "middleware"]
   @allowed_middleware_keys ["module", "opts"]
+  @allowed_middleware_option_keys ["level"]
   @allowed_permissions_keys ["allow", "deny", "ask"]
   @allowed_commands_keys ["default_model", "max_concurrent"]
 
@@ -224,14 +225,35 @@ defmodule JidoCommand.Config.Settings do
 
   defp validate_middleware_item(_), do: {:error, :item_must_be_map}
 
-  defp validate_middleware_module(module) when is_binary(module), do: :ok
-  defp validate_middleware_module(module) when is_atom(module), do: :ok
+  defp validate_middleware_module("Jido.Signal.Bus.Middleware.Logger"), do: :ok
+  defp validate_middleware_module(Jido.Signal.Bus.Middleware.Logger), do: :ok
   defp validate_middleware_module(nil), do: {:error, :module_is_required}
-  defp validate_middleware_module(_), do: {:error, :module_must_be_string_or_atom}
+  defp validate_middleware_module(_), do: {:error, :unsupported_module}
 
   defp validate_middleware_opts(nil), do: :ok
-  defp validate_middleware_opts(opts) when is_map(opts), do: :ok
+
+  defp validate_middleware_opts(opts) when is_map(opts) do
+    :ok
+    |> chain_validate(fn ->
+      validate_allowed_keys(opts, @allowed_middleware_option_keys, :invalid_middleware_opts_keys)
+    end)
+    |> chain_validate(fn -> validate_middleware_level(Map.get(opts, "level")) end)
+  end
+
   defp validate_middleware_opts(_), do: {:error, :opts_must_be_map}
+
+  defp validate_middleware_level(nil), do: :ok
+  defp validate_middleware_level(:debug), do: :ok
+  defp validate_middleware_level(:info), do: :ok
+  defp validate_middleware_level(:warn), do: :ok
+  defp validate_middleware_level(:warning), do: :ok
+  defp validate_middleware_level(:error), do: :ok
+  defp validate_middleware_level("debug"), do: :ok
+  defp validate_middleware_level("info"), do: :ok
+  defp validate_middleware_level("warn"), do: :ok
+  defp validate_middleware_level("warning"), do: :ok
+  defp validate_middleware_level("error"), do: :ok
+  defp validate_middleware_level(_), do: {:error, :invalid_level}
 
   defp validate_permissions(nil), do: :ok
 
