@@ -106,6 +106,27 @@ defmodule JidoCommand.Extensibility.CommandDispatcherTest do
              "invalid command.invoke payload: invocation_id must be a non-empty string when provided"
   end
 
+  test "emits command.failed when payload includes unknown keys" do
+    %{bus: bus} = start_runtime()
+
+    {:ok, _failed_sub} =
+      Bus.subscribe(bus, "command.failed", dispatch: {:pid, target: self()})
+
+    {:ok, %Signal{id: signal_id} = invoke_signal} =
+      Signal.new(
+        "command.invoke",
+        %{"name" => "hello", "params" => %{}, "extra" => true},
+        source: "/test"
+      )
+
+    assert {:ok, _} = Bus.publish(bus, [invoke_signal])
+
+    assert_receive {:signal, %Signal{type: "command.failed", data: data}}, 2_000
+    assert data["name"] == "hello"
+    assert data["invocation_id"] == signal_id
+    assert data["error"] == "invalid command.invoke payload: unknown keys: extra"
+  end
+
   test "runs invokes concurrently up to max_concurrent limit" do
     %{bus: bus} =
       start_runtime(

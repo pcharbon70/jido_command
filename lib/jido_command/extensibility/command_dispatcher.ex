@@ -205,7 +205,8 @@ defmodule JidoCommand.Extensibility.CommandDispatcher do
     normalized_invocation_id =
       normalize_invocation_id(data_get(data, "invocation_id"), fallback_invocation_id)
 
-    with {:ok, name} <- validate_name(raw_name),
+    with :ok <- validate_invoke_keys(data),
+         {:ok, name} <- validate_name(raw_name),
          {:ok, params} <- validate_params(data_get(data, "params", :missing)),
          {:ok, context} <- validate_context(data_get(data, "context", :missing)),
          {:ok, invocation_id} <-
@@ -217,6 +218,23 @@ defmodule JidoCommand.Extensibility.CommandDispatcher do
     else
       {:error, reason} ->
         {:error, reason, normalized_name, normalized_invocation_id}
+    end
+  end
+
+  defp validate_invoke_keys(data) when is_map(data) do
+    allowed = ["name", "params", "context", "invocation_id"]
+
+    unknown_keys =
+      data
+      |> Map.keys()
+      |> Enum.map(&to_string/1)
+      |> Enum.reject(&(&1 in allowed))
+      |> Enum.sort()
+
+    if unknown_keys == [] do
+      :ok
+    else
+      {:error, {:unknown_keys, unknown_keys}}
     end
   end
 
@@ -289,6 +307,9 @@ defmodule JidoCommand.Extensibility.CommandDispatcher do
 
   defp invalid_payload_message(:invalid_invocation_id),
     do: "invalid command.invoke payload: invocation_id must be a non-empty string when provided"
+
+  defp invalid_payload_message({:unknown_keys, keys}),
+    do: "invalid command.invoke payload: unknown keys: #{Enum.join(keys, ", ")}"
 
   defp emit_result(bus, type, payload) do
     case Signal.new(type, payload, source: "/dispatcher") do
