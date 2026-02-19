@@ -325,6 +325,84 @@ defmodule JidoCommand.Extensibility.CommandRegistryTest do
     assert entry_after_reload.path == Path.expand(manual_file_two)
   end
 
+  test "unregister_command restores local command shadowed by manual registration" do
+    root = tmp_root()
+    global_root = Path.join(root, "global")
+    local_root = Path.join(root, "local")
+    local_commands_dir = Path.join(local_root, "commands")
+    local_command_file = Path.join(local_commands_dir, "shared.md")
+    manual_dir = Path.join(root, "manual")
+    manual_file = Path.join(manual_dir, "manual.md")
+
+    File.mkdir_p!(Path.join(global_root, "commands"))
+    File.mkdir_p!(local_commands_dir)
+    File.mkdir_p!(manual_dir)
+
+    File.write!(local_command_file, command_markdown("shared", "Local shared command"))
+    File.write!(manual_file, command_markdown("shared", "Manual shared command"))
+
+    bus = unique_bus_name()
+    registry = unique_registry_name()
+
+    start_supervised!({Bus, name: bus})
+
+    start_supervised!(
+      {CommandRegistry,
+       name: registry, bus: bus, global_root: global_root, local_root: local_root}
+    )
+
+    assert :ok = CommandRegistry.register_command(manual_file, registry)
+    assert {:ok, active_entry} = CommandRegistry.get_command_entry("shared", registry)
+    assert active_entry.meta[:scope] == :manual
+    assert active_entry.path == Path.expand(manual_file)
+
+    assert :ok = CommandRegistry.unregister_command("shared", registry)
+    assert ["shared"] == CommandRegistry.list_commands(registry)
+
+    assert {:ok, restored_entry} = CommandRegistry.get_command_entry("shared", registry)
+    assert restored_entry.meta[:scope] == :local
+    assert restored_entry.path == local_command_file
+  end
+
+  test "unregister_command restores previous manual command for duplicate command names" do
+    root = tmp_root()
+    global_root = Path.join(root, "global")
+    local_root = Path.join(root, "local")
+    manual_dir = Path.join(root, "manual")
+    manual_file_one = Path.join(manual_dir, "one.md")
+    manual_file_two = Path.join(manual_dir, "two.md")
+
+    File.mkdir_p!(Path.join(global_root, "commands"))
+    File.mkdir_p!(Path.join(local_root, "commands"))
+    File.mkdir_p!(manual_dir)
+
+    File.write!(manual_file_one, command_markdown("shared", "from one"))
+    File.write!(manual_file_two, command_markdown("shared", "from two"))
+
+    bus = unique_bus_name()
+    registry = unique_registry_name()
+
+    start_supervised!({Bus, name: bus})
+
+    start_supervised!(
+      {CommandRegistry,
+       name: registry, bus: bus, global_root: global_root, local_root: local_root}
+    )
+
+    assert :ok = CommandRegistry.register_command(manual_file_one, registry)
+    assert :ok = CommandRegistry.register_command(manual_file_two, registry)
+
+    assert {:ok, active_entry} = CommandRegistry.get_command_entry("shared", registry)
+    assert active_entry.path == Path.expand(manual_file_two)
+
+    assert :ok = CommandRegistry.unregister_command("shared", registry)
+    assert ["shared"] == CommandRegistry.list_commands(registry)
+
+    assert {:ok, restored_entry} = CommandRegistry.get_command_entry("shared", registry)
+    assert restored_entry.meta[:scope] == :manual
+    assert restored_entry.path == Path.expand(manual_file_one)
+  end
+
   test "register_command returns error for missing file" do
     root = tmp_root()
     global_root = Path.join(root, "global")

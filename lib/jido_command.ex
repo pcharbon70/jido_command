@@ -59,7 +59,7 @@ defmodule JidoCommand do
     CommandRegistry.register_command(command_path, registry)
   end
 
-  @spec unregister_command(String.t(), keyword()) :: :ok | {:error, :not_found | :invalid_name}
+  @spec unregister_command(String.t(), keyword()) :: :ok | {:error, term()}
   def unregister_command(command_name, opts \\ []) when is_binary(command_name) do
     registry = Keyword.get(opts, :registry, CommandRegistry)
     CommandRegistry.unregister_command(command_name, registry)

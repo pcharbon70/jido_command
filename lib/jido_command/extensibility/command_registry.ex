@@ -50,8 +50,7 @@ defmodule JidoCommand.Extensibility.CommandRegistry do
     GenServer.call(server, {:register_command, command_path})
   end
 
-  @spec unregister_command(String.t(), GenServer.server()) ::
-          :ok | {:error, :not_found | :invalid_name}
+  @spec unregister_command(String.t(), GenServer.server()) :: :ok | {:error, term()}
   def unregister_command(command_name, server \\ __MODULE__) when is_binary(command_name) do
     GenServer.call(server, {:unregister_command, command_name})
   end
@@ -154,25 +153,7 @@ defmodule JidoCommand.Extensibility.CommandRegistry do
       emit_failure_signal(state, "unregister", :invalid_name, %{"name" => command_name})
       {:reply, {:error, :invalid_name}, state}
     else
-      case Map.fetch(state.commands, normalized_name) do
-        {:ok, entry} ->
-          updated = %{
-            state
-            | commands: Map.delete(state.commands, normalized_name),
-              manual_paths: remove_manual_path(state.manual_paths, entry)
-          }
-
-          emit_lifecycle_signal(updated, "command.unregistered", %{
-            "name" => normalized_name,
-            "current_count" => map_size(updated.commands)
-          })
-
-          {:reply, :ok, updated}
-
-        :error ->
-          emit_failure_signal(state, "unregister", :not_found, %{"name" => normalized_name})
-          {:reply, {:error, :not_found}, state}
-      end
+      handle_unregister_existing(normalized_name, state)
     end
   end
 
@@ -208,6 +189,41 @@ defmodule JidoCommand.Extensibility.CommandRegistry do
 
   defp remove_manual_path(paths, _entry) when is_list(paths) do
     paths
+  end
+
+  defp handle_unregister_existing(normalized_name, state) when is_binary(normalized_name) do
+    case Map.fetch(state.commands, normalized_name) do
+      {:ok, entry} ->
+        case unregister_entry(state, normalized_name, entry) do
+          {:ok, updated} ->
+            emit_lifecycle_signal(updated, "command.unregistered", %{
+              "name" => normalized_name,
+              "current_count" => map_size(updated.commands)
+            })
+
+            {:reply, :ok, updated}
+
+          {:error, reason} ->
+            emit_failure_signal(state, "unregister", reason, %{"name" => normalized_name})
+            {:reply, {:error, reason}, state}
+        end
+
+      :error ->
+        emit_failure_signal(state, "unregister", :not_found, %{"name" => normalized_name})
+        {:reply, {:error, :not_found}, state}
+    end
+  end
+
+  defp unregister_entry(state, normalized_name, %{meta: %{scope: :manual}} = entry)
+       when is_binary(normalized_name) do
+    state
+    |> Map.put(:commands, %{})
+    |> Map.put(:manual_paths, remove_manual_path(state.manual_paths, entry))
+    |> load_all()
+  end
+
+  defp unregister_entry(state, normalized_name, _entry) when is_binary(normalized_name) do
+    {:ok, %{state | commands: Map.delete(state.commands, normalized_name)}}
   end
 
   defp prune_manual_entries_for_path(commands, path) when is_map(commands) and is_binary(path) do
