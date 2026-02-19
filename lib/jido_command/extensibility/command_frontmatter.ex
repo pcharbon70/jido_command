@@ -3,7 +3,6 @@ defmodule JidoCommand.Extensibility.CommandFrontmatter do
   Parses markdown command files with YAML frontmatter into `CommandDefinition` structs.
   """
 
-  alias Jido.Signal.Router.Validator
   alias JidoCommand.Extensibility.CommandDefinition
 
   @frontmatter_regex ~r/\A---\s*\n(?<frontmatter>.*?)\n---\s*\n(?<body>.*)\z/s
@@ -197,7 +196,7 @@ defmodule JidoCommand.Extensibility.CommandFrontmatter do
   defp parse_hooks(jido_config) do
     case Map.get(jido_config, "hooks") do
       nil ->
-        {:ok, %{pre: nil, after: nil}}
+        {:ok, %{pre: false, after: false}}
 
       hooks when is_map(hooks) ->
         hooks
@@ -211,40 +210,17 @@ defmodule JidoCommand.Extensibility.CommandFrontmatter do
 
   defp parse_hooks_map(hooks) do
     with :ok <- validate_allowed_keys(hooks, @allowed_hook_keys, :invalid_hooks),
-         {:ok, pre_hook} <- validate_hook_value("pre", Map.get(hooks, "pre")),
-         {:ok, after_hook} <- validate_hook_value("after", Map.get(hooks, "after")) do
-      {:ok, %{pre: pre_hook, after: after_hook}}
+         {:ok, pre_enabled} <- validate_hook_value("pre", Map.get(hooks, "pre")),
+         {:ok, after_enabled} <- validate_hook_value("after", Map.get(hooks, "after")) do
+      {:ok, %{pre: pre_enabled, after: after_enabled}}
     end
   end
 
-  defp validate_hook_value(_hook_name, nil), do: {:ok, nil}
-
-  defp validate_hook_value(hook_name, value) when is_binary(value) do
-    path = String.trim(value)
-
-    if path == "" do
-      {:error, {:invalid_hook_value, hook_name, :must_be_nonempty_string}}
-    else
-      validate_hook_path(hook_name, path)
-    end
-  end
+  defp validate_hook_value(_hook_name, nil), do: {:ok, false}
+  defp validate_hook_value(_hook_name, value) when is_boolean(value), do: {:ok, value}
 
   defp validate_hook_value(hook_name, _value) do
-    {:error, {:invalid_hook_value, hook_name, :must_be_string_or_nil}}
-  end
-
-  defp validate_hook_path(hook_name, path) do
-    normalized = normalize_signal_path(path)
-
-    case Validator.validate_path(normalized) do
-      {:ok, _} -> {:ok, path}
-      {:error, reason} -> {:error, {:invalid_hook_path, hook_name, path, reason}}
-    end
-  end
-
-  defp normalize_signal_path(path) do
-    path
-    |> String.replace("/", ".")
+    {:error, {:invalid_hook_value, hook_name, :must_be_boolean_or_nil}}
   end
 
   defp parse_schema(jido_config) do

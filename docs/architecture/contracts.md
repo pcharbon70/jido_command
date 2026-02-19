@@ -155,8 +155,9 @@ Any unknown key under `jido` is rejected.
 ### Hook value rules
 
 - `pre` and `after` are optional
-- each value must be a non-empty string
-- path is validated after `/` to `.` normalization against the signal router path validator
+- each value must be a boolean when provided
+- `true` enables emission of the predefined signal for that phase
+- `false` (or omitted) disables emission for that phase
 
 ### Schema field rules
 

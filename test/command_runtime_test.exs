@@ -18,25 +18,25 @@ defmodule JidoCommand.Extensibility.CommandRuntimeTest do
     start_supervised!({Bus, name: bus})
 
     {:ok, _pre} =
-      Bus.subscribe(bus, "commands.test.pre", dispatch: {:pid, target: self()})
+      Bus.subscribe(bus, "jido.hooks.pre", dispatch: {:pid, target: self()})
 
     {:ok, _after} =
-      Bus.subscribe(bus, "commands.test.after", dispatch: {:pid, target: self()})
+      Bus.subscribe(bus, "jido.hooks.after", dispatch: {:pid, target: self()})
 
     definition = %CommandDefinition{
       name: "test",
       description: "test",
-      hooks: %{pre: "commands/test/pre", after: "commands/test/after"},
+      hooks: %{pre: true, after: true},
       body: "hello {{name}}"
     }
 
     assert {:ok, result} = CommandRuntime.execute(definition, %{"name" => "Pascal"}, %{bus: bus})
     assert result["result"]["prompt"] == "hello Pascal"
 
-    assert_receive {:signal, %Signal{type: "commands.test.pre", data: pre_data}}, 1_000
+    assert_receive {:signal, %Signal{type: "jido.hooks.pre", data: pre_data}}, 1_000
     assert pre_data["status"] == "pre"
 
-    assert_receive {:signal, %Signal{type: "commands.test.after", data: after_data}}, 1_000
+    assert_receive {:signal, %Signal{type: "jido.hooks.after", data: after_data}}, 1_000
     assert after_data["status"] == "ok"
   end
 
@@ -45,12 +45,12 @@ defmodule JidoCommand.Extensibility.CommandRuntimeTest do
     start_supervised!({Bus, name: bus})
 
     {:ok, _after} =
-      Bus.subscribe(bus, "commands.test.after", dispatch: {:pid, target: self()})
+      Bus.subscribe(bus, "jido.hooks.after", dispatch: {:pid, target: self()})
 
     definition = %CommandDefinition{
       name: "test",
       description: "test",
-      hooks: %{pre: nil, after: "commands/test/after"},
+      hooks: %{pre: false, after: true},
       body: "ignored"
     }
 
@@ -60,8 +60,30 @@ defmodule JidoCommand.Extensibility.CommandRuntimeTest do
                command_executor: FailingExecutor
              })
 
-    assert_receive {:signal, %Signal{type: "commands.test.after", data: after_data}}, 1_000
+    assert_receive {:signal, %Signal{type: "jido.hooks.after", data: after_data}}, 1_000
     assert after_data["status"] == "error"
+  end
+
+  test "does not emit hooks when both hook flags are disabled" do
+    bus = unique_bus_name()
+    start_supervised!({Bus, name: bus})
+
+    {:ok, _pre} =
+      Bus.subscribe(bus, "jido.hooks.pre", dispatch: {:pid, target: self()})
+
+    {:ok, _after} =
+      Bus.subscribe(bus, "jido.hooks.after", dispatch: {:pid, target: self()})
+
+    definition = %CommandDefinition{
+      name: "test",
+      description: "test",
+      hooks: %{pre: false, after: false},
+      body: "hello"
+    }
+
+    assert {:ok, _result} = CommandRuntime.execute(definition, %{}, %{bus: bus})
+    refute_receive {:signal, %Signal{type: "jido.hooks.pre"}}, 250
+    refute_receive {:signal, %Signal{type: "jido.hooks.after"}}, 250
   end
 
   defp unique_bus_name do

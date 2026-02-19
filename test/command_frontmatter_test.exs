@@ -15,8 +15,8 @@ defmodule JidoCommand.Extensibility.CommandFrontmatterTest do
     jido:
       command_module: JidoCommand.Commands.CodeReview
       hooks:
-        pre: commands/code_review/pre
-        after: commands/code_review/after
+        pre: true
+        after: true
       schema:
         target_file:
           type: string
@@ -33,8 +33,8 @@ defmodule JidoCommand.Extensibility.CommandFrontmatterTest do
     assert definition.command_module == JidoCommand.Commands.CodeReview
     assert definition.model == "sonnet"
     assert definition.allowed_tools == ["Read", "Grep"]
-    assert definition.hooks.pre == "commands/code_review/pre"
-    assert definition.hooks.after == "commands/code_review/after"
+    assert definition.hooks.pre == true
+    assert definition.hooks.after == true
 
     assert [target_file: schema_opts] = definition.schema
     assert Keyword.get(schema_opts, :type) == :string
@@ -51,7 +51,7 @@ defmodule JidoCommand.Extensibility.CommandFrontmatterTest do
     description: bad
     jido:
       hooks:
-        before: commands/bad/pre
+        before: true
     ---
     invalid
     """
@@ -73,6 +73,20 @@ defmodule JidoCommand.Extensibility.CommandFrontmatterTest do
 
     assert {:error, {:invalid_hooks, :must_be_map}} =
              CommandFrontmatter.parse_string(markdown, "/tmp/bad_hooks_shape.md")
+  end
+
+  test "defaults hook flags to false when hooks config is absent" do
+    markdown = """
+    ---
+    name: no-hooks
+    description: no hooks
+    ---
+    body
+    """
+
+    assert {:ok, definition} = CommandFrontmatter.parse_string(markdown, "/tmp/no_hooks.md")
+    assert definition.hooks.pre == false
+    assert definition.hooks.after == false
   end
 
   test "requires non-empty name and description" do
@@ -98,7 +112,7 @@ defmodule JidoCommand.Extensibility.CommandFrontmatterTest do
              CommandFrontmatter.parse_string(missing_description, "/tmp/missing_description.md")
   end
 
-  test "rejects invalid hook signal path" do
+  test "rejects invalid hook declaration values" do
     markdown = """
     ---
     name: bad-hook-path
@@ -110,8 +124,8 @@ defmodule JidoCommand.Extensibility.CommandFrontmatterTest do
     body
     """
 
-    assert {:error, {:invalid_hook_path, "pre", "commands bad path", _reason}} =
-             CommandFrontmatter.parse_string(markdown, "/tmp/bad_hook_path.md")
+    assert {:error, {:invalid_hook_value, "pre", :must_be_boolean_or_nil}} =
+             CommandFrontmatter.parse_string(markdown, "/tmp/bad_hook_value.md")
   end
 
   test "rejects unknown jido keys" do

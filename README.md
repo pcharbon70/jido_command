@@ -32,8 +32,8 @@ description: Review changed files
 allowed-tools: Read, Grep
 jido:
   hooks:
-    pre: commands.code_review.pre
-    after: commands.code_review.after
+    pre: true
+    after: true
 ---
 Review {{target_file}} and summarize findings.
 ```
