@@ -4,11 +4,56 @@ set -euo pipefail
 ROOT_DIR="$(git rev-parse --show-toplevel)"
 cd "$ROOT_DIR"
 
-if command -v asdf >/dev/null 2>&1; then
-  MIX_CMD=(asdf exec mix)
-else
-  MIX_CMD=(mix)
-fi
+declare -a MIX_CMD
+
+bootstrap_asdf() {
+  if [ -d "$HOME/.asdf/bin" ]; then
+    export PATH="$HOME/.asdf/bin:$PATH"
+  fi
+
+  if [ -d "$HOME/.asdf/shims" ]; then
+    export PATH="$HOME/.asdf/shims:$PATH"
+  fi
+
+  if [ -x "/opt/homebrew/bin/asdf" ]; then
+    export PATH="/opt/homebrew/bin:$PATH"
+  fi
+
+  if command -v asdf >/dev/null 2>&1; then
+    return
+  fi
+
+  local asdf_script
+
+  for asdf_script in \
+    "/opt/homebrew/opt/asdf/libexec/asdf.sh" \
+    "$HOME/.asdf/asdf.sh" \
+    "$HOME/.asdf/libexec/asdf.sh"; do
+    if [ -f "$asdf_script" ]; then
+      # shellcheck source=/dev/null
+      source "$asdf_script"
+      break
+    fi
+  done
+}
+
+select_mix_cmd() {
+  if command -v asdf >/dev/null 2>&1; then
+    MIX_CMD=(asdf exec mix)
+    return
+  fi
+
+  if command -v mix >/dev/null 2>&1; then
+    MIX_CMD=(mix)
+    return
+  fi
+
+  echo "[pre-commit] Could not find mix/asdf. Install Elixir tooling first." >&2
+  exit 1
+}
+
+bootstrap_asdf
+select_mix_cmd
 
 run_check() {
   local label="$1"
