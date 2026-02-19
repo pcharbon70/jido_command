@@ -38,6 +38,20 @@ defmodule JidoCommandTest do
     assert data["invocation_id"] == invocation_id
   end
 
+  test "dispatch rejects invalid name, params, and context before publishing" do
+    bus = unique_bus_name()
+    start_supervised!({Bus, name: bus})
+
+    {:ok, _subscription} =
+      Bus.subscribe(bus, "command.invoke", dispatch: {:pid, target: self()})
+
+    assert {:error, :invalid_name} = JidoCommand.dispatch("   ", %{}, %{}, bus: bus)
+    assert {:error, :invalid_params} = JidoCommand.dispatch("demo", [], %{}, bus: bus)
+    assert {:error, :invalid_context} = JidoCommand.dispatch("demo", %{}, [], bus: bus)
+
+    refute_receive {:signal, %Signal{type: "command.invoke"}}, 250
+  end
+
   test "reload refreshes registry command index" do
     root = tmp_root("reload")
     global_root = Path.join(root, "global")
@@ -214,6 +228,12 @@ defmodule JidoCommandTest do
     invocation_id = result["invocation_id"]
     assert is_binary(invocation_id)
     assert invocation_id != ""
+  end
+
+  test "invoke rejects invalid name, params, and context" do
+    assert {:error, :invalid_name} = JidoCommand.invoke("   ", %{}, %{})
+    assert {:error, :invalid_params} = JidoCommand.invoke("review", [], %{})
+    assert {:error, :invalid_context} = JidoCommand.invoke("review", %{}, [])
   end
 
   test "unregister_command removes a command from registry" do

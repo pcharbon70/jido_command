@@ -14,7 +14,7 @@ defmodule JidoCommand do
   end
 
   @spec invoke(String.t(), map(), map(), keyword()) :: {:ok, map()} | {:error, term()}
-  def invoke(name, params \\ %{}, context \\ %{}, opts \\ []) when is_binary(name) do
+  def invoke(name, params \\ %{}, context \\ %{}, opts \\ []) do
     registry = Keyword.get(opts, :registry, CommandRegistry)
     bus = Keyword.get(opts, :bus, :jido_code_bus)
 
@@ -23,7 +23,10 @@ defmodule JidoCommand do
 
     permissions = normalize_permissions(Keyword.get(opts, :permissions))
 
-    with {:ok, module} <- CommandRegistry.get_command(name, registry) do
+    with {:ok, normalized_name} <- validate_command_name(name),
+         :ok <- validate_map_arg(params, :invalid_params),
+         :ok <- validate_map_arg(context, :invalid_context),
+         {:ok, module} <- CommandRegistry.get_command(normalized_name, registry) do
       run_context =
         context
         |> Map.put_new(:bus, bus)
@@ -36,20 +39,26 @@ defmodule JidoCommand do
   end
 
   @spec dispatch(String.t(), map(), map(), keyword()) :: {:ok, String.t()} | {:error, term()}
-  def dispatch(name, params \\ %{}, context \\ %{}, opts \\ []) when is_binary(name) do
+  def dispatch(name, params \\ %{}, context \\ %{}, opts \\ []) do
     bus = Keyword.get(opts, :bus, :jido_code_bus)
 
     invocation_id =
       normalize_invocation_id(Keyword.get(opts, :invocation_id), default_invocation_id())
 
-    payload = %{
-      "name" => name,
-      "params" => params,
-      "context" => context,
-      "invocation_id" => invocation_id
-    }
-
-    with {:ok, signal} <- Signal.new("command.invoke", payload, source: "/jido_command"),
+    with {:ok, normalized_name} <- validate_command_name(name),
+         :ok <- validate_map_arg(params, :invalid_params),
+         :ok <- validate_map_arg(context, :invalid_context),
+         {:ok, signal} <-
+           Signal.new(
+             "command.invoke",
+             %{
+               "name" => normalized_name,
+               "params" => params,
+               "context" => context,
+               "invocation_id" => invocation_id
+             },
+             source: "/jido_command"
+           ),
          {:ok, _recorded} <- Bus.publish(bus, [signal]) do
       {:ok, invocation_id}
     end
@@ -95,6 +104,21 @@ defmodule JidoCommand do
 
   defp maybe_put_permissions(context, permissions),
     do: Map.put(context, :permissions, permissions)
+
+  defp validate_command_name(value) when is_binary(value) do
+    trimmed = String.trim(value)
+
+    if trimmed == "" do
+      {:error, :invalid_name}
+    else
+      {:ok, trimmed}
+    end
+  end
+
+  defp validate_command_name(_), do: {:error, :invalid_name}
+
+  defp validate_map_arg(value, _error_tag) when is_map(value), do: :ok
+  defp validate_map_arg(_value, error_tag), do: {:error, error_tag}
 
   defp normalize_invocation_id(value, fallback) when is_binary(value) do
     trimmed = String.trim(value)
