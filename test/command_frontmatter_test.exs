@@ -143,6 +143,36 @@ defmodule JidoCommand.Extensibility.CommandFrontmatterTest do
              CommandFrontmatter.parse_string(markdown, "/tmp/bad_jido.md")
   end
 
+  test "rejects unknown top-level frontmatter keys" do
+    markdown = """
+    ---
+    name: unknown-top-level
+    description: bad
+    foo: bar
+    ---
+    body
+    """
+
+    assert {:error, {:invalid_frontmatter_keys, {:unknown_keys, ["foo"]}}} =
+             CommandFrontmatter.parse_string(markdown, "/tmp/bad_frontmatter_top_keys.md")
+  end
+
+  test "supports allowed_tools alias at top-level frontmatter" do
+    markdown = """
+    ---
+    name: alias-tools
+    description: alias
+    allowed_tools:
+      - Read
+      - Write
+    ---
+    body
+    """
+
+    assert {:ok, definition} = CommandFrontmatter.parse_string(markdown, "/tmp/alias_tools.md")
+    assert definition.allowed_tools == ["Read", "Write"]
+  end
+
   test "rejects unknown schema options and invalid required/default combinations" do
     unknown_schema_option = """
     ---

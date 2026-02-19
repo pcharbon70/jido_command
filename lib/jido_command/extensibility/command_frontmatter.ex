@@ -7,6 +7,14 @@ defmodule JidoCommand.Extensibility.CommandFrontmatter do
 
   @frontmatter_regex ~r/\A---\s*\n(?<frontmatter>.*?)\n---\s*\n(?<body>.*)\z/s
 
+  @allowed_frontmatter_keys [
+    "name",
+    "description",
+    "model",
+    "allowed-tools",
+    "allowed_tools",
+    "jido"
+  ]
   @allowed_hook_keys ["pre", "after"]
   @allowed_jido_keys ["command_module", "schema", "hooks"]
   @allowed_schema_option_keys ["type", "required", "doc", "default"]
@@ -48,7 +56,9 @@ defmodule JidoCommand.Extensibility.CommandFrontmatter do
   end
 
   defp build_definition(metadata, body, source_path) do
-    with {:ok, name} <- parse_required_nonempty_string(metadata, "name"),
+    with :ok <-
+           validate_allowed_keys(metadata, @allowed_frontmatter_keys, :invalid_frontmatter_keys),
+         {:ok, name} <- parse_required_nonempty_string(metadata, "name"),
          {:ok, description} <- parse_required_nonempty_string(metadata, "description"),
          {:ok, model} <- parse_optional_string(metadata, "model"),
          {:ok, allowed_tools} <- parse_allowed_tools(metadata),
@@ -361,7 +371,11 @@ defmodule JidoCommand.Extensibility.CommandFrontmatter do
   defp normalize_map(map) when is_map(map), do: stringify_keys(map)
 
   defp validate_allowed_keys(map, allowed_keys, error_tag) do
-    unknown_keys = map |> Map.keys() |> Enum.reject(&(&1 in allowed_keys))
+    unknown_keys =
+      map
+      |> Map.keys()
+      |> Enum.reject(&(&1 in allowed_keys))
+      |> Enum.sort()
 
     if unknown_keys == [] do
       :ok
