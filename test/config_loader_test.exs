@@ -275,6 +275,48 @@ defmodule JidoCommand.Config.LoaderTest do
              Loader.load(global_root: global, local_root: local)
   end
 
+  test "returns invalid_settings for blank commands.default_model" do
+    root = tmp_root()
+    global = Path.join(root, "global")
+    local = Path.join(root, "local")
+
+    File.mkdir_p!(global)
+    File.mkdir_p!(local)
+
+    File.write!(
+      Path.join(local, "settings.json"),
+      Jason.encode!(%{
+        "commands" => %{
+          "default_model" => "   "
+        }
+      })
+    )
+
+    assert {:error, {:invalid_settings, {:invalid_default_model, :must_be_nonempty_string}}} =
+             Loader.load(global_root: global, local_root: local)
+  end
+
+  test "returns invalid_settings for non-string commands.default_model" do
+    root = tmp_root()
+    global = Path.join(root, "global")
+    local = Path.join(root, "local")
+
+    File.mkdir_p!(global)
+    File.mkdir_p!(local)
+
+    File.write!(
+      Path.join(local, "settings.json"),
+      Jason.encode!(%{
+        "commands" => %{
+          "default_model" => 123
+        }
+      })
+    )
+
+    assert {:error, {:invalid_settings, {:invalid_default_model, :must_be_nonempty_string}}} =
+             Loader.load(global_root: global, local_root: local)
+  end
+
   test "returns invalid_settings for invalid $schema value" do
     root = tmp_root()
     global = Path.join(root, "global")

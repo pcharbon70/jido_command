@@ -148,7 +148,11 @@ defmodule JidoCommand.Config.Settings do
   defp to_positive_integer(value, _fallback) when is_integer(value) and value > 0, do: value
   defp to_positive_integer(_, fallback), do: fallback
 
-  defp parse_default_model(value) when is_binary(value), do: value
+  defp parse_default_model(value) when is_binary(value) do
+    trimmed = String.trim(value)
+    if trimmed == "", do: nil, else: trimmed
+  end
+
   defp parse_default_model(_), do: nil
 
   defp parse_permissions(permissions, key) when is_map(permissions) and is_binary(key) do
@@ -308,8 +312,16 @@ defmodule JidoCommand.Config.Settings do
   defp validate_commands(_), do: {:error, {:invalid_commands, :must_be_map}}
 
   defp validate_default_model(nil), do: :ok
-  defp validate_default_model(model) when is_binary(model), do: :ok
-  defp validate_default_model(_), do: {:error, {:invalid_default_model, :must_be_string}}
+
+  defp validate_default_model(model) when is_binary(model) do
+    if String.trim(model) == "" do
+      {:error, {:invalid_default_model, :must_be_nonempty_string}}
+    else
+      :ok
+    end
+  end
+
+  defp validate_default_model(_), do: {:error, {:invalid_default_model, :must_be_nonempty_string}}
 
   defp validate_max_concurrent(nil), do: :ok
   defp validate_max_concurrent(value) when is_integer(value) and value > 0, do: :ok

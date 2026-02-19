@@ -104,7 +104,7 @@ mix run -e 'JidoCommand.CLI.main(["unregister-command", "review"])'
 - `permissions.allow` (list of capability strings)
 - `permissions.deny` (list of capability strings)
 - `permissions.ask` (list of capability strings)
-- `commands.default_model` (fallback model when a command omits `model`)
+- `commands.default_model` (non-empty fallback model string when a command omits `model`)
 - `commands.max_concurrent` (max in-flight command executions in dispatcher)
 
 Unknown top-level settings keys and unknown nested keys under `signal_bus`, `permissions`, and `commands` are rejected at load time.
