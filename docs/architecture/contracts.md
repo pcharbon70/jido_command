@@ -134,6 +134,8 @@ Optional data fields by operation:
 Registry validation rule:
 
 - `register_command` rejects blank command paths with `invalid_path`
+- `register_command` rejects non-string command paths with `invalid_path`
+- `unregister_command` rejects blank or non-string command names with `invalid_name`
 
 Public API validation rules:
 

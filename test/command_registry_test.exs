@@ -466,6 +466,35 @@ defmodule JidoCommand.Extensibility.CommandRegistryTest do
     assert data["error"] == "invalid_path"
   end
 
+  test "register_command returns invalid_path for non-string command path" do
+    root = tmp_root()
+    global_root = Path.join(root, "global")
+    local_root = Path.join(root, "local")
+
+    File.mkdir_p!(Path.join(global_root, "commands"))
+    File.mkdir_p!(Path.join(local_root, "commands"))
+
+    bus = unique_bus_name()
+    registry = unique_registry_name()
+
+    start_supervised!({Bus, name: bus})
+
+    {:ok, _subscription} =
+      Bus.subscribe(bus, "command.registry.failed", dispatch: {:pid, target: self()})
+
+    start_supervised!(
+      {CommandRegistry,
+       name: registry, bus: bus, global_root: global_root, local_root: local_root}
+    )
+
+    assert {:error, :invalid_path} = CommandRegistry.register_command(123, registry)
+
+    assert_receive {:signal, %Signal{type: "command.registry.failed", data: data}}, 1_000
+    assert data["operation"] == "register"
+    assert data["path"] == "123"
+    assert data["error"] == "invalid_path"
+  end
+
   test "unregister_command removes an existing command" do
     root = tmp_root()
     global_root = Path.join(root, "global")
@@ -557,6 +586,35 @@ defmodule JidoCommand.Extensibility.CommandRegistryTest do
     assert_receive {:signal, %Signal{type: "command.registry.failed", data: data}}, 1_000
     assert data["operation"] == "unregister"
     assert data["name"] == "   "
+    assert data["error"] == "invalid_name"
+  end
+
+  test "unregister_command returns invalid_name for non-string command name" do
+    root = tmp_root()
+    global_root = Path.join(root, "global")
+    local_root = Path.join(root, "local")
+
+    File.mkdir_p!(Path.join(global_root, "commands"))
+    File.mkdir_p!(Path.join(local_root, "commands"))
+
+    bus = unique_bus_name()
+    registry = unique_registry_name()
+
+    start_supervised!({Bus, name: bus})
+
+    {:ok, _subscription} =
+      Bus.subscribe(bus, "command.registry.failed", dispatch: {:pid, target: self()})
+
+    start_supervised!(
+      {CommandRegistry,
+       name: registry, bus: bus, global_root: global_root, local_root: local_root}
+    )
+
+    assert {:error, :invalid_name} = CommandRegistry.unregister_command(123, registry)
+
+    assert_receive {:signal, %Signal{type: "command.registry.failed", data: data}}, 1_000
+    assert data["operation"] == "unregister"
+    assert data["name"] == "123"
     assert data["error"] == "invalid_name"
   end
 

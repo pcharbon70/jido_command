@@ -46,12 +46,12 @@ defmodule JidoCommand.Extensibility.CommandRegistry do
   end
 
   @spec register_command(String.t(), GenServer.server()) :: :ok | {:error, term()}
-  def register_command(command_path, server \\ __MODULE__) when is_binary(command_path) do
+  def register_command(command_path, server \\ __MODULE__) do
     GenServer.call(server, {:register_command, command_path})
   end
 
   @spec unregister_command(String.t(), GenServer.server()) :: :ok | {:error, term()}
-  def unregister_command(command_name, server \\ __MODULE__) when is_binary(command_name) do
+  def unregister_command(command_name, server \\ __MODULE__) do
     GenServer.call(server, {:unregister_command, command_name})
   end
 
@@ -125,19 +125,25 @@ defmodule JidoCommand.Extensibility.CommandRegistry do
         handle_register_path(normalized_path, state)
 
       {:error, :invalid_path} ->
-        emit_failure_signal(state, "register", :invalid_path, %{"path" => command_path})
+        emit_failure_signal(state, "register", :invalid_path, %{
+          "path" => format_failure_field(command_path)
+        })
+
         {:reply, {:error, :invalid_path}, state}
     end
   end
 
   def handle_call({:unregister_command, command_name}, _from, state) do
-    normalized_name = String.trim(command_name)
+    case normalize_unregister_name(command_name) do
+      {:ok, normalized_name} ->
+        handle_unregister_existing(normalized_name, state)
 
-    if normalized_name == "" do
-      emit_failure_signal(state, "unregister", :invalid_name, %{"name" => command_name})
-      {:reply, {:error, :invalid_name}, state}
-    else
-      handle_unregister_existing(normalized_name, state)
+      {:error, :invalid_name} ->
+        emit_failure_signal(state, "unregister", :invalid_name, %{
+          "name" => format_failure_field(command_name)
+        })
+
+        {:reply, {:error, :invalid_name}, state}
     end
   end
 
@@ -298,6 +304,23 @@ defmodule JidoCommand.Extensibility.CommandRegistry do
       {:ok, trimmed}
     end
   end
+
+  defp normalize_register_path(_value), do: {:error, :invalid_path}
+
+  defp normalize_unregister_name(value) when is_binary(value) do
+    trimmed = String.trim(value)
+
+    if trimmed == "" do
+      {:error, :invalid_name}
+    else
+      {:ok, trimmed}
+    end
+  end
+
+  defp normalize_unregister_name(_value), do: {:error, :invalid_name}
+
+  defp format_failure_field(value) when is_binary(value), do: value
+  defp format_failure_field(value), do: inspect(value)
 
   defp parse_default_model(value) when is_binary(value) do
     trimmed = String.trim(value)
