@@ -192,7 +192,7 @@ Markdown command declarations must include YAML frontmatter with these required 
 
 Optional keys:
 
-- `model` (string)
+- `model` (non-empty string)
 - `allowed-tools` / `allowed_tools` (comma string or list of strings/atoms)
 - `jido` (map)
 
