@@ -204,3 +204,4 @@ Any unknown key under `jido` is rejected.
 - unknown schema option keys are rejected
 - `required: true` cannot be combined with `default`
 - when `default` is provided, its value must match the declared `type`
+- atom defaults declared as YAML strings are normalized to atoms in the compiled schema

@@ -271,6 +271,6 @@ defmodule JidoCommand.Extensibility.CommandFrontmatterTest do
     assert Keyword.get(schema.bool_field, :default) == true
     assert Keyword.get(schema.map_field, :default) == %{"key" => "value"}
     assert Keyword.get(schema.list_field, :default) == ["a", "b"]
-    assert Keyword.get(schema.atom_field, :default) == "ready_state"
+    assert Keyword.get(schema.atom_field, :default) == :ready_state
   end
 end
