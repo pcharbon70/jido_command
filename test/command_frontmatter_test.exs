@@ -207,4 +207,70 @@ defmodule JidoCommand.Extensibility.CommandFrontmatterTest do
     assert {:error, {:invalid_schema_default, "sample", :required_cannot_define_default}} =
              CommandFrontmatter.parse_string(required_with_default, "/tmp/bad_schema_default.md")
   end
+
+  test "rejects schema defaults that do not match declared type" do
+    markdown = """
+    ---
+    name: bad-default-type
+    description: bad
+    jido:
+      schema:
+        retries:
+          type: integer
+          default: "three"
+    ---
+    body
+    """
+
+    assert {:error, {:invalid_schema_default_type, "retries", :integer}} =
+             CommandFrontmatter.parse_string(markdown, "/tmp/bad_schema_default_type.md")
+  end
+
+  test "accepts schema defaults when value matches declared type" do
+    markdown = """
+    ---
+    name: valid-default-types
+    description: good
+    jido:
+      schema:
+        str_field:
+          type: string
+          default: ok
+        int_field:
+          type: integer
+          default: 5
+        float_field:
+          type: float
+          default: 1.5
+        bool_field:
+          type: boolean
+          default: true
+        map_field:
+          type: map
+          default:
+            key: value
+        list_field:
+          type: list
+          default:
+            - a
+            - b
+        atom_field:
+          type: atom
+          default: ready_state
+    ---
+    body
+    """
+
+    assert {:ok, definition} =
+             CommandFrontmatter.parse_string(markdown, "/tmp/good_schema_default_type.md")
+
+    schema = Map.new(definition.schema)
+    assert Keyword.get(schema.str_field, :default) == "ok"
+    assert Keyword.get(schema.int_field, :default) == 5
+    assert Keyword.get(schema.float_field, :default) == 1.5
+    assert Keyword.get(schema.bool_field, :default) == true
+    assert Keyword.get(schema.map_field, :default) == %{"key" => "value"}
+    assert Keyword.get(schema.list_field, :default) == ["a", "b"]
+    assert Keyword.get(schema.atom_field, :default) == "ready_state"
+  end
 end

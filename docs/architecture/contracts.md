@@ -193,3 +193,4 @@ Any unknown key under `jido` is rejected.
 - supported schema option keys: `type`, `required`, `doc`, `default`
 - unknown schema option keys are rejected
 - `required: true` cannot be combined with `default`
+- when `default` is provided, its value must match the declared `type`
