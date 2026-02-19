@@ -34,6 +34,8 @@ Invalid payloads are rejected and result in a `command.failed` signal with a val
 
 Implemented runtime keys:
 
+- `$schema` (optional)
+- `version` (optional)
 - `signal_bus.name`
 - `signal_bus.middleware`
 - `permissions.allow` (list of strings/atoms)
@@ -48,6 +50,9 @@ Validation rules:
 
 - unknown top-level settings keys are rejected
 - unknown keys under `signal_bus`, `permissions`, and `commands` are rejected
+- `$schema` must be a non-empty string when provided
+- `version` must be a valid SemVer string when provided
+- `signal_bus.name` must be a string/atom when provided
 - `commands.max_concurrent` must be a positive integer when provided
 - permission entries must be strings/atoms (or a comma-delimited string)
 

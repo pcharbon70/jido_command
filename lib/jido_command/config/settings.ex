@@ -50,6 +50,8 @@ defmodule JidoCommand.Config.Settings do
     |> chain_validate(fn ->
       validate_allowed_keys(map, @allowed_settings_keys, :invalid_settings_keys)
     end)
+    |> chain_validate(fn -> validate_schema_url(Map.get(map, "$schema")) end)
+    |> chain_validate(fn -> validate_version(Map.get(map, "version")) end)
     |> chain_validate(fn -> validate_signal_bus(Map.get(map, "signal_bus")) end)
     |> chain_validate(fn -> validate_permissions(Map.get(map, "permissions")) end)
     |> chain_validate(fn -> validate_commands(Map.get(map, "commands")) end)
@@ -189,6 +191,7 @@ defmodule JidoCommand.Config.Settings do
     |> chain_validate(fn ->
       validate_allowed_keys(signal_bus, @allowed_signal_bus_keys, :invalid_signal_bus_keys)
     end)
+    |> chain_validate(fn -> validate_signal_bus_name(Map.get(signal_bus, "name")) end)
     |> chain_validate(fn -> validate_signal_bus_middleware(Map.get(signal_bus, "middleware")) end)
   end
 
@@ -291,6 +294,37 @@ defmodule JidoCommand.Config.Settings do
 
   defp validate_max_concurrent(_),
     do: {:error, {:invalid_max_concurrent, :must_be_positive_integer}}
+
+  defp validate_schema_url(nil), do: :ok
+
+  defp validate_schema_url(value) when is_binary(value) do
+    if String.trim(value) == "" do
+      {:error, {:invalid_schema_url, :must_be_nonempty_string}}
+    else
+      :ok
+    end
+  end
+
+  defp validate_schema_url(_), do: {:error, {:invalid_schema_url, :must_be_nonempty_string}}
+
+  defp validate_version(nil), do: :ok
+
+  defp validate_version(value) when is_binary(value) do
+    if Regex.match?(~r/^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$/, String.trim(value)) do
+      :ok
+    else
+      {:error, {:invalid_version, :must_be_semver}}
+    end
+  end
+
+  defp validate_version(_), do: {:error, {:invalid_version, :must_be_semver}}
+
+  defp validate_signal_bus_name(nil), do: :ok
+  defp validate_signal_bus_name(value) when is_binary(value), do: :ok
+  defp validate_signal_bus_name(value) when is_atom(value), do: :ok
+
+  defp validate_signal_bus_name(_),
+    do: {:error, {:invalid_signal_bus_name, :must_be_string_or_atom}}
 
   defp validate_allowed_keys(map, allowed_keys, tag) when is_map(map) do
     unknown_keys =

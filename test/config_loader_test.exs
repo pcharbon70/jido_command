@@ -223,6 +223,83 @@ defmodule JidoCommand.Config.LoaderTest do
              Loader.load(global_root: global, local_root: local)
   end
 
+  test "returns invalid_settings for invalid $schema value" do
+    root = tmp_root()
+    global = Path.join(root, "global")
+    local = Path.join(root, "local")
+
+    File.mkdir_p!(global)
+    File.mkdir_p!(local)
+
+    File.write!(
+      Path.join(local, "settings.json"),
+      Jason.encode!(%{
+        "$schema" => ""
+      })
+    )
+
+    assert {:error, {:invalid_settings, {:invalid_schema_url, :must_be_nonempty_string}}} =
+             Loader.load(global_root: global, local_root: local)
+  end
+
+  test "returns invalid_settings for invalid version value" do
+    root = tmp_root()
+    global = Path.join(root, "global")
+    local = Path.join(root, "local")
+
+    File.mkdir_p!(global)
+    File.mkdir_p!(local)
+
+    File.write!(
+      Path.join(local, "settings.json"),
+      Jason.encode!(%{
+        "version" => "2"
+      })
+    )
+
+    assert {:error, {:invalid_settings, {:invalid_version, :must_be_semver}}} =
+             Loader.load(global_root: global, local_root: local)
+  end
+
+  test "accepts semver version with prerelease metadata" do
+    root = tmp_root()
+    global = Path.join(root, "global")
+    local = Path.join(root, "local")
+
+    File.mkdir_p!(global)
+    File.mkdir_p!(local)
+
+    File.write!(
+      Path.join(local, "settings.json"),
+      Jason.encode!(%{
+        "version" => "2.0.0-rc.1+build.5"
+      })
+    )
+
+    assert {:ok, _settings} = Loader.load(global_root: global, local_root: local)
+  end
+
+  test "returns invalid_settings for invalid signal_bus.name type" do
+    root = tmp_root()
+    global = Path.join(root, "global")
+    local = Path.join(root, "local")
+
+    File.mkdir_p!(global)
+    File.mkdir_p!(local)
+
+    File.write!(
+      Path.join(local, "settings.json"),
+      Jason.encode!(%{
+        "signal_bus" => %{
+          "name" => 123
+        }
+      })
+    )
+
+    assert {:error, {:invalid_settings, {:invalid_signal_bus_name, :must_be_string_or_atom}}} =
+             Loader.load(global_root: global, local_root: local)
+  end
+
   defp tmp_root do
     path =
       Path.join(
