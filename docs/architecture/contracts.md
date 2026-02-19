@@ -144,6 +144,8 @@ Optional keys:
 - `allowed-tools` / `allowed_tools` (comma string or list of strings/atoms)
 - `jido` (map)
 
+Any unknown top-level FrontMatter key is rejected.
+
 ### `jido` allowed keys
 
 - `command_module` (Elixir module string, e.g. `MyApp.Commands.Run`)
