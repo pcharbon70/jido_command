@@ -15,7 +15,11 @@ defmodule JidoCommand.Extensibility.CommandRuntime do
 
   @spec execute(CommandDefinition.t(), map(), map()) :: execute_result()
   def execute(%CommandDefinition{} = definition, params, context) when is_map(params) do
-    invocation_id = Map.get(context, :invocation_id, default_invocation_id())
+    invocation_id =
+      context
+      |> context_invocation_id()
+      |> normalize_invocation_id(default_invocation_id())
+
     started_ms = System.monotonic_time(:millisecond)
 
     emit_hook(definition.hooks.pre, @pre_hook_signal, definition, params, context, %{
@@ -105,6 +109,15 @@ defmodule JidoCommand.Extensibility.CommandRuntime do
 
   defp emit_hook(_invalid_type, _type, _definition, _params, _context, _metadata), do: :ok
 
+  defp context_invocation_id(context) when is_map(context) do
+    case Map.fetch(context, :invocation_id) do
+      {:ok, value} -> value
+      :error -> Map.get(context, "invocation_id")
+    end
+  end
+
+  defp context_invocation_id(_), do: nil
+
   defp interpolate_template(template, params) when is_binary(template) and is_map(params) do
     Enum.reduce(params, template, fn {key, value}, acc ->
       placeholder = "{{#{key}}}"
@@ -117,6 +130,13 @@ defmodule JidoCommand.Extensibility.CommandRuntime do
   defp render_value(value) when is_binary(value), do: value
   defp render_value(value) when is_atom(value), do: Atom.to_string(value)
   defp render_value(value), do: inspect(value)
+
+  defp normalize_invocation_id(value, fallback) when is_binary(value) do
+    trimmed = String.trim(value)
+    if trimmed == "", do: fallback, else: trimmed
+  end
+
+  defp normalize_invocation_id(_value, fallback), do: fallback
 
   defp default_invocation_id do
     Integer.to_string(System.unique_integer([:positive, :monotonic]))

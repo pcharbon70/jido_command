@@ -54,6 +54,38 @@ defmodule JidoCommand.Extensibility.CommandRuntimeTest do
     assert after_data["status"] == "ok"
   end
 
+  test "normalizes invalid invocation_id values for runtime result and hooks" do
+    bus = unique_bus_name()
+    start_supervised!({Bus, name: bus})
+
+    {:ok, _pre} =
+      Bus.subscribe(bus, "jido.hooks.pre", dispatch: {:pid, target: self()})
+
+    {:ok, _after} =
+      Bus.subscribe(bus, "jido.hooks.after", dispatch: {:pid, target: self()})
+
+    definition = %CommandDefinition{
+      name: "test",
+      description: "test",
+      hooks: %{pre: true, after: true},
+      body: "hello"
+    }
+
+    assert {:ok, result} =
+             CommandRuntime.execute(definition, %{}, %{bus: bus, invocation_id: 123})
+
+    invocation_id = result["invocation_id"]
+    assert is_binary(invocation_id)
+    assert invocation_id != ""
+
+    assert_receive {:signal, %Signal{type: "jido.hooks.pre", data: pre_data}}, 1_000
+    assert pre_data["invocation_id"] == invocation_id
+
+    assert_receive {:signal, %Signal{type: "jido.hooks.after", data: after_data}}, 1_000
+    assert after_data["invocation_id"] == invocation_id
+    assert after_data["status"] == "ok"
+  end
+
   test "emits after hook on error" do
     bus = unique_bus_name()
     start_supervised!({Bus, name: bus})

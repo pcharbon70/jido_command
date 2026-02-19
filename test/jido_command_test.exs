@@ -21,6 +21,23 @@ defmodule JidoCommandTest do
     assert data["invocation_id"] == invocation_id
   end
 
+  test "dispatch normalizes invalid invocation_id option to a generated id" do
+    bus = unique_bus_name()
+    start_supervised!({Bus, name: bus})
+
+    {:ok, _subscription} =
+      Bus.subscribe(bus, "command.invoke", dispatch: {:pid, target: self()})
+
+    assert {:ok, invocation_id} =
+             JidoCommand.dispatch("demo", %{"x" => 1}, %{}, bus: bus, invocation_id: 123)
+
+    assert is_binary(invocation_id)
+    assert invocation_id != ""
+
+    assert_receive {:signal, %Signal{type: "command.invoke", data: data}}, 1_000
+    assert data["invocation_id"] == invocation_id
+  end
+
   test "reload refreshes registry command index" do
     root = tmp_root("reload")
     global_root = Path.join(root, "global")
@@ -152,6 +169,51 @@ defmodule JidoCommandTest do
              )
 
     assert result["result"]["permissions"] == permissions
+  end
+
+  test "invoke normalizes invalid invocation_id in options and context" do
+    root = tmp_root("invoke_invocation_id")
+    global_root = Path.join(root, "global")
+    local_root = Path.join(root, "local")
+    local_commands_dir = Path.join(local_root, "commands")
+
+    File.mkdir_p!(Path.join(global_root, "commands"))
+    File.mkdir_p!(local_commands_dir)
+
+    File.write!(
+      Path.join(local_commands_dir, "review.md"),
+      """
+      ---
+      name: review
+      description: review command
+      ---
+      review
+      """
+    )
+
+    bus = unique_bus_name()
+    registry = unique_registry_name()
+
+    start_supervised!({Bus, name: bus})
+
+    start_supervised!(
+      {CommandRegistry,
+       name: registry, bus: bus, global_root: global_root, local_root: local_root}
+    )
+
+    assert {:ok, result} =
+             JidoCommand.invoke(
+               "review",
+               %{},
+               %{invocation_id: 123},
+               registry: registry,
+               bus: bus,
+               invocation_id: ""
+             )
+
+    invocation_id = result["invocation_id"]
+    assert is_binary(invocation_id)
+    assert invocation_id != ""
   end
 
   test "unregister_command removes a command from registry" do
