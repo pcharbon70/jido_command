@@ -274,7 +274,8 @@ defmodule JidoCommand.Extensibility.CommandFrontmatter do
          {:ok, required} <- parse_schema_required(field_name, spec_map),
          {:ok, doc} <- parse_schema_doc(field_name, spec_map),
          {:ok, default} <- parse_schema_default(spec_map),
-         :ok <- validate_required_default(field_name, required, default) do
+         :ok <- validate_required_default(field_name, required, default),
+         :ok <- validate_default_type(field_name, type, default) do
       opts = [type: type, required: required]
       opts = if is_binary(doc), do: Keyword.put(opts, :doc, doc), else: opts
       opts = if default == :__missing__, do: opts, else: Keyword.put(opts, :default, default)
@@ -350,6 +351,33 @@ defmodule JidoCommand.Extensibility.CommandFrontmatter do
   end
 
   defp validate_required_default(_field_name, _required, _default), do: :ok
+
+  defp validate_default_type(_field_name, _type, :__missing__), do: :ok
+
+  defp validate_default_type(_field_name, :string, default) when is_binary(default), do: :ok
+  defp validate_default_type(_field_name, :integer, default) when is_integer(default), do: :ok
+  defp validate_default_type(_field_name, :float, default) when is_float(default), do: :ok
+  defp validate_default_type(_field_name, :float, default) when is_integer(default), do: :ok
+  defp validate_default_type(_field_name, :boolean, default) when is_boolean(default), do: :ok
+  defp validate_default_type(_field_name, :map, default) when is_map(default), do: :ok
+  defp validate_default_type(_field_name, :list, default) when is_list(default), do: :ok
+  defp validate_default_type(_field_name, :atom, default) when is_atom(default), do: :ok
+
+  defp validate_default_type(field_name, :atom, default) when is_binary(default) do
+    if valid_atom_literal?(default) do
+      :ok
+    else
+      {:error, {:invalid_schema_default_type, field_name, :atom}}
+    end
+  end
+
+  defp validate_default_type(field_name, type, _default) do
+    {:error, {:invalid_schema_default_type, field_name, type}}
+  end
+
+  defp valid_atom_literal?(value) when is_binary(value) do
+    Regex.match?(~r/^[a-z][a-zA-Z0-9_]*$/, String.trim(value))
+  end
 
   defp to_type_atom(value) when is_atom(value), do: value
 
