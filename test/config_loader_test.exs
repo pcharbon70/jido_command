@@ -172,7 +172,7 @@ defmodule JidoCommand.Config.LoaderTest do
              Loader.load(global_root: global, local_root: local)
   end
 
-  test "falls back to default bus name when configured bus name is blank" do
+  test "returns invalid_settings for blank signal_bus.name" do
     root = tmp_root()
     global = Path.join(root, "global")
     local = Path.join(root, "local")
@@ -187,8 +187,9 @@ defmodule JidoCommand.Config.LoaderTest do
       })
     )
 
-    assert {:ok, settings} = Loader.load(global_root: global, local_root: local)
-    assert settings.bus_name == :jido_code_bus
+    assert {:error,
+            {:invalid_settings, {:invalid_signal_bus_name, :must_be_nonempty_string_or_atom}}} =
+             Loader.load(global_root: global, local_root: local)
   end
 
   test "returns invalid_settings for unknown top-level settings keys" do
@@ -390,7 +391,8 @@ defmodule JidoCommand.Config.LoaderTest do
       })
     )
 
-    assert {:error, {:invalid_settings, {:invalid_signal_bus_name, :must_be_string_or_atom}}} =
+    assert {:error,
+            {:invalid_settings, {:invalid_signal_bus_name, :must_be_nonempty_string_or_atom}}} =
              Loader.load(global_root: global, local_root: local)
   end
 

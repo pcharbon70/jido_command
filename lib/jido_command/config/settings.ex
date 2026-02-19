@@ -354,11 +354,18 @@ defmodule JidoCommand.Config.Settings do
   defp validate_version(_), do: {:error, {:invalid_version, :must_be_semver}}
 
   defp validate_signal_bus_name(nil), do: :ok
-  defp validate_signal_bus_name(value) when is_binary(value), do: :ok
   defp validate_signal_bus_name(value) when is_atom(value), do: :ok
 
+  defp validate_signal_bus_name(value) when is_binary(value) do
+    if String.trim(value) == "" do
+      {:error, {:invalid_signal_bus_name, :must_be_nonempty_string_or_atom}}
+    else
+      :ok
+    end
+  end
+
   defp validate_signal_bus_name(_),
-    do: {:error, {:invalid_signal_bus_name, :must_be_string_or_atom}}
+    do: {:error, {:invalid_signal_bus_name, :must_be_nonempty_string_or_atom}}
 
   defp validate_allowed_keys(map, allowed_keys, tag) when is_map(map) do
     unknown_keys =
