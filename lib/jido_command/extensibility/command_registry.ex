@@ -123,9 +123,12 @@ defmodule JidoCommand.Extensibility.CommandRegistry do
   def handle_call({:register_command, command_path}, _from, state) do
     case load_command_file(command_path, state.default_model) do
       {:ok, {name, entry}} ->
+        commands_without_previous =
+          prune_manual_entries_for_path(state.commands, entry.path)
+
         updated = %{
           state
-          | commands: Map.put(state.commands, name, entry),
+          | commands: Map.put(commands_without_previous, name, entry),
             manual_paths: prepend_unique(state.manual_paths, entry.path)
         }
 
@@ -205,6 +208,18 @@ defmodule JidoCommand.Extensibility.CommandRegistry do
   defp remove_manual_path(paths, _entry) when is_list(paths) do
     paths
   end
+
+  defp prune_manual_entries_for_path(commands, path) when is_map(commands) and is_binary(path) do
+    commands
+    |> Enum.reject(fn {_name, entry} -> manual_entry_for_path?(entry, path) end)
+    |> Map.new()
+  end
+
+  defp manual_entry_for_path?(%{meta: %{scope: :manual}, path: entry_path}, path)
+       when is_binary(entry_path),
+       do: entry_path == path
+
+  defp manual_entry_for_path?(_entry, _path), do: false
 
   defp load_commands_dir(state, root, scope) do
     commands_dir = Path.join(root, "commands")

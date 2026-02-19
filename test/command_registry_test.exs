@@ -254,6 +254,40 @@ defmodule JidoCommand.Extensibility.CommandRegistryTest do
     assert [] == CommandRegistry.list_commands(registry)
   end
 
+  test "register_command on same path replaces prior manual command name" do
+    root = tmp_root()
+    global_root = Path.join(root, "global")
+    local_root = Path.join(root, "local")
+    manual_dir = Path.join(root, "manual")
+    manual_file = Path.join(manual_dir, "manual.md")
+
+    File.mkdir_p!(Path.join(global_root, "commands"))
+    File.mkdir_p!(Path.join(local_root, "commands"))
+    File.mkdir_p!(manual_dir)
+
+    File.write!(manual_file, command_markdown("manual-old", "Manual command old"))
+
+    bus = unique_bus_name()
+    registry = unique_registry_name()
+
+    start_supervised!({Bus, name: bus})
+
+    start_supervised!(
+      {CommandRegistry,
+       name: registry, bus: bus, global_root: global_root, local_root: local_root}
+    )
+
+    assert :ok = CommandRegistry.register_command(manual_file, registry)
+    assert ["manual-old"] == CommandRegistry.list_commands(registry)
+
+    File.write!(manual_file, command_markdown("manual-new", "Manual command new"))
+
+    assert :ok = CommandRegistry.register_command(manual_file, registry)
+    assert ["manual-new"] == CommandRegistry.list_commands(registry)
+    assert {:error, :not_found} = CommandRegistry.get_command("manual-old", registry)
+    assert {:ok, _module} = CommandRegistry.get_command("manual-new", registry)
+  end
+
   test "register_command returns error for missing file" do
     root = tmp_root()
     global_root = Path.join(root, "global")
