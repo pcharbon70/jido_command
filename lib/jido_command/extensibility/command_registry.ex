@@ -16,6 +16,7 @@ defmodule JidoCommand.Extensibility.CommandRegistry do
           global_root: String.t(),
           local_root: String.t(),
           default_model: String.t() | nil,
+          manual_paths: [String.t()],
           commands: map()
         }
 
@@ -67,6 +68,7 @@ defmodule JidoCommand.Extensibility.CommandRegistry do
       global_root: global_root,
       local_root: local_root,
       default_model: default_model,
+      manual_paths: [],
       commands: %{}
     }
 
@@ -121,7 +123,11 @@ defmodule JidoCommand.Extensibility.CommandRegistry do
   def handle_call({:register_command, command_path}, _from, state) do
     case load_command_file(command_path, state.default_model) do
       {:ok, {name, entry}} ->
-        updated = %{state | commands: Map.put(state.commands, name, entry)}
+        updated = %{
+          state
+          | commands: Map.put(state.commands, name, entry),
+            manual_paths: prepend_unique(state.manual_paths, entry.path)
+        }
 
         emit_lifecycle_signal(updated, "command.registered", %{
           "name" => name,
@@ -141,31 +147,63 @@ defmodule JidoCommand.Extensibility.CommandRegistry do
   def handle_call({:unregister_command, command_name}, _from, state) do
     normalized_name = String.trim(command_name)
 
-    cond do
-      normalized_name == "" ->
-        emit_failure_signal(state, "unregister", :invalid_name, %{"name" => command_name})
-        {:reply, {:error, :invalid_name}, state}
+    if normalized_name == "" do
+      emit_failure_signal(state, "unregister", :invalid_name, %{"name" => command_name})
+      {:reply, {:error, :invalid_name}, state}
+    else
+      case Map.fetch(state.commands, normalized_name) do
+        {:ok, entry} ->
+          updated = %{
+            state
+            | commands: Map.delete(state.commands, normalized_name),
+              manual_paths: remove_manual_path(state.manual_paths, entry)
+          }
 
-      Map.has_key?(state.commands, normalized_name) ->
-        updated = %{state | commands: Map.delete(state.commands, normalized_name)}
+          emit_lifecycle_signal(updated, "command.unregistered", %{
+            "name" => normalized_name,
+            "current_count" => map_size(updated.commands)
+          })
 
-        emit_lifecycle_signal(updated, "command.unregistered", %{
-          "name" => normalized_name,
-          "current_count" => map_size(updated.commands)
-        })
+          {:reply, :ok, updated}
 
-        {:reply, :ok, updated}
-
-      true ->
-        emit_failure_signal(state, "unregister", :not_found, %{"name" => normalized_name})
-        {:reply, {:error, :not_found}, state}
+        :error ->
+          emit_failure_signal(state, "unregister", :not_found, %{"name" => normalized_name})
+          {:reply, {:error, :not_found}, state}
+      end
     end
   end
 
   defp load_all(state) do
-    with {:ok, with_global_commands} <- load_commands_dir(state, state.global_root, :global) do
-      load_commands_dir(with_global_commands, state.local_root, :local)
+    with {:ok, with_global_commands} <- load_commands_dir(state, state.global_root, :global),
+         {:ok, with_local_commands} <-
+           load_commands_dir(with_global_commands, state.local_root, :local) do
+      load_manual_commands(with_local_commands)
     end
+  end
+
+  defp load_manual_commands(state) do
+    Enum.reduce_while(state.manual_paths, {:ok, state}, fn path, {:ok, acc} ->
+      case load_command_file(path, acc.default_model) do
+        {:ok, {name, entry}} ->
+          {:cont, {:ok, %{acc | commands: Map.put(acc.commands, name, entry)}}}
+
+        {:error, reason} ->
+          {:halt, {:error, {:load_manual_commands_failed, path, reason}}}
+      end
+    end)
+  end
+
+  defp prepend_unique(paths, path) when is_list(paths) and is_binary(path) do
+    [path | Enum.reject(paths, &(&1 == path))]
+  end
+
+  defp remove_manual_path(paths, %{meta: %{scope: :manual}, path: path})
+       when is_list(paths) and is_binary(path) do
+    Enum.reject(paths, &(&1 == path))
+  end
+
+  defp remove_manual_path(paths, _entry) when is_list(paths) do
+    paths
   end
 
   defp load_commands_dir(state, root, scope) do

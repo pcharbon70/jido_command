@@ -9,6 +9,7 @@ It supports:
 - Signal-bus command dispatch (`command.invoke` -> `command.completed` / `command.failed`)
 - Signal-bus registry lifecycle events (`command.registry.reloaded`, `command.registered`, `command.unregistered`, `command.registry.failed`)
 - Global + local config roots with local precedence
+- Runtime-registered command files are reapplied on `reload`
 
 ## Runtime layout
 
