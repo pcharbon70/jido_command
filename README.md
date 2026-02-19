@@ -69,8 +69,14 @@ mix run -e 'JidoCommand.CLI.main(["list"])'
 # invoke command
 mix run -e 'JidoCommand.CLI.main(["invoke", "code-review", "--params", "{\"target_file\":\"lib/foo.ex\"}"])'
 
+# invoke command with explicit invocation id
+mix run -e 'JidoCommand.CLI.main(["invoke", "code-review", "--invocation-id", "my-invoke-id"])'
+
 # dispatch command.invoke signal
 mix run -e 'JidoCommand.CLI.main(["dispatch", "code-review", "--params", "{\"target_file\":\"lib/foo.ex\"}"])'
+
+# dispatch command.invoke signal with explicit invocation id
+mix run -e 'JidoCommand.CLI.main(["dispatch", "code-review", "--invocation-id", "my-dispatch-id"])'
 
 # reload command registry from configured roots
 mix run -e 'JidoCommand.CLI.main(["reload"])'
