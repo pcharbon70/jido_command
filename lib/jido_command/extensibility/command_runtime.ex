@@ -114,14 +114,21 @@ defmodule JidoCommand.Extensibility.CommandRuntime do
     @behaviour JidoCommand.Extensibility.CommandRuntime
 
     @impl true
-    def execute(definition, prompt, params, _context) do
+    def execute(definition, prompt, params, context) do
+      permissions =
+        case Map.get(context, :permissions) do
+          map when is_map(map) -> map
+          _ -> %{}
+        end
+
       {:ok,
        %{
          "command" => definition.name,
          "prompt" => prompt,
          "params" => params,
          "allowed_tools" => definition.allowed_tools,
-         "model" => definition.model
+         "model" => definition.model,
+         "permissions" => permissions
        }}
     end
   end

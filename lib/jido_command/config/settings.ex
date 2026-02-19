@@ -7,24 +7,34 @@ defmodule JidoCommand.Config.Settings do
           bus_name: atom(),
           bus_middleware: [{module(), keyword()}],
           commands_default_model: String.t() | nil,
-          commands_max_concurrent: pos_integer()
+          commands_max_concurrent: pos_integer(),
+          permissions_allow: [String.t()],
+          permissions_deny: [String.t()],
+          permissions_ask: [String.t()]
         }
 
   defstruct bus_name: :jido_code_bus,
             bus_middleware: [{Jido.Signal.Bus.Middleware.Logger, level: :debug}],
             commands_default_model: nil,
-            commands_max_concurrent: 5
+            commands_max_concurrent: 5,
+            permissions_allow: [],
+            permissions_deny: [],
+            permissions_ask: []
 
   @spec from_map(map()) :: t()
   def from_map(map) when is_map(map) do
     signal_bus = Map.get(map, "signal_bus", %{})
     commands = Map.get(map, "commands", %{})
+    permissions = Map.get(map, "permissions", %{})
 
     %__MODULE__{
       bus_name: to_bus_name(Map.get(signal_bus, "name", ":jido_code_bus")),
       bus_middleware: parse_middleware(Map.get(signal_bus, "middleware", [])),
       commands_default_model: parse_default_model(Map.get(commands, "default_model")),
-      commands_max_concurrent: to_positive_integer(Map.get(commands, "max_concurrent", 5), 5)
+      commands_max_concurrent: to_positive_integer(Map.get(commands, "max_concurrent", 5), 5),
+      permissions_allow: parse_permissions(permissions, "allow"),
+      permissions_deny: parse_permissions(permissions, "deny"),
+      permissions_ask: parse_permissions(permissions, "ask")
     }
   end
 
@@ -34,6 +44,15 @@ defmodule JidoCommand.Config.Settings do
       name: settings.bus_name,
       middleware: settings.bus_middleware
     ]
+  end
+
+  @spec permissions(t()) :: %{allow: [String.t()], deny: [String.t()], ask: [String.t()]}
+  def permissions(%__MODULE__{} = settings) do
+    %{
+      allow: settings.permissions_allow,
+      deny: settings.permissions_deny,
+      ask: settings.permissions_ask
+    }
   end
 
   defp to_bus_name(name) when is_atom(name), do: name
@@ -109,4 +128,38 @@ defmodule JidoCommand.Config.Settings do
 
   defp parse_default_model(value) when is_binary(value), do: value
   defp parse_default_model(_), do: nil
+
+  defp parse_permissions(permissions, key) when is_map(permissions) and is_binary(key) do
+    permissions
+    |> Map.get(key, [])
+    |> to_permission_list()
+    |> Enum.reduce([], fn item, acc ->
+      case normalize_permission(item) do
+        nil -> acc
+        permission -> [permission | acc]
+      end
+    end)
+    |> Enum.reverse()
+    |> Enum.uniq()
+  end
+
+  defp parse_permissions(_permissions, _key), do: []
+
+  defp to_permission_list(value) when is_list(value), do: value
+
+  defp to_permission_list(value) when is_binary(value) do
+    String.split(value, ",")
+  end
+
+  defp to_permission_list(_), do: []
+
+  defp normalize_permission(value) when is_atom(value),
+    do: normalize_permission(Atom.to_string(value))
+
+  defp normalize_permission(value) when is_binary(value) do
+    trimmed = String.trim(value)
+    if trimmed == "", do: nil, else: trimmed
+  end
+
+  defp normalize_permission(_), do: nil
 end

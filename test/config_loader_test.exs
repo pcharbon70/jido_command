@@ -33,6 +33,40 @@ defmodule JidoCommand.Config.LoaderTest do
     assert settings.commands_max_concurrent == 10
   end
 
+  test "loads and merges permissions with local precedence" do
+    root = tmp_root()
+    global = Path.join(root, "global")
+    local = Path.join(root, "local")
+
+    File.mkdir_p!(global)
+    File.mkdir_p!(local)
+
+    File.write!(
+      Path.join(global, "settings.json"),
+      Jason.encode!(%{
+        "permissions" => %{
+          "allow" => ["Read", "Write"],
+          "deny" => ["Bash(rm -rf:*)"]
+        }
+      })
+    )
+
+    File.write!(
+      Path.join(local, "settings.json"),
+      Jason.encode!(%{
+        "permissions" => %{
+          "deny" => ["Bash(git push:*)"],
+          "ask" => ["Bash(npm:*)", " Bash(npm:*) "]
+        }
+      })
+    )
+
+    assert {:ok, settings} = Loader.load(global_root: global, local_root: local)
+    assert settings.permissions_allow == ["Read", "Write"]
+    assert settings.permissions_deny == ["Bash(git push:*)"]
+    assert settings.permissions_ask == ["Bash(npm:*)"]
+  end
+
   test "returns defaults when settings files do not exist" do
     root = tmp_root()
     global = Path.join(root, "missing_global")
@@ -42,6 +76,9 @@ defmodule JidoCommand.Config.LoaderTest do
     assert settings.bus_name == :jido_code_bus
     assert settings.commands_default_model == nil
     assert settings.commands_max_concurrent == 5
+    assert settings.permissions_allow == []
+    assert settings.permissions_deny == []
+    assert settings.permissions_ask == []
   end
 
   test "returns invalid_json error for malformed settings file" do

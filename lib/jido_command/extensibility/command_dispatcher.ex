@@ -21,6 +21,7 @@ defmodule JidoCommand.Extensibility.CommandDispatcher do
     state = %{
       bus: Keyword.get(opts, :bus, :jido_code_bus),
       registry: Keyword.get(opts, :registry, CommandRegistry),
+      permissions: normalize_permissions(Keyword.get(opts, :permissions, %{})),
       max_concurrent: max_concurrent,
       in_flight: 0,
       queue: :queue.new()
@@ -80,6 +81,7 @@ defmodule JidoCommand.Extensibility.CommandDispatcher do
           context
           |> Map.put(:bus, state.bus)
           |> Map.put(:invocation_id, invocation_id)
+          |> Map.put(:permissions, state.permissions)
 
         case Jido.Exec.run(command_module, params, exec_context) do
           {:ok, result} ->
@@ -161,6 +163,40 @@ defmodule JidoCommand.Extensibility.CommandDispatcher do
 
   defp parse_max_concurrent(value) when is_integer(value) and value > 0, do: value
   defp parse_max_concurrent(_), do: 5
+
+  defp normalize_permissions(value) when is_map(value) do
+    %{
+      allow: normalize_permission_list(Map.get(value, :allow) || Map.get(value, "allow")),
+      deny: normalize_permission_list(Map.get(value, :deny) || Map.get(value, "deny")),
+      ask: normalize_permission_list(Map.get(value, :ask) || Map.get(value, "ask"))
+    }
+  end
+
+  defp normalize_permissions(_), do: %{allow: [], deny: [], ask: []}
+
+  defp normalize_permission_list(list) when is_list(list) do
+    list
+    |> Enum.reduce([], fn permission, acc ->
+      case normalize_permission(permission) do
+        nil -> acc
+        normalized -> [normalized | acc]
+      end
+    end)
+    |> Enum.reverse()
+    |> Enum.uniq()
+  end
+
+  defp normalize_permission_list(_), do: []
+
+  defp normalize_permission(value) when is_atom(value),
+    do: normalize_permission(Atom.to_string(value))
+
+  defp normalize_permission(value) when is_binary(value) do
+    trimmed = String.trim(value)
+    if trimmed == "", do: nil, else: trimmed
+  end
+
+  defp normalize_permission(_), do: nil
 
   defp validate_invoke_payload(data, fallback_invocation_id) do
     raw_name = data_get(data, "name")
