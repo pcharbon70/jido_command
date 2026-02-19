@@ -26,7 +26,7 @@ defmodule JidoCommand.Extensibility.CommandRuntime do
     prompt = interpolate_template(definition.body, params)
     executor = Map.get(context, :command_executor, __MODULE__.DefaultExecutor)
 
-    case executor.execute(definition, prompt, params, context) do
+    case execute_with_error_capture(executor, definition, prompt, params, context) do
       {:ok, result} ->
         duration_ms = System.monotonic_time(:millisecond) - started_ms
 
@@ -63,6 +63,22 @@ defmodule JidoCommand.Extensibility.CommandRuntime do
   end
 
   def execute(_definition, _params, _context), do: {:error, :invalid_params}
+
+  defp execute_with_error_capture(executor, definition, prompt, params, context) do
+    result = executor.execute(definition, prompt, params, context)
+
+    case result do
+      {:ok, value} -> {:ok, value}
+      {:error, reason} -> {:error, reason}
+      other -> {:error, {:invalid_executor_response, other}}
+    end
+  rescue
+    error ->
+      {:error, {:executor_exception, error, __STACKTRACE__}}
+  catch
+    kind, reason ->
+      {:error, {:executor_throw, kind, reason}}
+  end
 
   defp emit_hook(false, _type, _definition, _params, _context, _metadata), do: :ok
 

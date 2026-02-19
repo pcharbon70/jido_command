@@ -137,6 +137,7 @@ Data fields:
 ### `after`
 
 Emitted after command execution, both success and failure.
+This includes executor-returned errors and executor exceptions.
 
 Success data fields:
 

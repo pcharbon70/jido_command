@@ -13,6 +13,20 @@ defmodule JidoCommand.Extensibility.CommandRuntimeTest do
     def execute(_definition, _prompt, _params, _context), do: {:error, :boom}
   end
 
+  defmodule RaisingExecutor do
+    @behaviour JidoCommand.Extensibility.CommandRuntime
+
+    @impl true
+    def execute(_definition, _prompt, _params, _context), do: raise("boom")
+  end
+
+  defmodule InvalidResponseExecutor do
+    @behaviour JidoCommand.Extensibility.CommandRuntime
+
+    @impl true
+    def execute(_definition, _prompt, _params, _context), do: :ok
+  end
+
   test "emits pre and after hooks on success" do
     bus = unique_bus_name()
     start_supervised!({Bus, name: bus})
@@ -62,6 +76,42 @@ defmodule JidoCommand.Extensibility.CommandRuntimeTest do
 
     assert_receive {:signal, %Signal{type: "jido.hooks.after", data: after_data}}, 1_000
     assert after_data["status"] == "error"
+  end
+
+  test "emits after hook when executor raises" do
+    bus = unique_bus_name()
+    start_supervised!({Bus, name: bus})
+
+    {:ok, _after} =
+      Bus.subscribe(bus, "jido.hooks.after", dispatch: {:pid, target: self()})
+
+    definition = %CommandDefinition{
+      name: "test",
+      description: "test",
+      hooks: %{pre: false, after: true},
+      body: "ignored"
+    }
+
+    assert {:error, {:executor_exception, %RuntimeError{message: "boom"}, _stacktrace}} =
+             CommandRuntime.execute(definition, %{}, %{
+               bus: bus,
+               command_executor: RaisingExecutor
+             })
+
+    assert_receive {:signal, %Signal{type: "jido.hooks.after", data: after_data}}, 1_000
+    assert after_data["status"] == "error"
+  end
+
+  test "returns executor error when response shape is invalid" do
+    definition = %CommandDefinition{
+      name: "test",
+      description: "test",
+      hooks: %{pre: false, after: false},
+      body: "ignored"
+    }
+
+    assert {:error, {:invalid_executor_response, :ok}} =
+             CommandRuntime.execute(definition, %{}, %{command_executor: InvalidResponseExecutor})
   end
 
   test "does not emit hooks when both hook flags are disabled" do
