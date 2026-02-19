@@ -87,6 +87,7 @@ mix run -e 'JidoCommand.CLI.main(["unregister-command", "review"])'
 `settings.json` supports these keys in the current implementation:
 
 - `signal_bus.name` (default `:jido_code_bus`)
+  Values are normalized to atoms (for example, `"local_bus"` and `":local_bus"` both resolve to `:local_bus`).
 - `signal_bus.middleware` (supports logger middleware level)
 - `commands.default_model` (fallback model when a command omits `model`)
 - `commands.max_concurrent` (max in-flight command executions in dispatcher)

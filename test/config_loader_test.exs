@@ -22,13 +22,13 @@ defmodule JidoCommand.Config.LoaderTest do
     File.write!(
       Path.join(local, "settings.json"),
       Jason.encode!(%{
-        "signal_bus" => %{"name" => ":local_bus"},
+        "signal_bus" => %{"name" => "local_bus"},
         "commands" => %{"max_concurrent" => 10}
       })
     )
 
     assert {:ok, settings} = Loader.load(global_root: global, local_root: local)
-    assert settings.bus_name == "local_bus"
+    assert settings.bus_name == :local_bus
     assert settings.commands_default_model == "global-model"
     assert settings.commands_max_concurrent == 10
   end
@@ -81,6 +81,25 @@ defmodule JidoCommand.Config.LoaderTest do
 
     assert {:ok, settings} = Loader.load(global_root: global, local_root: local)
     assert settings.bus_middleware == [{Jido.Signal.Bus.Middleware.Logger, level: :debug}]
+  end
+
+  test "falls back to default bus name when configured bus name is blank" do
+    root = tmp_root()
+    global = Path.join(root, "global")
+    local = Path.join(root, "local")
+
+    File.mkdir_p!(global)
+    File.mkdir_p!(local)
+
+    File.write!(
+      Path.join(local, "settings.json"),
+      Jason.encode!(%{
+        "signal_bus" => %{"name" => "   "}
+      })
+    )
+
+    assert {:ok, settings} = Loader.load(global_root: global, local_root: local)
+    assert settings.bus_name == :jido_code_bus
   end
 
   defp tmp_root do
