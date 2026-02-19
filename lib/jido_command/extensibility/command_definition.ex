@@ -3,7 +3,7 @@ defmodule JidoCommand.Extensibility.CommandDefinition do
   Canonical representation of a markdown-defined command.
   """
 
-  @type hook_path :: String.t() | nil
+  @type hook_enabled :: boolean()
 
   @type t :: %__MODULE__{
           name: String.t(),
@@ -12,7 +12,7 @@ defmodule JidoCommand.Extensibility.CommandDefinition do
           model: String.t() | nil,
           allowed_tools: [String.t()],
           schema: keyword(),
-          hooks: %{pre: hook_path(), after: hook_path()},
+          hooks: %{pre: hook_enabled(), after: hook_enabled()},
           body: String.t(),
           source_path: String.t()
         }
@@ -23,7 +23,7 @@ defmodule JidoCommand.Extensibility.CommandDefinition do
             model: nil,
             allowed_tools: [],
             schema: [],
-            hooks: %{pre: nil, after: nil},
+            hooks: %{pre: false, after: false},
             body: "",
             source_path: ""
 end

@@ -21,7 +21,7 @@ Jido v2 primitives used in this architecture:
 | Runtime Concept | Jido v2 Primitive | Implementation Pattern |
 |-----------------|-------------------|------------------------|
 | Slash Command | `Jido.Action` | Action module generated from markdown frontmatter |
-| Pre/After Hook | `JidoSignal.Signal` | Optional signal paths from command FrontMatter |
+| Pre/After Hook | `JidoSignal.Signal` | Optional boolean flags in FrontMatter for predefined signals |
 | Command Catalog | GenServer registry | Runtime loading/lookup of command modules |
 
 ## Jido v2 dependency structure
@@ -97,8 +97,8 @@ jido:
     focus_areas: Zoi.list(Zoi.string(), default: [:security, :performance])
 
   hooks:
-    pre: "commands/code_review/pre"
-    after: "commands/code_review/after"
+    pre: true
+    after: true
 ---
 
 You are an expert Elixir code reviewer.
@@ -163,27 +163,27 @@ defmodule JidoCode.Extensibility.Command do
         schema: unquote(schema)
 
       @prompt_body unquote(body)
-      @hook_pre unquote(hooks["pre"])
-      @hook_after unquote(hooks["after"])
+      @hook_pre_enabled unquote(hooks["pre"] == true)
+      @hook_after_enabled unquote(hooks["after"] == true)
 
       @impl true
       def run(params, context) do
-        emit_hook(@hook_pre, %{command: __MODULE__, params: params})
+        emit_hook(@hook_pre_enabled, "jido.hooks.pre", %{command: __MODULE__, params: params})
 
         case safe_execute(params, context) do
           {:ok, result} ->
-            emit_hook(@hook_after, %{command: __MODULE__, status: "ok", result: result})
+            emit_hook(@hook_after_enabled, "jido.hooks.after", %{command: __MODULE__, status: "ok", result: result})
             result
 
           {:error, error, stacktrace} ->
-            emit_hook(@hook_after, %{command: __MODULE__, status: "error", error: inspect(error)})
+            emit_hook(@hook_after_enabled, "jido.hooks.after", %{command: __MODULE__, status: "error", error: inspect(error)})
             :erlang.raise(:error, error, stacktrace)
         end
       end
 
-      defp emit_hook(nil, _payload), do: :ok
+      defp emit_hook(false, _type, _payload), do: :ok
 
-      defp emit_hook(type, payload) do
+      defp emit_hook(true, type, payload) do
         {:ok, signal} = Signal.new(type, payload, source: "/commands/#{__MODULE__}")
         Bus.publish(:jido_code_bus, [signal])
       end

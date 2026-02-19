@@ -8,6 +8,8 @@ defmodule JidoCommand.Extensibility.CommandRuntime do
   alias JidoCommand.Extensibility.CommandDefinition
 
   @type execute_result :: {:ok, map()} | {:error, term()}
+  @pre_hook_signal "jido.hooks.pre"
+  @after_hook_signal "jido.hooks.after"
 
   @callback execute(CommandDefinition.t(), String.t(), map(), map()) :: execute_result()
 
@@ -16,7 +18,7 @@ defmodule JidoCommand.Extensibility.CommandRuntime do
     invocation_id = Map.get(context, :invocation_id, default_invocation_id())
     started_ms = System.monotonic_time(:millisecond)
 
-    emit_hook(definition.hooks.pre, definition, params, context, %{
+    emit_hook(definition.hooks.pre, @pre_hook_signal, definition, params, context, %{
       "invocation_id" => invocation_id,
       "status" => "pre"
     })
@@ -28,7 +30,7 @@ defmodule JidoCommand.Extensibility.CommandRuntime do
       {:ok, result} ->
         duration_ms = System.monotonic_time(:millisecond) - started_ms
 
-        emit_hook(definition.hooks.after, definition, params, context, %{
+        emit_hook(definition.hooks.after, @after_hook_signal, definition, params, context, %{
           "invocation_id" => invocation_id,
           "status" => "ok",
           "duration_ms" => duration_ms,
@@ -45,7 +47,7 @@ defmodule JidoCommand.Extensibility.CommandRuntime do
       {:error, reason} ->
         duration_ms = System.monotonic_time(:millisecond) - started_ms
 
-        emit_hook(definition.hooks.after, definition, params, context, %{
+        emit_hook(definition.hooks.after, @after_hook_signal, definition, params, context, %{
           "invocation_id" => invocation_id,
           "status" => "error",
           "duration_ms" => duration_ms,
@@ -62,9 +64,9 @@ defmodule JidoCommand.Extensibility.CommandRuntime do
 
   def execute(_definition, _params, _context), do: {:error, :invalid_params}
 
-  defp emit_hook(nil, _definition, _params, _context, _metadata), do: :ok
+  defp emit_hook(false, _type, _definition, _params, _context, _metadata), do: :ok
 
-  defp emit_hook(type, %CommandDefinition{} = definition, params, context, metadata)
+  defp emit_hook(true, type, %CommandDefinition{} = definition, params, context, metadata)
        when is_binary(type) do
     payload =
       Map.merge(metadata, %{
@@ -74,7 +76,7 @@ defmodule JidoCommand.Extensibility.CommandRuntime do
 
     signal_attrs = [source: "/commands/#{definition.name}"]
 
-    case Signal.new(normalize_signal_type(type), payload, signal_attrs) do
+    case Signal.new(type, payload, signal_attrs) do
       {:ok, signal} ->
         bus = Map.get(context, :bus, :jido_code_bus)
         _ = Bus.publish(bus, [signal])
@@ -85,7 +87,7 @@ defmodule JidoCommand.Extensibility.CommandRuntime do
     end
   end
 
-  defp emit_hook(_invalid_type, _definition, _params, _context, _metadata), do: :ok
+  defp emit_hook(_invalid_type, _type, _definition, _params, _context, _metadata), do: :ok
 
   defp interpolate_template(template, params) when is_binary(template) and is_map(params) do
     Enum.reduce(params, template, fn {key, value}, acc ->
@@ -102,12 +104,6 @@ defmodule JidoCommand.Extensibility.CommandRuntime do
 
   defp default_invocation_id do
     Integer.to_string(System.unique_integer([:positive, :monotonic]))
-  end
-
-  defp normalize_signal_type(type) do
-    type
-    |> String.trim()
-    |> String.replace("/", ".")
   end
 
   defmodule DefaultExecutor do
