@@ -112,7 +112,6 @@ This repo ships a managed Git hook at `.githooks/pre-commit` that blocks commits
 - `mix test`
 - `mix credo --strict`
 - `mix dialyzer`
-- Hook bootstraps ASDF from common paths (`/opt/homebrew` and `~/.asdf`) before running checks.
 
 Enable it locally with:
 

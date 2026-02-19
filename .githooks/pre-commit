@@ -4,56 +4,48 @@ set -euo pipefail
 ROOT_DIR="$(git rev-parse --show-toplevel)"
 cd "$ROOT_DIR"
 
-declare -a MIX_CMD
+declare -a MIX_CMD=(mix)
 
-bootstrap_asdf() {
-  if [ -d "$HOME/.asdf/bin" ]; then
-    export PATH="$HOME/.asdf/bin:$PATH"
-  fi
-
-  if [ -d "$HOME/.asdf/shims" ]; then
-    export PATH="$HOME/.asdf/shims:$PATH"
-  fi
-
-  if [ -x "/opt/homebrew/bin/asdf" ]; then
-    export PATH="/opt/homebrew/bin:$PATH"
-  fi
-
-  if command -v asdf >/dev/null 2>&1; then
+ensure_mix_cmd() {
+  if command -v "${MIX_CMD[0]}" >/dev/null 2>&1; then
     return
   fi
 
-  local asdf_script
-
-  for asdf_script in \
-    "/opt/homebrew/opt/asdf/libexec/asdf.sh" \
-    "$HOME/.asdf/asdf.sh" \
-    "$HOME/.asdf/libexec/asdf.sh"; do
-    if [ -f "$asdf_script" ]; then
-      # shellcheck source=/dev/null
-      source "$asdf_script"
-      break
-    fi
-  done
-}
-
-select_mix_cmd() {
-  if command -v asdf >/dev/null 2>&1; then
-    MIX_CMD=(asdf exec mix)
-    return
-  fi
-
-  if command -v mix >/dev/null 2>&1; then
-    MIX_CMD=(mix)
-    return
-  fi
-
-  echo "[pre-commit] Could not find mix/asdf. Install Elixir tooling first." >&2
+  echo "[pre-commit] Could not find mix. Install Elixir tooling first." >&2
   exit 1
 }
 
-bootstrap_asdf
-select_mix_cmd
+ensure_mix_home() {
+  if [ -z "${MIX_HOME:-}" ]; then
+    export MIX_HOME="$ROOT_DIR/tmp/precommit_mix_home"
+  fi
+
+  mkdir -p "$MIX_HOME"
+}
+
+has_hex_archive() {
+  find "$MIX_HOME/archives" -maxdepth 1 -type d -name "hex-*" -print -quit 2>/dev/null | grep -q .
+}
+
+has_rebar3() {
+  find "$MIX_HOME/elixir" -type f -name "rebar3" -print -quit 2>/dev/null | grep -q .
+}
+
+ensure_mix_bootstrap() {
+  if ! has_hex_archive; then
+    echo "[pre-commit] Installing Hex into MIX_HOME..."
+    "${MIX_CMD[@]}" local.hex --force >/dev/null
+  fi
+
+  if ! has_rebar3; then
+    echo "[pre-commit] Installing Rebar into MIX_HOME..."
+    "${MIX_CMD[@]}" local.rebar --force >/dev/null
+  fi
+}
+
+ensure_mix_cmd
+ensure_mix_home
+ensure_mix_bootstrap
 
 run_check() {
   local label="$1"
