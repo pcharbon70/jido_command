@@ -10,6 +10,7 @@ It supports:
 - Signal-bus registry lifecycle events (`command.registry.reloaded`, `command.registered`, `command.unregistered`, `command.registry.failed`)
 - Global + local config roots with local precedence
 - Runtime-registered command files are reapplied on `reload`
+- Re-registering the same command file path replaces its prior manual command entry
 
 ## Runtime layout
 
