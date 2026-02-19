@@ -16,6 +16,8 @@ Optional data fields:
 - `context` (object): execution context merged into dispatcher context
 - `invocation_id` (string): caller-supplied ID; if absent dispatcher uses the inbound signal ID
 
+For API-level dispatch (`JidoCommand.dispatch/4`), non-string or blank `invocation_id` values are normalized to a generated non-empty string before publishing.
+
 Dispatcher-enforced execution context fields:
 
 - `permissions` (object): normalized runtime permissions from settings (`allow`, `deny`, `ask`)
@@ -142,6 +144,8 @@ Data fields:
 - `params` (object)
 - `invocation_id` (string)
 - `status` = `"pre"`
+
+Runtime behavior: if context does not provide a valid non-empty string invocation ID, runtime generates one.
 
 ### `after`
 
