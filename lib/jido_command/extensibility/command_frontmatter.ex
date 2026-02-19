@@ -276,9 +276,16 @@ defmodule JidoCommand.Extensibility.CommandFrontmatter do
          {:ok, default} <- parse_schema_default(spec_map),
          :ok <- validate_required_default(field_name, required, default),
          :ok <- validate_default_type(field_name, type, default) do
+      normalized_default = normalize_schema_default(type, default)
       opts = [type: type, required: required]
       opts = if is_binary(doc), do: Keyword.put(opts, :doc, doc), else: opts
-      opts = if default == :__missing__, do: opts, else: Keyword.put(opts, :default, default)
+
+      opts =
+        if normalized_default == :__missing__ do
+          opts
+        else
+          Keyword.put(opts, :default, normalized_default)
+        end
 
       {:ok, {String.to_atom(field_name), opts}}
     end
@@ -374,6 +381,14 @@ defmodule JidoCommand.Extensibility.CommandFrontmatter do
   defp validate_default_type(field_name, type, _default) do
     {:error, {:invalid_schema_default_type, field_name, type}}
   end
+
+  defp normalize_schema_default(:atom, default) when is_binary(default) do
+    default
+    |> String.trim()
+    |> String.to_atom()
+  end
+
+  defp normalize_schema_default(_type, default), do: default
 
   defp valid_atom_literal?(value) when is_binary(value) do
     Regex.match?(~r/^[a-z][a-zA-Z0-9_]*$/, String.trim(value))
