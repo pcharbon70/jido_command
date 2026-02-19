@@ -4,7 +4,7 @@ defmodule JidoCommand.Config.Settings do
   """
 
   @type t :: %__MODULE__{
-          bus_name: atom() | String.t(),
+          bus_name: atom(),
           bus_middleware: [{module(), keyword()}],
           commands_default_model: String.t() | nil,
           commands_max_concurrent: pos_integer()
@@ -47,7 +47,7 @@ defmodule JidoCommand.Config.Settings do
     if normalized == "" do
       :jido_code_bus
     else
-      maybe_existing_atom(normalized) || normalized
+      String.to_atom(normalized)
     end
   end
 
@@ -109,10 +109,4 @@ defmodule JidoCommand.Config.Settings do
 
   defp parse_default_model(value) when is_binary(value), do: value
   defp parse_default_model(_), do: nil
-
-  defp maybe_existing_atom(value) when is_binary(value) do
-    String.to_existing_atom(value)
-  rescue
-    ArgumentError -> nil
-  end
 end
