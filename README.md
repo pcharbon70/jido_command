@@ -101,6 +101,8 @@ mix run -e 'JidoCommand.CLI.main(["unregister-command", "review"])'
 - `commands.default_model` (fallback model when a command omits `model`)
 - `commands.max_concurrent` (max in-flight command executions in dispatcher)
 
+Unknown top-level settings keys and unknown nested keys under `signal_bus`, `permissions`, and `commands` are rejected at load time.
+
 Dispatcher-managed execution injects normalized permissions into command context as:
 
 ```elixir

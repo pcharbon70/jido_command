@@ -44,6 +44,13 @@ Implemented runtime keys:
 
 Permission lists are normalized by trimming values, removing empties, and de-duplicating while preserving order.
 
+Validation rules:
+
+- unknown top-level settings keys are rejected
+- unknown keys under `signal_bus`, `permissions`, and `commands` are rejected
+- `commands.max_concurrent` must be a positive integer when provided
+- permission entries must be strings/atoms (or a comma-delimited string)
+
 ## `command.completed`
 
 Published by the dispatcher when execution succeeds.

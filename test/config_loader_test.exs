@@ -139,6 +139,90 @@ defmodule JidoCommand.Config.LoaderTest do
     assert settings.bus_name == :jido_code_bus
   end
 
+  test "returns invalid_settings for unknown top-level settings keys" do
+    root = tmp_root()
+    global = Path.join(root, "global")
+    local = Path.join(root, "local")
+
+    File.mkdir_p!(global)
+    File.mkdir_p!(local)
+
+    File.write!(
+      Path.join(local, "settings.json"),
+      Jason.encode!(%{
+        "commands" => %{"max_concurrent" => 5},
+        "unknown" => true
+      })
+    )
+
+    assert {:error, {:invalid_settings, {:invalid_settings_keys, {:unknown_keys, ["unknown"]}}}} =
+             Loader.load(global_root: global, local_root: local)
+  end
+
+  test "returns invalid_settings for unknown nested permissions keys" do
+    root = tmp_root()
+    global = Path.join(root, "global")
+    local = Path.join(root, "local")
+
+    File.mkdir_p!(global)
+    File.mkdir_p!(local)
+
+    File.write!(
+      Path.join(local, "settings.json"),
+      Jason.encode!(%{
+        "permissions" => %{
+          "allow" => ["Read"],
+          "maybe" => ["Write"]
+        }
+      })
+    )
+
+    assert {:error, {:invalid_settings, {:invalid_permissions_keys, {:unknown_keys, ["maybe"]}}}} =
+             Loader.load(global_root: global, local_root: local)
+  end
+
+  test "returns invalid_settings for invalid permission item types" do
+    root = tmp_root()
+    global = Path.join(root, "global")
+    local = Path.join(root, "local")
+
+    File.mkdir_p!(global)
+    File.mkdir_p!(local)
+
+    File.write!(
+      Path.join(local, "settings.json"),
+      Jason.encode!(%{
+        "permissions" => %{
+          "allow" => ["Read", 123]
+        }
+      })
+    )
+
+    assert {:error, {:invalid_settings, {:invalid_permission_item, "allow", 1}}} =
+             Loader.load(global_root: global, local_root: local)
+  end
+
+  test "returns invalid_settings for invalid commands.max_concurrent values" do
+    root = tmp_root()
+    global = Path.join(root, "global")
+    local = Path.join(root, "local")
+
+    File.mkdir_p!(global)
+    File.mkdir_p!(local)
+
+    File.write!(
+      Path.join(local, "settings.json"),
+      Jason.encode!(%{
+        "commands" => %{
+          "max_concurrent" => 0
+        }
+      })
+    )
+
+    assert {:error, {:invalid_settings, {:invalid_max_concurrent, :must_be_positive_integer}}} =
+             Loader.load(global_root: global, local_root: local)
+  end
+
   defp tmp_root do
     path =
       Path.join(

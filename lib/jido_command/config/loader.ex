@@ -5,7 +5,10 @@ defmodule JidoCommand.Config.Loader do
 
   alias JidoCommand.Config.Settings
 
-  @type load_error :: {:invalid_json, String.t(), term()} | {:read_error, String.t(), term()}
+  @type load_error ::
+          {:invalid_json, String.t(), term()}
+          | {:read_error, String.t(), term()}
+          | {:invalid_settings, term()}
 
   @spec load(keyword()) :: {:ok, Settings.t()} | {:error, load_error()}
   def load(opts \\ []) do
@@ -15,7 +18,11 @@ defmodule JidoCommand.Config.Loader do
     with {:ok, global} <- load_settings_file(Path.join(global_root, "settings.json")),
          {:ok, local} <- load_settings_file(Path.join(local_root, "settings.json")) do
       merged = deep_merge(global, local)
-      {:ok, Settings.from_map(merged)}
+
+      case Settings.validate(merged) do
+        :ok -> {:ok, Settings.from_map(merged)}
+        {:error, reason} -> {:error, {:invalid_settings, reason}}
+      end
     end
   end
 
