@@ -12,6 +12,7 @@ It supports:
 - Runtime-registered command files are reapplied on `reload`
 - Re-registering the same command file path replaces its prior manual command entry
 - For duplicate manual command names, the most recent registration wins (including after `reload`)
+- Unregistering a manual command restores the next available command for that name immediately
 
 ## Runtime layout
 
