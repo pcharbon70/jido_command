@@ -136,8 +136,9 @@ defmodule JidoCommandTest do
     assert ["extra"] == JidoCommand.list_commands(registry: registry)
   end
 
-  test "register_command returns invalid_path for blank path" do
+  test "register_command rejects blank and non-string paths" do
     assert {:error, :invalid_path} = JidoCommand.register_command("   ")
+    assert {:error, :invalid_path} = JidoCommand.register_command(123)
   end
 
   test "invoke applies permissions from options into execution context" do
@@ -274,6 +275,11 @@ defmodule JidoCommandTest do
     assert :ok = JidoCommand.unregister_command("review", registry: registry)
     assert [] == JidoCommand.list_commands(registry: registry)
     assert {:error, :not_found} = JidoCommand.unregister_command("review", registry: registry)
+  end
+
+  test "unregister_command rejects blank and non-string names" do
+    assert {:error, :invalid_name} = JidoCommand.unregister_command("   ")
+    assert {:error, :invalid_name} = JidoCommand.unregister_command(123)
   end
 
   defp unique_bus_name do

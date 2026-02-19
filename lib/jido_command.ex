@@ -71,15 +71,21 @@ defmodule JidoCommand do
   end
 
   @spec register_command(String.t(), keyword()) :: :ok | {:error, term()}
-  def register_command(command_path, opts \\ []) when is_binary(command_path) do
+  def register_command(command_path, opts \\ []) do
     registry = Keyword.get(opts, :registry, CommandRegistry)
-    CommandRegistry.register_command(command_path, registry)
+
+    with {:ok, normalized_path} <- validate_nonempty_string(command_path, :invalid_path) do
+      CommandRegistry.register_command(normalized_path, registry)
+    end
   end
 
   @spec unregister_command(String.t(), keyword()) :: :ok | {:error, term()}
-  def unregister_command(command_name, opts \\ []) when is_binary(command_name) do
+  def unregister_command(command_name, opts \\ []) do
     registry = Keyword.get(opts, :registry, CommandRegistry)
-    CommandRegistry.unregister_command(command_name, registry)
+
+    with {:ok, normalized_name} <- validate_nonempty_string(command_name, :invalid_name) do
+      CommandRegistry.unregister_command(normalized_name, registry)
+    end
   end
 
   defp default_invocation_id do
@@ -105,17 +111,19 @@ defmodule JidoCommand do
   defp maybe_put_permissions(context, permissions),
     do: Map.put(context, :permissions, permissions)
 
-  defp validate_command_name(value) when is_binary(value) do
+  defp validate_command_name(value), do: validate_nonempty_string(value, :invalid_name)
+
+  defp validate_nonempty_string(value, error_tag) when is_binary(value) do
     trimmed = String.trim(value)
 
     if trimmed == "" do
-      {:error, :invalid_name}
+      {:error, error_tag}
     else
       {:ok, trimmed}
     end
   end
 
-  defp validate_command_name(_), do: {:error, :invalid_name}
+  defp validate_nonempty_string(_value, error_tag), do: {:error, error_tag}
 
   defp validate_map_arg(value, _error_tag) when is_map(value), do: :ok
   defp validate_map_arg(_value, error_tag), do: {:error, error_tag}

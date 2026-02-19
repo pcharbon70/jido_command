@@ -16,7 +16,7 @@ It supports:
 - Re-registering the same command file path replaces its prior manual command entry
 - For duplicate manual command names, the most recent registration wins (including after `reload`)
 - Unregistering a manual command restores the next available command for that name immediately
-- Blank `register_command` paths are rejected with `{:error, :invalid_path}`
+- API `register_command`/`unregister_command` require non-empty string path/name and return `{:error, :invalid_path}` / `{:error, :invalid_name}` for invalid input
 
 ## Runtime layout
 
