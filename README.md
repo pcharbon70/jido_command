@@ -98,7 +98,7 @@ mix run -e 'JidoCommand.CLI.main(["unregister-command", "review"])'
 
 - `$schema` (optional non-empty string)
 - `version` (optional SemVer string)
-- `signal_bus.name` (default `:jido_code_bus`)
+- `signal_bus.name` (default `:jido_code_bus`; must be a non-empty string/atom when provided)
   Values are normalized to atoms (for example, `"local_bus"` and `":local_bus"` both resolve to `:local_bus`).
 - `signal_bus.middleware` (currently supports `Jido.Signal.Bus.Middleware.Logger` with `opts.level`)
 - `permissions.allow` (list of capability strings)
