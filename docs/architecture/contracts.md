@@ -193,10 +193,18 @@ Markdown command declarations must include YAML frontmatter with these required 
 Optional keys:
 
 - `model` (non-empty string)
-- `allowed-tools` / `allowed_tools` (comma string or list of strings/atoms)
+- `allowed-tools` / `allowed_tools` (non-empty comma string or non-empty list of strings/atoms)
 - `jido` (map)
 
 Any unknown top-level FrontMatter key is rejected.
+
+### Allowed tools rules
+
+- when provided, `allowed-tools` / `allowed_tools` must resolve to at least one non-empty tool name
+- blank strings are rejected
+- empty lists are rejected
+- list or comma-string entries are trimmed; empty entries are ignored
+- after trimming and normalization, duplicate tool names are de-duplicated in source order
 
 ### `jido` allowed keys
 

@@ -173,6 +173,79 @@ defmodule JidoCommand.Extensibility.CommandFrontmatterTest do
     assert definition.allowed_tools == ["Read", "Write"]
   end
 
+  test "rejects blank allowed-tools string" do
+    markdown = """
+    ---
+    name: blank-tools
+    description: bad
+    allowed-tools: "   "
+    ---
+    body
+    """
+
+    assert {:error, {:invalid_allowed_tools, :must_be_nonempty_string_or_list}} =
+             CommandFrontmatter.parse_string(markdown, "/tmp/blank_tools.md")
+  end
+
+  test "rejects allowed-tools string with only empty entries" do
+    markdown = """
+    ---
+    name: empty-tool-items
+    description: bad
+    allowed-tools: ", ,"
+    ---
+    body
+    """
+
+    assert {:error, {:invalid_allowed_tools, :must_include_nonempty_tool}} =
+             CommandFrontmatter.parse_string(markdown, "/tmp/empty_tool_items.md")
+  end
+
+  test "rejects empty allowed-tools list when provided" do
+    markdown = """
+    ---
+    name: empty-tool-list
+    description: bad
+    allowed-tools: []
+    ---
+    body
+    """
+
+    assert {:error, {:invalid_allowed_tools, :must_include_nonempty_tool}} =
+             CommandFrontmatter.parse_string(markdown, "/tmp/empty_tool_list.md")
+  end
+
+  test "rejects allowed-tools list with only blank entries" do
+    markdown = """
+    ---
+    name: blank-tool-list
+    description: bad
+    allowed-tools:
+      - " "
+      - ""
+    ---
+    body
+    """
+
+    assert {:error, {:invalid_allowed_tools, :must_include_nonempty_tool}} =
+             CommandFrontmatter.parse_string(markdown, "/tmp/blank_tool_list.md")
+  end
+
+  test "rejects non-string and non-list allowed-tools" do
+    markdown = """
+    ---
+    name: invalid-tools-type
+    description: bad
+    allowed-tools:
+      read: true
+    ---
+    body
+    """
+
+    assert {:error, {:invalid_allowed_tools, :must_be_nonempty_string_or_list}} =
+             CommandFrontmatter.parse_string(markdown, "/tmp/invalid_tools_type.md")
+  end
+
   test "rejects blank model when provided" do
     markdown = """
     ---
