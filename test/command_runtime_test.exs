@@ -27,6 +27,17 @@ defmodule JidoCommand.Extensibility.CommandRuntimeTest do
     def execute(_definition, _prompt, _params, _context), do: :ok
   end
 
+  defmodule ContextProbeExecutor do
+    @behaviour JidoCommand.Extensibility.CommandRuntime
+
+    @impl true
+    def execute(_definition, _prompt, _params, context) do
+      test_pid = Map.get(context, :test_pid)
+      if is_pid(test_pid), do: send(test_pid, {:context_seen, context})
+      {:ok, %{"ok" => true}}
+    end
+  end
+
   test "emits pre and after hooks on success" do
     bus = unique_bus_name()
     start_supervised!({Bus, name: bus})
@@ -144,6 +155,37 @@ defmodule JidoCommand.Extensibility.CommandRuntimeTest do
 
     assert {:error, {:invalid_executor_response, :ok}} =
              CommandRuntime.execute(definition, %{}, %{command_executor: InvalidResponseExecutor})
+  end
+
+  test "applies command allowed_tools as top-level permissions filter" do
+    definition = %CommandDefinition{
+      name: "test",
+      description: "test",
+      hooks: %{pre: false, after: false},
+      allowed_tools: ["Read", "Bash(git diff:*)"],
+      body: "ignored"
+    }
+
+    context = %{
+      command_executor: ContextProbeExecutor,
+      test_pid: self(),
+      permissions: %{
+        allow: ["Read", "Write", "Bash(git diff:*)"],
+        deny: ["Bash(rm -rf:*)", "Bash(git diff:*)"],
+        ask: ["Grep", "Read"]
+      }
+    }
+
+    assert {:ok, _result} = CommandRuntime.execute(definition, %{}, context)
+
+    assert_receive {:context_seen, seen_context}, 1_000
+    assert seen_context.allowed_tools == ["Read", "Bash(git diff:*)"]
+
+    assert seen_context.permissions == %{
+             allow: ["Read", "Bash(git diff:*)"],
+             deny: ["Bash(git diff:*)"],
+             ask: ["Read"]
+           }
   end
 
   test "does not emit hooks when both hook flags are disabled" do

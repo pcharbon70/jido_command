@@ -205,6 +205,7 @@ Any unknown top-level FrontMatter key is rejected.
 - empty lists are rejected
 - list or comma-string entries are trimmed; empty entries are ignored
 - after trimming and normalization, duplicate tool names are de-duplicated in source order
+- runtime applies `allowed-tools` as a top-level filter before execution by reducing `permissions.allow|deny|ask` to only declared tools
 
 ### `jido` allowed keys
 
