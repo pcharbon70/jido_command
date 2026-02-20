@@ -466,6 +466,134 @@ defmodule JidoCommandTest do
     assert invocation_id != ""
   end
 
+  test "invoke uses string-key context invocation_id when options invocation_id is absent" do
+    root = tmp_root("invoke_context_string_invocation_id")
+    global_root = Path.join(root, "global")
+    local_root = Path.join(root, "local")
+    local_commands_dir = Path.join(local_root, "commands")
+
+    File.mkdir_p!(Path.join(global_root, "commands"))
+    File.mkdir_p!(local_commands_dir)
+
+    File.write!(
+      Path.join(local_commands_dir, "review.md"),
+      """
+      ---
+      name: review
+      description: review command
+      ---
+      review
+      """
+    )
+
+    bus = unique_bus_name()
+    registry = unique_registry_name()
+
+    start_supervised!({Bus, name: bus})
+
+    start_supervised!(
+      {CommandRegistry,
+       name: registry, bus: bus, global_root: global_root, local_root: local_root}
+    )
+
+    assert {:ok, result} =
+             JidoCommand.invoke(
+               "review",
+               %{},
+               %{"invocation_id" => "context-id"},
+               registry: registry,
+               bus: bus
+             )
+
+    assert result["invocation_id"] == "context-id"
+  end
+
+  test "invoke options invocation_id overrides context invocation_id" do
+    root = tmp_root("invoke_options_invocation_id_override")
+    global_root = Path.join(root, "global")
+    local_root = Path.join(root, "local")
+    local_commands_dir = Path.join(local_root, "commands")
+
+    File.mkdir_p!(Path.join(global_root, "commands"))
+    File.mkdir_p!(local_commands_dir)
+
+    File.write!(
+      Path.join(local_commands_dir, "review.md"),
+      """
+      ---
+      name: review
+      description: review command
+      ---
+      review
+      """
+    )
+
+    bus = unique_bus_name()
+    registry = unique_registry_name()
+
+    start_supervised!({Bus, name: bus})
+
+    start_supervised!(
+      {CommandRegistry,
+       name: registry, bus: bus, global_root: global_root, local_root: local_root}
+    )
+
+    assert {:ok, result} =
+             JidoCommand.invoke(
+               "review",
+               %{},
+               %{"invocation_id" => "context-id"},
+               registry: registry,
+               bus: bus,
+               invocation_id: "options-id"
+             )
+
+    assert result["invocation_id"] == "options-id"
+  end
+
+  test "invoke falls back to context invocation_id when options invocation_id is invalid" do
+    root = tmp_root("invoke_options_invocation_id_invalid_fallback")
+    global_root = Path.join(root, "global")
+    local_root = Path.join(root, "local")
+    local_commands_dir = Path.join(local_root, "commands")
+
+    File.mkdir_p!(Path.join(global_root, "commands"))
+    File.mkdir_p!(local_commands_dir)
+
+    File.write!(
+      Path.join(local_commands_dir, "review.md"),
+      """
+      ---
+      name: review
+      description: review command
+      ---
+      review
+      """
+    )
+
+    bus = unique_bus_name()
+    registry = unique_registry_name()
+
+    start_supervised!({Bus, name: bus})
+
+    start_supervised!(
+      {CommandRegistry,
+       name: registry, bus: bus, global_root: global_root, local_root: local_root}
+    )
+
+    assert {:ok, result} =
+             JidoCommand.invoke(
+               "review",
+               %{},
+               %{"invocation_id" => "context-id"},
+               registry: registry,
+               bus: bus,
+               invocation_id: 123
+             )
+
+    assert result["invocation_id"] == "context-id"
+  end
+
   test "invoke rejects invalid name, params, and context" do
     assert {:error, :invalid_name} = JidoCommand.invoke("   ", %{}, %{})
     assert {:error, :invalid_params} = JidoCommand.invoke("review", [], %{})
