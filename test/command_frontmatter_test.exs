@@ -173,6 +173,35 @@ defmodule JidoCommand.Extensibility.CommandFrontmatterTest do
     assert definition.allowed_tools == ["Read", "Write"]
   end
 
+  test "rejects blank model when provided" do
+    markdown = """
+    ---
+    name: blank-model
+    description: bad
+    model: "   "
+    ---
+    body
+    """
+
+    assert {:error, {:invalid_frontmatter_field, "model", :must_be_nonempty_string}} =
+             CommandFrontmatter.parse_string(markdown, "/tmp/blank_model.md")
+  end
+
+  test "rejects non-string model when provided" do
+    markdown = """
+    ---
+    name: non-string-model
+    description: bad
+    model:
+      name: sonnet
+    ---
+    body
+    """
+
+    assert {:error, {:invalid_frontmatter_field, "model", :must_be_nonempty_string}} =
+             CommandFrontmatter.parse_string(markdown, "/tmp/non_string_model.md")
+  end
+
   test "rejects unknown schema options and invalid required/default combinations" do
     unknown_schema_option = """
     ---

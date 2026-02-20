@@ -99,10 +99,29 @@ defmodule JidoCommand.Extensibility.CommandFrontmatter do
 
   defp parse_optional_string(metadata, key) do
     case Map.get(metadata, key) do
-      nil -> {:ok, nil}
-      value when is_binary(value) -> {:ok, String.trim(value)}
-      value when is_atom(value) -> {:ok, value |> Atom.to_string() |> String.trim()}
-      _ -> {:error, {:invalid_frontmatter_field, key, :must_be_string}}
+      nil ->
+        {:ok, nil}
+
+      value when is_binary(value) ->
+        parse_optional_nonempty_string(value, key)
+
+      value when is_atom(value) ->
+        value
+        |> Atom.to_string()
+        |> parse_optional_nonempty_string(key)
+
+      _ ->
+        {:error, {:invalid_frontmatter_field, key, :must_be_nonempty_string}}
+    end
+  end
+
+  defp parse_optional_nonempty_string(value, key) when is_binary(value) do
+    trimmed = String.trim(value)
+
+    if trimmed == "" do
+      {:error, {:invalid_frontmatter_field, key, :must_be_nonempty_string}}
+    else
+      {:ok, trimmed}
     end
   end
 
