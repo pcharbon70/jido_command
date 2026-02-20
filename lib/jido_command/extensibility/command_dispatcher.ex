@@ -62,9 +62,11 @@ defmodule JidoCommand.Extensibility.CommandDispatcher do
   end
 
   defp process_invoke(%Signal{id: signal_id}, state) do
+    invocation_id = normalize_invocation_id(signal_id, default_invocation_id())
+
     emit_result(state.bus, "command.failed", %{
       "name" => "<invalid>",
-      "invocation_id" => signal_id,
+      "invocation_id" => invocation_id,
       "error" => invalid_payload_message(:payload_must_be_map)
     })
 
@@ -199,11 +201,14 @@ defmodule JidoCommand.Extensibility.CommandDispatcher do
   defp normalize_permission(_), do: nil
 
   defp validate_invoke_payload(data, fallback_invocation_id) do
+    normalized_fallback_invocation_id =
+      normalize_invocation_id(fallback_invocation_id, default_invocation_id())
+
     raw_name = data_get(data, "name")
     normalized_name = normalize_name(raw_name)
 
     normalized_invocation_id =
-      normalize_invocation_id(data_get(data, "invocation_id"), fallback_invocation_id)
+      normalize_invocation_id(data_get(data, "invocation_id"), normalized_fallback_invocation_id)
 
     with :ok <- validate_invoke_keys(data),
          {:ok, name} <- validate_name(raw_name),
@@ -212,7 +217,7 @@ defmodule JidoCommand.Extensibility.CommandDispatcher do
          {:ok, invocation_id} <-
            validate_invocation_id(
              data_get(data, "invocation_id", :missing),
-             fallback_invocation_id
+             normalized_fallback_invocation_id
            ) do
       {:ok, %{name: name, params: params, context: context, invocation_id: invocation_id}}
     else
@@ -286,6 +291,10 @@ defmodule JidoCommand.Extensibility.CommandDispatcher do
   end
 
   defp normalize_invocation_id(_value, fallback), do: fallback
+
+  defp default_invocation_id do
+    Integer.to_string(System.unique_integer([:positive, :monotonic]))
+  end
 
   defp invalid_payload_message(:payload_must_be_map),
     do: "invalid command.invoke payload: data must be an object"

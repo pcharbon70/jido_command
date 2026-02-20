@@ -127,6 +127,43 @@ defmodule JidoCommand.Extensibility.CommandDispatcherTest do
     assert data["error"] == "invalid command.invoke payload: unknown keys: extra"
   end
 
+  test "emits command.failed with generated invocation_id when non-map payload has no signal id" do
+    %{bus: bus, dispatcher: dispatcher} = start_runtime()
+
+    {:ok, _failed_sub} =
+      Bus.subscribe(bus, "command.failed", dispatch: {:pid, target: self()})
+
+    send(
+      dispatcher,
+      {:signal, %Signal{type: "command.invoke", id: nil, source: "/test", data: "invalid"}}
+    )
+
+    assert_receive {:signal, %Signal{type: "command.failed", data: data}}, 2_000
+    assert data["name"] == "<invalid>"
+    assert is_binary(data["invocation_id"])
+    assert data["invocation_id"] != ""
+    assert data["error"] == "invalid command.invoke payload: data must be an object"
+  end
+
+  test "emits command.failed with generated fallback invocation_id when payload id is missing" do
+    %{bus: bus, dispatcher: dispatcher} = start_runtime()
+
+    {:ok, _failed_sub} =
+      Bus.subscribe(bus, "command.failed", dispatch: {:pid, target: self()})
+
+    send(
+      dispatcher,
+      {:signal,
+       %Signal{type: "command.invoke", id: nil, source: "/test", data: %{"name" => "hello"}}}
+    )
+
+    assert_receive {:signal, %Signal{type: "command.failed", data: data}}, 2_000
+    assert data["name"] == "hello"
+    assert is_binary(data["invocation_id"])
+    assert data["invocation_id"] != ""
+    assert data["error"] == "invalid command.invoke payload: params is required"
+  end
+
   test "runs invokes concurrently up to max_concurrent limit" do
     %{bus: bus} =
       start_runtime(
