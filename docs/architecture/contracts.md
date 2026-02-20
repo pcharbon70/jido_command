@@ -206,6 +206,7 @@ Any unknown top-level FrontMatter key is rejected.
 - list or comma-string entries are trimmed; empty entries are ignored
 - after trimming and normalization, duplicate tool names are de-duplicated in source order
 - runtime applies `allowed-tools` as a top-level filter before execution by reducing `permissions.allow|deny|ask` to only declared tools
+- permission entries with `*` are treated as wildcards during this reduction (for example, `Bash(git:*)` can cover `Bash(git diff:*)`)
 
 ### `jido` allowed keys
 
