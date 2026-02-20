@@ -304,6 +304,123 @@ defmodule JidoCommandTest do
     assert result["result"]["permissions"] == expected_permissions
   end
 
+  test "invoke uses context permissions when options permissions are absent" do
+    root = tmp_root("invoke_context_permissions")
+    global_root = Path.join(root, "global")
+    local_root = Path.join(root, "local")
+    local_commands_dir = Path.join(local_root, "commands")
+
+    File.mkdir_p!(Path.join(global_root, "commands"))
+    File.mkdir_p!(local_commands_dir)
+
+    File.write!(
+      Path.join(local_commands_dir, "review.md"),
+      """
+      ---
+      name: review
+      description: review command
+      allowed-tools:
+        - Bash(git diff:--stat)
+      ---
+      review
+      """
+    )
+
+    bus = unique_bus_name()
+    registry = unique_registry_name()
+
+    start_supervised!({Bus, name: bus})
+
+    start_supervised!(
+      {CommandRegistry,
+       name: registry, bus: bus, global_root: global_root, local_root: local_root}
+    )
+
+    context = %{
+      "permissions" => %{
+        "allow" => ["Bash(git diff:*)"],
+        "deny" => ["Bash(git diff:*)"],
+        "ask" => ["Bash(git diff:*)"]
+      }
+    }
+
+    expected_permissions = %{
+      allow: ["Bash(git diff:--stat)"],
+      deny: ["Bash(git diff:--stat)"],
+      ask: ["Bash(git diff:--stat)"]
+    }
+
+    assert {:ok, result} =
+             JidoCommand.invoke("review", %{}, context, registry: registry, bus: bus)
+
+    assert result["result"]["permissions"] == expected_permissions
+  end
+
+  test "invoke options permissions override context permissions" do
+    root = tmp_root("invoke_permissions_override")
+    global_root = Path.join(root, "global")
+    local_root = Path.join(root, "local")
+    local_commands_dir = Path.join(local_root, "commands")
+
+    File.mkdir_p!(Path.join(global_root, "commands"))
+    File.mkdir_p!(local_commands_dir)
+
+    File.write!(
+      Path.join(local_commands_dir, "review.md"),
+      """
+      ---
+      name: review
+      description: review command
+      allowed-tools:
+        - Bash(git diff:*)
+      ---
+      review
+      """
+    )
+
+    bus = unique_bus_name()
+    registry = unique_registry_name()
+
+    start_supervised!({Bus, name: bus})
+
+    start_supervised!(
+      {CommandRegistry,
+       name: registry, bus: bus, global_root: global_root, local_root: local_root}
+    )
+
+    context = %{
+      "permissions" => %{
+        "allow" => ["Read"],
+        "deny" => ["Write"],
+        "ask" => ["Grep"]
+      }
+    }
+
+    options_permissions = %{
+      allow: ["Bash(git diff:--stat)", "Read"],
+      deny: ["Bash(git diff:--name-only)", "Write"],
+      ask: ["Bash(git diff:--cached)", "Grep"]
+    }
+
+    expected_permissions = %{
+      allow: ["Bash(git diff:--stat)"],
+      deny: ["Bash(git diff:--name-only)"],
+      ask: ["Bash(git diff:--cached)"]
+    }
+
+    assert {:ok, result} =
+             JidoCommand.invoke(
+               "review",
+               %{},
+               context,
+               registry: registry,
+               bus: bus,
+               permissions: options_permissions
+             )
+
+    assert result["result"]["permissions"] == expected_permissions
+  end
+
   test "invoke normalizes invalid invocation_id in options and context" do
     root = tmp_root("invoke_invocation_id")
     global_root = Path.join(root, "global")
