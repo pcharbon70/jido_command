@@ -17,9 +17,7 @@ defmodule JidoCommand do
   def invoke(name, params \\ %{}, context \\ %{}, opts \\ []) do
     registry = Keyword.get(opts, :registry, CommandRegistry)
     bus = Keyword.get(opts, :bus, :jido_code_bus)
-
-    invocation_id =
-      normalize_invocation_id(Keyword.get(opts, :invocation_id), default_invocation_id())
+    invocation_id_option = Keyword.get(opts, :invocation_id)
 
     permissions = normalize_permissions(Keyword.get(opts, :permissions))
 
@@ -27,11 +25,12 @@ defmodule JidoCommand do
          :ok <- validate_map_arg(params, :invalid_params),
          :ok <- validate_map_arg(context, :invalid_context),
          {:ok, module} <- CommandRegistry.get_command(normalized_name, registry) do
+      invocation_id = resolve_invocation_id(context, invocation_id_option)
+
       run_context =
         context
         |> Map.put_new(:bus, bus)
-        |> Map.put_new(:invocation_id, invocation_id)
-        |> normalize_context_invocation_id()
+        |> put_invocation_id(invocation_id)
         |> maybe_put_permissions(permissions)
 
       Jido.Exec.run(module, params, run_context)
@@ -92,18 +91,10 @@ defmodule JidoCommand do
     Integer.to_string(System.unique_integer([:positive, :monotonic]))
   end
 
-  defp normalize_context_invocation_id(context) when is_map(context) do
-    raw_invocation_id =
-      case Map.fetch(context, :invocation_id) do
-        {:ok, value} -> value
-        :error -> Map.get(context, "invocation_id")
-      end
-
-    normalized = normalize_invocation_id(raw_invocation_id, default_invocation_id())
-
+  defp put_invocation_id(context, invocation_id) when is_map(context) do
     context
     |> Map.delete("invocation_id")
-    |> Map.put(:invocation_id, normalized)
+    |> Map.put(:invocation_id, invocation_id)
   end
 
   defp maybe_put_permissions(context, nil), do: context
@@ -127,6 +118,20 @@ defmodule JidoCommand do
 
   defp validate_map_arg(value, _error_tag) when is_map(value), do: :ok
   defp validate_map_arg(_value, error_tag), do: {:error, error_tag}
+
+  defp resolve_invocation_id(context, invocation_id_option) when is_map(context) do
+    option_invocation_id = normalize_invocation_id(invocation_id_option, nil)
+    context_invocation_id = normalize_invocation_id(raw_context_invocation_id(context), nil)
+
+    option_invocation_id || context_invocation_id || default_invocation_id()
+  end
+
+  defp raw_context_invocation_id(context) when is_map(context) do
+    case Map.fetch(context, :invocation_id) do
+      {:ok, value} -> value
+      :error -> Map.get(context, "invocation_id")
+    end
+  end
 
   defp normalize_invocation_id(value, fallback) when is_binary(value) do
     trimmed = String.trim(value)
