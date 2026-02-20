@@ -30,7 +30,7 @@ Validation rules:
 - `params` is required and must be an object
 - `context` must be an object when provided
 - `invocation_id` must be a non-empty string when provided
-- unknown payload keys are rejected
+- unknown payload keys are rejected (including non-string keys)
 
 Invalid payloads are rejected and result in a `command.failed` signal with a validation error message.
 
