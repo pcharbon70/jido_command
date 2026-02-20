@@ -14,7 +14,7 @@ Required data fields:
 Optional data fields:
 
 - `context` (object): execution context merged into dispatcher context
-- `invocation_id` (string): caller-supplied ID; if absent dispatcher uses the inbound signal ID
+- `invocation_id` (string): caller-supplied ID; if absent dispatcher uses the inbound signal ID (or generates one if the inbound ID is invalid/missing)
 
 For API-level dispatch (`JidoCommand.dispatch/4`) and invoke (`JidoCommand.invoke/4`), invocation ID resolution order is: `opts[:invocation_id]` (when valid), then `context[:invocation_id]`/`context["invocation_id"]` (when valid), then a generated non-empty string.
 For API-level `JidoCommand.invoke/4` and `JidoCommand.dispatch/4`, command name must be a non-empty string and both `params` and `context` must be objects; invalid inputs return an error tuple (and `dispatch` does not publish a signal).
