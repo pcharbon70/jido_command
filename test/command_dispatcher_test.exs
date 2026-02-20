@@ -127,6 +127,30 @@ defmodule JidoCommand.Extensibility.CommandDispatcherTest do
     assert data["error"] == "invalid command.invoke payload: unknown keys: extra"
   end
 
+  test "emits command.failed when payload includes non-string unknown keys" do
+    %{bus: bus, dispatcher: dispatcher} = start_runtime()
+
+    {:ok, _failed_sub} =
+      Bus.subscribe(bus, "command.failed", dispatch: {:pid, target: self()})
+
+    send(
+      dispatcher,
+      {:signal,
+       %Signal{
+         type: "command.invoke",
+         id: "sig-nonstring-key",
+         source: "/test",
+         data: %{"name" => "hello", "params" => %{}, {:extra, :key} => true}
+       }}
+    )
+
+    assert_receive {:signal, %Signal{type: "command.failed", data: data}}, 2_000
+    assert data["name"] == "hello"
+    assert data["invocation_id"] == "sig-nonstring-key"
+    assert String.starts_with?(data["error"], "invalid command.invoke payload: unknown keys:")
+    assert String.contains?(data["error"], "{:extra, :key}")
+  end
+
   test "emits command.failed with generated invocation_id when non-map payload has no signal id" do
     %{bus: bus, dispatcher: dispatcher} = start_runtime()
 

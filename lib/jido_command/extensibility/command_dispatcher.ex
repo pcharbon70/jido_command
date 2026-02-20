@@ -232,7 +232,7 @@ defmodule JidoCommand.Extensibility.CommandDispatcher do
     unknown_keys =
       data
       |> Map.keys()
-      |> Enum.map(&to_string/1)
+      |> Enum.map(&normalize_payload_key/1)
       |> Enum.reject(&(&1 in allowed))
       |> Enum.sort()
 
@@ -295,6 +295,10 @@ defmodule JidoCommand.Extensibility.CommandDispatcher do
   defp default_invocation_id do
     Integer.to_string(System.unique_integer([:positive, :monotonic]))
   end
+
+  defp normalize_payload_key(key) when is_binary(key), do: key
+  defp normalize_payload_key(key) when is_atom(key), do: Atom.to_string(key)
+  defp normalize_payload_key(key), do: inspect(key)
 
   defp invalid_payload_message(:payload_must_be_map),
     do: "invalid command.invoke payload: data must be an object"
