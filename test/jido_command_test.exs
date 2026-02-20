@@ -190,6 +190,120 @@ defmodule JidoCommandTest do
     assert result["result"]["permissions"] == permissions
   end
 
+  test "invoke applies allowed-tools filtering to permissions from options" do
+    root = tmp_root("invoke_allowed_tools_filter")
+    global_root = Path.join(root, "global")
+    local_root = Path.join(root, "local")
+    local_commands_dir = Path.join(local_root, "commands")
+
+    File.mkdir_p!(Path.join(global_root, "commands"))
+    File.mkdir_p!(local_commands_dir)
+
+    File.write!(
+      Path.join(local_commands_dir, "review.md"),
+      """
+      ---
+      name: review
+      description: review command
+      allowed-tools:
+        - Bash(git diff:--stat)
+      ---
+      review
+      """
+    )
+
+    bus = unique_bus_name()
+    registry = unique_registry_name()
+
+    start_supervised!({Bus, name: bus})
+
+    start_supervised!(
+      {CommandRegistry,
+       name: registry, bus: bus, global_root: global_root, local_root: local_root}
+    )
+
+    permissions = %{
+      allow: ["Bash(git diff:*)"],
+      deny: ["Bash(git diff:*)"],
+      ask: ["Bash(git diff:*)"]
+    }
+
+    expected_permissions = %{
+      allow: ["Bash(git diff:--stat)"],
+      deny: ["Bash(git diff:--stat)"],
+      ask: ["Bash(git diff:--stat)"]
+    }
+
+    assert {:ok, result} =
+             JidoCommand.invoke(
+               "review",
+               %{},
+               %{},
+               registry: registry,
+               bus: bus,
+               permissions: permissions
+             )
+
+    assert result["result"]["permissions"] == expected_permissions
+  end
+
+  test "invoke preserves exact matching permissions when allowed-tools uses wildcard" do
+    root = tmp_root("invoke_allowed_tools_wildcard")
+    global_root = Path.join(root, "global")
+    local_root = Path.join(root, "local")
+    local_commands_dir = Path.join(local_root, "commands")
+
+    File.mkdir_p!(Path.join(global_root, "commands"))
+    File.mkdir_p!(local_commands_dir)
+
+    File.write!(
+      Path.join(local_commands_dir, "review.md"),
+      """
+      ---
+      name: review
+      description: review command
+      allowed-tools:
+        - Bash(git diff:*)
+      ---
+      review
+      """
+    )
+
+    bus = unique_bus_name()
+    registry = unique_registry_name()
+
+    start_supervised!({Bus, name: bus})
+
+    start_supervised!(
+      {CommandRegistry,
+       name: registry, bus: bus, global_root: global_root, local_root: local_root}
+    )
+
+    permissions = %{
+      allow: ["Bash(git diff:--stat)", "Read"],
+      deny: ["Bash(git diff:--name-only)", "Write"],
+      ask: ["Bash(git diff:--cached)", "Grep"]
+    }
+
+    expected_permissions = %{
+      allow: ["Bash(git diff:--stat)"],
+      deny: ["Bash(git diff:--name-only)"],
+      ask: ["Bash(git diff:--cached)"]
+    }
+
+    assert {:ok, result} =
+             JidoCommand.invoke(
+               "review",
+               %{},
+               %{},
+               registry: registry,
+               bus: bus,
+               permissions: permissions
+             )
+
+    assert result["result"]["permissions"] == expected_permissions
+  end
+
   test "invoke normalizes invalid invocation_id in options and context" do
     root = tmp_root("invoke_invocation_id")
     global_root = Path.join(root, "global")
