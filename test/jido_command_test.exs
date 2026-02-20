@@ -38,6 +38,62 @@ defmodule JidoCommandTest do
     assert data["invocation_id"] == invocation_id
   end
 
+  test "dispatch uses string-key context invocation_id when options invocation_id is absent" do
+    bus = unique_bus_name()
+    start_supervised!({Bus, name: bus})
+
+    {:ok, _subscription} =
+      Bus.subscribe(bus, "command.invoke", dispatch: {:pid, target: self()})
+
+    assert {:ok, invocation_id} =
+             JidoCommand.dispatch("demo", %{"x" => 1}, %{"invocation_id" => "context-id"},
+               bus: bus
+             )
+
+    assert invocation_id == "context-id"
+
+    assert_receive {:signal, %Signal{type: "command.invoke", data: data}}, 1_000
+    assert data["invocation_id"] == "context-id"
+  end
+
+  test "dispatch options invocation_id overrides context invocation_id" do
+    bus = unique_bus_name()
+    start_supervised!({Bus, name: bus})
+
+    {:ok, _subscription} =
+      Bus.subscribe(bus, "command.invoke", dispatch: {:pid, target: self()})
+
+    assert {:ok, invocation_id} =
+             JidoCommand.dispatch("demo", %{"x" => 1}, %{"invocation_id" => "context-id"},
+               bus: bus,
+               invocation_id: "options-id"
+             )
+
+    assert invocation_id == "options-id"
+
+    assert_receive {:signal, %Signal{type: "command.invoke", data: data}}, 1_000
+    assert data["invocation_id"] == "options-id"
+  end
+
+  test "dispatch falls back to context invocation_id when options invocation_id is invalid" do
+    bus = unique_bus_name()
+    start_supervised!({Bus, name: bus})
+
+    {:ok, _subscription} =
+      Bus.subscribe(bus, "command.invoke", dispatch: {:pid, target: self()})
+
+    assert {:ok, invocation_id} =
+             JidoCommand.dispatch("demo", %{"x" => 1}, %{"invocation_id" => "context-id"},
+               bus: bus,
+               invocation_id: 123
+             )
+
+    assert invocation_id == "context-id"
+
+    assert_receive {:signal, %Signal{type: "command.invoke", data: data}}, 1_000
+    assert data["invocation_id"] == "context-id"
+  end
+
   test "dispatch rejects invalid name, params, and context before publishing" do
     bus = unique_bus_name()
     start_supervised!({Bus, name: bus})
