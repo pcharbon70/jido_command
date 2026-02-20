@@ -131,22 +131,31 @@ defmodule JidoCommand.Extensibility.CommandFrontmatter do
         {:ok, []}
 
       value when is_binary(value) ->
-        value
-        |> String.split(",")
-        |> parse_tools_list()
+        parse_tools_string(value)
 
       value when is_list(value) ->
-        parse_tools_list(value)
+        parse_tools_list(value, length(value))
 
       _ ->
-        {:error, {:invalid_allowed_tools, :expected_string_or_list}}
+        {:error, {:invalid_allowed_tools, :must_be_nonempty_string_or_list}}
     end
   end
 
-  defp parse_tools_list(list) when is_list(list) do
+  defp parse_tools_string(value) when is_binary(value) do
+    trimmed = String.trim(value)
+
+    if trimmed == "" do
+      {:error, {:invalid_allowed_tools, :must_be_nonempty_string_or_list}}
+    else
+      items = String.split(value, ",")
+      parse_tools_list(items, length(items))
+    end
+  end
+
+  defp parse_tools_list(list, source_count) when is_list(list) and is_integer(source_count) do
     list
     |> Enum.reduce_while([], &accumulate_tool/2)
-    |> finalize_tools()
+    |> finalize_tools(source_count)
   end
 
   defp accumulate_tool(item, acc) do
@@ -157,8 +166,17 @@ defmodule JidoCommand.Extensibility.CommandFrontmatter do
     end
   end
 
-  defp finalize_tools({:error, reason}), do: {:error, reason}
-  defp finalize_tools(tools), do: {:ok, tools |> Enum.reverse() |> Enum.uniq()}
+  defp finalize_tools({:error, reason}, _source_count), do: {:error, reason}
+
+  defp finalize_tools(tools, source_count) when is_list(tools) and is_integer(source_count) do
+    normalized = tools |> Enum.reverse() |> Enum.uniq()
+
+    if normalized == [] do
+      {:error, {:invalid_allowed_tools, :must_include_nonempty_tool}}
+    else
+      {:ok, normalized}
+    end
+  end
 
   defp normalize_tool(value) when is_atom(value), do: normalize_tool(Atom.to_string(value))
 
