@@ -355,6 +355,47 @@ defmodule JidoCommand.Extensibility.CommandDispatcherTest do
     assert_receive {:permissions_seen, ^expected_permissions}, 1_000
   end
 
+  test "does not match wildcard runtime permissions across command token boundaries" do
+    runtime_permissions = %{
+      allow: ["Bash(git:*)"],
+      deny: ["Bash(git:*)"],
+      ask: ["Bash(git:*)"]
+    }
+
+    expected_permissions = %{allow: [], deny: [], ask: []}
+
+    %{bus: bus} =
+      start_runtime(
+        [
+          {"probe.md",
+           """
+           ---
+           name: probe
+           description: probe command
+           allowed-tools:
+             - Bash(git diff:--stat)
+           ---
+           probe
+           """}
+        ],
+        permissions: runtime_permissions
+      )
+
+    assert {:ok, invoke_signal} =
+             Signal.new(
+               "command.invoke",
+               %{
+                 "name" => "probe",
+                 "params" => %{},
+                 "context" => %{command_executor: PermissionsProbeExecutor, test_pid: self()}
+               },
+               source: "/test"
+             )
+
+    assert {:ok, _} = Bus.publish(bus, [invoke_signal])
+    assert_receive {:permissions_seen, ^expected_permissions}, 1_000
+  end
+
   defp start_runtime(commands \\ [], dispatcher_opts \\ []) do
     root = tmp_root()
     global_root = Path.join(root, "global")

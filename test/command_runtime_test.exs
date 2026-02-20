@@ -219,6 +219,32 @@ defmodule JidoCommand.Extensibility.CommandRuntimeTest do
            }
   end
 
+  test "does not match wildcard permissions across command token boundaries" do
+    definition = %CommandDefinition{
+      name: "test",
+      description: "test",
+      hooks: %{pre: false, after: false},
+      allowed_tools: ["Bash(git diff:--stat)"],
+      body: "ignored"
+    }
+
+    context = %{
+      command_executor: ContextProbeExecutor,
+      test_pid: self(),
+      permissions: %{
+        allow: ["Bash(git:*)"],
+        deny: ["Bash(git:*)"],
+        ask: ["Bash(git:*)"]
+      }
+    }
+
+    assert {:ok, _result} = CommandRuntime.execute(definition, %{}, context)
+
+    assert_receive {:context_seen, seen_context}, 1_000
+    assert seen_context.allowed_tools == ["Bash(git diff:--stat)"]
+    assert seen_context.permissions == %{allow: [], deny: [], ask: []}
+  end
+
   test "does not emit hooks when both hook flags are disabled" do
     bus = unique_bus_name()
     start_supervised!({Bus, name: bus})
