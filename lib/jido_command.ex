@@ -40,26 +40,27 @@ defmodule JidoCommand do
   @spec dispatch(String.t(), map(), map(), keyword()) :: {:ok, String.t()} | {:error, term()}
   def dispatch(name, params \\ %{}, context \\ %{}, opts \\ []) do
     bus = Keyword.get(opts, :bus, :jido_code_bus)
-
-    invocation_id =
-      normalize_invocation_id(Keyword.get(opts, :invocation_id), default_invocation_id())
+    invocation_id_option = Keyword.get(opts, :invocation_id)
 
     with {:ok, normalized_name} <- validate_command_name(name),
          :ok <- validate_map_arg(params, :invalid_params),
-         :ok <- validate_map_arg(context, :invalid_context),
-         {:ok, signal} <-
-           Signal.new(
-             "command.invoke",
-             %{
-               "name" => normalized_name,
-               "params" => params,
-               "context" => context,
-               "invocation_id" => invocation_id
-             },
-             source: "/jido_command"
-           ),
-         {:ok, _recorded} <- Bus.publish(bus, [signal]) do
-      {:ok, invocation_id}
+         :ok <- validate_map_arg(context, :invalid_context) do
+      invocation_id = resolve_invocation_id(context, invocation_id_option)
+
+      with {:ok, signal} <-
+             Signal.new(
+               "command.invoke",
+               %{
+                 "name" => normalized_name,
+                 "params" => params,
+                 "context" => context,
+                 "invocation_id" => invocation_id
+               },
+               source: "/jido_command"
+             ),
+           {:ok, _recorded} <- Bus.publish(bus, [signal]) do
+        {:ok, invocation_id}
+      end
     end
   end
 
