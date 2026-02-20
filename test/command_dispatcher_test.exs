@@ -264,6 +264,52 @@ defmodule JidoCommand.Extensibility.CommandDispatcherTest do
     assert_receive {:permissions_seen, ^runtime_permissions}, 1_000
   end
 
+  test "filters runtime permissions by command allowed-tools before execution" do
+    runtime_permissions = %{
+      allow: ["Read", "Write", "Bash(git diff:*)"],
+      deny: ["Bash(rm -rf:*)", "Bash(git diff:*)"],
+      ask: ["Grep", "Read"]
+    }
+
+    expected_permissions = %{
+      allow: ["Read", "Bash(git diff:*)"],
+      deny: ["Bash(git diff:*)"],
+      ask: ["Read"]
+    }
+
+    %{bus: bus} =
+      start_runtime(
+        [
+          {"probe.md",
+           """
+           ---
+           name: probe
+           description: probe command
+           allowed-tools:
+             - Read
+             - Bash(git diff:*)
+           ---
+           probe
+           """}
+        ],
+        permissions: runtime_permissions
+      )
+
+    assert {:ok, invoke_signal} =
+             Signal.new(
+               "command.invoke",
+               %{
+                 "name" => "probe",
+                 "params" => %{},
+                 "context" => %{command_executor: PermissionsProbeExecutor, test_pid: self()}
+               },
+               source: "/test"
+             )
+
+    assert {:ok, _} = Bus.publish(bus, [invoke_signal])
+    assert_receive {:permissions_seen, ^expected_permissions}, 1_000
+  end
+
   defp start_runtime(commands \\ [], dispatcher_opts \\ []) do
     root = tmp_root()
     global_root = Path.join(root, "global")
