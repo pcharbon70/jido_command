@@ -371,7 +371,7 @@ defmodule JidoCommand.Config.Settings do
     unknown_keys =
       map
       |> Map.keys()
-      |> Enum.map(&to_string/1)
+      |> Enum.map(&normalize_settings_key/1)
       |> Enum.reject(&(&1 in allowed_keys))
       |> Enum.sort()
 
@@ -381,6 +381,10 @@ defmodule JidoCommand.Config.Settings do
       {:error, {tag, {:unknown_keys, unknown_keys}}}
     end
   end
+
+  defp normalize_settings_key(key) when is_binary(key), do: key
+  defp normalize_settings_key(key) when is_atom(key), do: Atom.to_string(key)
+  defp normalize_settings_key(key), do: inspect(key)
 
   defp chain_validate(:ok, validation), do: validation.()
   defp chain_validate({:error, _reason} = error, _validation), do: error
