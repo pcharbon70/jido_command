@@ -225,20 +225,42 @@ defmodule JidoCommand.Extensibility.CommandRuntime do
 
   defp filter_permissions_by_allowed_tools(permissions, allowed_tools)
        when is_map(permissions) and is_list(allowed_tools) do
-    allowed = MapSet.new(allowed_tools)
-
     %{
-      allow: filter_permission_bucket(Map.get(permissions, :allow, []), allowed),
-      deny: filter_permission_bucket(Map.get(permissions, :deny, []), allowed),
-      ask: filter_permission_bucket(Map.get(permissions, :ask, []), allowed)
+      allow: filter_permission_bucket(Map.get(permissions, :allow, []), allowed_tools),
+      deny: filter_permission_bucket(Map.get(permissions, :deny, []), allowed_tools),
+      ask: filter_permission_bucket(Map.get(permissions, :ask, []), allowed_tools)
     }
   end
 
-  defp filter_permission_bucket(list, allowed) when is_list(list) do
-    Enum.filter(list, &MapSet.member?(allowed, &1))
+  defp filter_permission_bucket(permissions, allowed_tools)
+       when is_list(permissions) and is_list(allowed_tools) do
+    Enum.filter(allowed_tools, fn tool ->
+      Enum.any?(permissions, &permission_matches_tool?(&1, tool))
+    end)
   end
 
-  defp filter_permission_bucket(_list, _allowed), do: []
+  defp filter_permission_bucket(_permissions, _allowed_tools), do: []
+
+  defp permission_matches_tool?(permission, tool)
+       when is_binary(permission) and is_binary(tool) do
+    permission == tool or wildcard_permission_match?(permission, tool)
+  end
+
+  defp permission_matches_tool?(_permission, _tool), do: false
+
+  defp wildcard_permission_match?(permission, tool)
+       when is_binary(permission) and is_binary(tool) do
+    if String.contains?(permission, "*") do
+      pattern =
+        permission
+        |> Regex.escape()
+        |> String.replace("\\*", ".*")
+
+      Regex.match?(~r/\A#{pattern}\z/, tool)
+    else
+      false
+    end
+  end
 
   defp normalize_invocation_id(value, fallback) when is_binary(value) do
     trimmed = String.trim(value)

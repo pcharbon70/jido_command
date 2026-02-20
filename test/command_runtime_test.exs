@@ -162,7 +162,7 @@ defmodule JidoCommand.Extensibility.CommandRuntimeTest do
       name: "test",
       description: "test",
       hooks: %{pre: false, after: false},
-      allowed_tools: ["Read", "Bash(git diff:*)"],
+      allowed_tools: ["Read", "Bash(git diff:--stat)"],
       body: "ignored"
     }
 
@@ -172,19 +172,19 @@ defmodule JidoCommand.Extensibility.CommandRuntimeTest do
       permissions: %{
         allow: ["Read", "Write", "Bash(git diff:*)"],
         deny: ["Bash(rm -rf:*)", "Bash(git diff:*)"],
-        ask: ["Grep", "Read"]
+        ask: ["Grep", "Read", "Bash(git diff:*)"]
       }
     }
 
     assert {:ok, _result} = CommandRuntime.execute(definition, %{}, context)
 
     assert_receive {:context_seen, seen_context}, 1_000
-    assert seen_context.allowed_tools == ["Read", "Bash(git diff:*)"]
+    assert seen_context.allowed_tools == ["Read", "Bash(git diff:--stat)"]
 
     assert seen_context.permissions == %{
-             allow: ["Read", "Bash(git diff:*)"],
-             deny: ["Bash(git diff:*)"],
-             ask: ["Read"]
+             allow: ["Read", "Bash(git diff:--stat)"],
+             deny: ["Bash(git diff:--stat)"],
+             ask: ["Read", "Bash(git diff:--stat)"]
            }
   end
 

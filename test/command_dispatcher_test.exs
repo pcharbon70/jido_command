@@ -268,13 +268,13 @@ defmodule JidoCommand.Extensibility.CommandDispatcherTest do
     runtime_permissions = %{
       allow: ["Read", "Write", "Bash(git diff:*)"],
       deny: ["Bash(rm -rf:*)", "Bash(git diff:*)"],
-      ask: ["Grep", "Read"]
+      ask: ["Grep", "Read", "Bash(git diff:*)"]
     }
 
     expected_permissions = %{
-      allow: ["Read", "Bash(git diff:*)"],
-      deny: ["Bash(git diff:*)"],
-      ask: ["Read"]
+      allow: ["Read", "Bash(git diff:--stat)"],
+      deny: ["Bash(git diff:--stat)"],
+      ask: ["Read", "Bash(git diff:--stat)"]
     }
 
     %{bus: bus} =
@@ -287,7 +287,7 @@ defmodule JidoCommand.Extensibility.CommandDispatcherTest do
            description: probe command
            allowed-tools:
              - Read
-             - Bash(git diff:*)
+             - Bash(git diff:--stat)
            ---
            probe
            """}
