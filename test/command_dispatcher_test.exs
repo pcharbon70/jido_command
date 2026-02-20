@@ -310,6 +310,51 @@ defmodule JidoCommand.Extensibility.CommandDispatcherTest do
     assert_receive {:permissions_seen, ^expected_permissions}, 1_000
   end
 
+  test "keeps exact runtime permissions when command allowed-tools uses wildcard" do
+    runtime_permissions = %{
+      allow: ["Bash(git diff:--stat)", "Read"],
+      deny: ["Bash(git diff:--name-only)", "Write"],
+      ask: ["Bash(git diff:--cached)", "Grep"]
+    }
+
+    expected_permissions = %{
+      allow: ["Bash(git diff:--stat)"],
+      deny: ["Bash(git diff:--name-only)"],
+      ask: ["Bash(git diff:--cached)"]
+    }
+
+    %{bus: bus} =
+      start_runtime(
+        [
+          {"probe.md",
+           """
+           ---
+           name: probe
+           description: probe command
+           allowed-tools:
+             - Bash(git diff:*)
+           ---
+           probe
+           """}
+        ],
+        permissions: runtime_permissions
+      )
+
+    assert {:ok, invoke_signal} =
+             Signal.new(
+               "command.invoke",
+               %{
+                 "name" => "probe",
+                 "params" => %{},
+                 "context" => %{command_executor: PermissionsProbeExecutor, test_pid: self()}
+               },
+               source: "/test"
+             )
+
+    assert {:ok, _} = Bus.publish(bus, [invoke_signal])
+    assert_receive {:permissions_seen, ^expected_permissions}, 1_000
+  end
+
   defp start_runtime(commands \\ [], dispatcher_opts \\ []) do
     root = tmp_root()
     global_root = Path.join(root, "global")
