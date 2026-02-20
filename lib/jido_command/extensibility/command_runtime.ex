@@ -234,9 +234,18 @@ defmodule JidoCommand.Extensibility.CommandRuntime do
 
   defp filter_permission_bucket(permissions, allowed_tools)
        when is_list(permissions) and is_list(allowed_tools) do
-    Enum.filter(allowed_tools, fn tool ->
-      Enum.any?(permissions, &permission_matches_tool?(&1, tool))
-    end)
+    from_allowed =
+      Enum.filter(allowed_tools, fn tool ->
+        Enum.any?(permissions, &permission_matches_tool?(&1, tool))
+      end)
+
+    from_exact_permissions =
+      Enum.filter(permissions, fn permission ->
+        exact_tool?(permission) and
+          Enum.any?(allowed_tools, &allowed_matches_exact_permission?(&1, permission))
+      end)
+
+    Enum.uniq(from_allowed ++ from_exact_permissions)
   end
 
   defp filter_permission_bucket(_permissions, _allowed_tools), do: []
@@ -247,6 +256,18 @@ defmodule JidoCommand.Extensibility.CommandRuntime do
   end
 
   defp permission_matches_tool?(_permission, _tool), do: false
+
+  defp exact_tool?(permission) when is_binary(permission),
+    do: not String.contains?(permission, "*")
+
+  defp exact_tool?(_permission), do: false
+
+  defp allowed_matches_exact_permission?(allowed_tool, permission)
+       when is_binary(allowed_tool) and is_binary(permission) do
+    allowed_tool == permission or wildcard_permission_match?(allowed_tool, permission)
+  end
+
+  defp allowed_matches_exact_permission?(_allowed_tool, _permission), do: false
 
   defp wildcard_permission_match?(permission, tool)
        when is_binary(permission) and is_binary(tool) do

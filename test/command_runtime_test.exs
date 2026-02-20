@@ -188,6 +188,37 @@ defmodule JidoCommand.Extensibility.CommandRuntimeTest do
            }
   end
 
+  test "keeps exact permissions when allowed_tools declaration uses wildcard" do
+    definition = %CommandDefinition{
+      name: "test",
+      description: "test",
+      hooks: %{pre: false, after: false},
+      allowed_tools: ["Bash(git diff:*)"],
+      body: "ignored"
+    }
+
+    context = %{
+      command_executor: ContextProbeExecutor,
+      test_pid: self(),
+      permissions: %{
+        allow: ["Bash(git diff:--stat)", "Read"],
+        deny: ["Bash(git diff:--name-only)", "Write"],
+        ask: ["Bash(git diff:--cached)", "Grep"]
+      }
+    }
+
+    assert {:ok, _result} = CommandRuntime.execute(definition, %{}, context)
+
+    assert_receive {:context_seen, seen_context}, 1_000
+    assert seen_context.allowed_tools == ["Bash(git diff:*)"]
+
+    assert seen_context.permissions == %{
+             allow: ["Bash(git diff:--stat)"],
+             deny: ["Bash(git diff:--name-only)"],
+             ask: ["Bash(git diff:--cached)"]
+           }
+  end
+
   test "does not emit hooks when both hook flags are disabled" do
     bus = unique_bus_name()
     start_supervised!({Bus, name: bus})
