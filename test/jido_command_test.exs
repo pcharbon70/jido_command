@@ -121,6 +121,22 @@ defmodule JidoCommandTest do
     refute_receive {:signal, %Signal{type: "command.invoke"}}, 250
   end
 
+  test "dispatch rejects invalid and unknown options before publishing" do
+    bus = unique_bus_name()
+    start_supervised!({Bus, name: bus})
+
+    {:ok, _subscription} =
+      Bus.subscribe(bus, "command.invoke", dispatch: {:pid, target: self()})
+
+    assert {:error, :invalid_dispatch_options} =
+             JidoCommand.dispatch("demo", %{}, %{}, %{bus: bus})
+
+    assert {:error, {:invalid_dispatch_options_keys, ["permissions"]}} =
+             JidoCommand.dispatch("demo", %{}, %{}, bus: bus, permissions: %{"allow" => ["Read"]})
+
+    refute_receive {:signal, %Signal{type: "command.invoke"}}, 250
+  end
+
   test "dispatch rejects conflicting normalized keys in params and context before publishing" do
     bus = unique_bus_name()
     start_supervised!({Bus, name: bus})
@@ -693,6 +709,14 @@ defmodule JidoCommandTest do
     assert {:error, :invalid_name} = JidoCommand.invoke("   ", %{}, %{})
     assert {:error, :invalid_params} = JidoCommand.invoke("review", [], %{})
     assert {:error, :invalid_context} = JidoCommand.invoke("review", %{}, [])
+  end
+
+  test "invoke rejects invalid and unknown options" do
+    assert {:error, :invalid_invoke_options} =
+             JidoCommand.invoke("review", %{}, %{}, %{registry: CommandRegistry})
+
+    assert {:error, {:invalid_invoke_options_keys, ["permission"]}} =
+             JidoCommand.invoke("review", %{}, %{}, permission: %{"allow" => ["Read"]})
   end
 
   test "invoke rejects conflicting normalized keys in params and context" do
