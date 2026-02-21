@@ -106,6 +106,13 @@ Data fields:
 - `invocation_id` (string)
 - `error` (string)
 
+Runtime error messages include:
+
+- payload validation failures (for invalid `command.invoke` data)
+- `"command not found"` when registry lookup returns no command
+- `"registry unavailable: ..."` when dispatcher cannot reach the configured registry
+- `"command lookup failed: ..."` for other registry lookup errors
+
 ## Registry lifecycle signals
 
 Published by `CommandRegistry` when runtime command catalog changes.
