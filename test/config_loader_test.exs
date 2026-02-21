@@ -2,6 +2,7 @@ defmodule JidoCommand.Config.LoaderTest do
   use ExUnit.Case, async: true
 
   alias JidoCommand.Config.Loader
+  alias JidoCommand.Config.Settings
 
   test "loads and merges global and local settings with local precedence" do
     root = tmp_root()
@@ -212,6 +213,18 @@ defmodule JidoCommand.Config.LoaderTest do
              Loader.load(global_root: global, local_root: local)
   end
 
+  test "settings validation rejects non-string top-level keys without crashing" do
+    settings = %{
+      "commands" => %{"max_concurrent" => 5},
+      {:unknown, :key} => true
+    }
+
+    assert {:error, {:invalid_settings_keys, {:unknown_keys, unknown_keys}}} =
+             Settings.validate(settings)
+
+    assert "{:unknown, :key}" in unknown_keys
+  end
+
   test "returns invalid_settings for unknown nested permissions keys" do
     root = tmp_root()
     global = Path.join(root, "global")
@@ -232,6 +245,20 @@ defmodule JidoCommand.Config.LoaderTest do
 
     assert {:error, {:invalid_settings, {:invalid_permissions_keys, {:unknown_keys, ["maybe"]}}}} =
              Loader.load(global_root: global, local_root: local)
+  end
+
+  test "settings validation rejects non-string nested keys without crashing" do
+    settings = %{
+      "permissions" => %{
+        "allow" => ["Read"],
+        {:maybe, :key} => ["Write"]
+      }
+    }
+
+    assert {:error, {:invalid_permissions_keys, {:unknown_keys, unknown_keys}}} =
+             Settings.validate(settings)
+
+    assert "{:maybe, :key}" in unknown_keys
   end
 
   test "returns invalid_settings for invalid permission item types" do

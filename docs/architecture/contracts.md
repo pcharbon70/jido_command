@@ -52,8 +52,8 @@ Permission lists are normalized by trimming values, removing empties, and de-dup
 
 Validation rules:
 
-- unknown top-level settings keys are rejected
-- unknown keys under `signal_bus`, `permissions`, and `commands` are rejected
+- unknown top-level settings keys are rejected (including non-string keys)
+- unknown keys under `signal_bus`, `permissions`, and `commands` are rejected (including non-string keys)
 - `$schema` must be a non-empty string when provided
 - `version` must be a valid SemVer string when provided
 - `signal_bus.name` must be a non-empty string/atom when provided
