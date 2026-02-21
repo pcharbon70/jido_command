@@ -70,6 +70,12 @@ defmodule JidoCommand.CLITest do
     end
   end
 
+  defmodule FailingListRuntimeStub do
+    def list_commands do
+      {:error, {:registry_unavailable, :noproc}}
+    end
+  end
+
   defmodule FailingReloadRuntimeStub do
     def reload do
       send(self(), :runtime_reload_failed)
@@ -89,6 +95,36 @@ defmodule JidoCommand.CLITest do
       send(self(), {:runtime_unregister_command_failed, command_name})
       {:error, :unregister_command_error}
     end
+  end
+
+  test "list prints loaded command names" do
+    output =
+      capture_io(fn ->
+        assert :ok ==
+                 CLI.main(
+                   ["list"],
+                   fn code -> flunk("unexpected halt with #{code}") end,
+                   RuntimeStub
+                 )
+      end)
+
+    assert output == "alpha\nbeta\n"
+  end
+
+  test "list failure prints error and halts with 1" do
+    stderr =
+      capture_io(:stderr, fn ->
+        assert {:halt, 1} ==
+                 catch_throw(
+                   CLI.main(
+                     ["list"],
+                     fn code -> throw({:halt, code}) end,
+                     FailingListRuntimeStub
+                   )
+                 )
+      end)
+
+    assert stderr =~ "list failed: {:registry_unavailable, :noproc}"
   end
 
   test "dispatch publishes via runtime and prints invocation id" do
