@@ -121,6 +121,27 @@ defmodule JidoCommandTest do
     refute_receive {:signal, %Signal{type: "command.invoke"}}, 250
   end
 
+  test "dispatch rejects conflicting normalized keys in params and context before publishing" do
+    bus = unique_bus_name()
+    start_supervised!({Bus, name: bus})
+
+    {:ok, _subscription} =
+      Bus.subscribe(bus, "command.invoke", dispatch: {:pid, target: self()})
+
+    assert {:error, {:invalid_params_conflicting_keys, ["x"]}} =
+             JidoCommand.dispatch("demo", %{"meta" => %{"x" => 1, :x => 2}}, %{}, bus: bus)
+
+    assert {:error, {:invalid_context_conflicting_keys, ["allow"]}} =
+             JidoCommand.dispatch(
+               "demo",
+               %{},
+               %{"permissions" => %{"allow" => ["Read"], :allow => ["Write"]}},
+               bus: bus
+             )
+
+    refute_receive {:signal, %Signal{type: "command.invoke"}}, 250
+  end
+
   test "reload refreshes registry command index" do
     root = tmp_root("reload")
     global_root = Path.join(root, "global")
@@ -672,6 +693,18 @@ defmodule JidoCommandTest do
     assert {:error, :invalid_name} = JidoCommand.invoke("   ", %{}, %{})
     assert {:error, :invalid_params} = JidoCommand.invoke("review", [], %{})
     assert {:error, :invalid_context} = JidoCommand.invoke("review", %{}, [])
+  end
+
+  test "invoke rejects conflicting normalized keys in params and context" do
+    assert {:error, {:invalid_params_conflicting_keys, ["x"]}} =
+             JidoCommand.invoke("review", %{"meta" => %{"x" => 1, :x => 2}}, %{})
+
+    assert {:error, {:invalid_context_conflicting_keys, ["allow"]}} =
+             JidoCommand.invoke(
+               "review",
+               %{},
+               %{"permissions" => %{"allow" => ["Read"], :allow => ["Write"]}}
+             )
   end
 
   test "unregister_command removes a command from registry" do

@@ -25,6 +25,8 @@ defmodule JidoCommand do
          :ok <- validate_map_arg(params, :invalid_params),
          :ok <- validate_map_arg(context, :invalid_context),
          :ok <- validate_context_invocation_id_keys(context),
+         :ok <- validate_non_conflicting_keys(params, :invalid_params_conflicting_keys),
+         :ok <- validate_non_conflicting_keys(context, :invalid_context_conflicting_keys),
          {:ok, module} <- CommandRegistry.get_command(normalized_name, registry) do
       invocation_id = resolve_invocation_id(context, invocation_id_option)
 
@@ -46,7 +48,9 @@ defmodule JidoCommand do
     with {:ok, normalized_name} <- validate_command_name(name),
          :ok <- validate_map_arg(params, :invalid_params),
          :ok <- validate_map_arg(context, :invalid_context),
-         :ok <- validate_context_invocation_id_keys(context) do
+         :ok <- validate_context_invocation_id_keys(context),
+         :ok <- validate_non_conflicting_keys(params, :invalid_params_conflicting_keys),
+         :ok <- validate_non_conflicting_keys(context, :invalid_context_conflicting_keys) do
       invocation_id = resolve_invocation_id(context, invocation_id_option)
 
       with {:ok, signal} <-
@@ -130,6 +134,41 @@ defmodule JidoCommand do
     end
   end
 
+  defp validate_non_conflicting_keys(value, error_tag) when is_map(value) do
+    conflicting_keys =
+      value
+      |> Map.keys()
+      |> Enum.map(&normalize_payload_key/1)
+      |> Enum.frequencies()
+      |> Enum.reduce([], fn
+        {key, count}, acc when count > 1 -> [key | acc]
+        {_key, _count}, acc -> acc
+      end)
+      |> Enum.sort()
+
+    if conflicting_keys == [] do
+      validate_non_conflicting_values(Map.values(value), error_tag)
+    else
+      {:error, {error_tag, conflicting_keys}}
+    end
+  end
+
+  defp validate_non_conflicting_keys(value, error_tag) when is_list(value),
+    do: validate_non_conflicting_values(value, error_tag)
+
+  defp validate_non_conflicting_keys(_value, _error_tag), do: :ok
+
+  defp validate_non_conflicting_values(values, error_tag) when is_list(values) do
+    Enum.reduce_while(values, :ok, fn value, :ok ->
+      value
+      |> validate_non_conflicting_keys(error_tag)
+      |> continue_or_halt()
+    end)
+  end
+
+  defp continue_or_halt(:ok), do: {:cont, :ok}
+  defp continue_or_halt({:error, _reason} = error), do: {:halt, error}
+
   defp resolve_invocation_id(context, invocation_id_option) when is_map(context) do
     option_invocation_id = normalize_invocation_id(invocation_id_option, nil)
     context_invocation_id = normalize_invocation_id(raw_context_invocation_id(context), nil)
@@ -150,6 +189,10 @@ defmodule JidoCommand do
   end
 
   defp normalize_invocation_id(_value, fallback), do: fallback
+
+  defp normalize_payload_key(key) when is_binary(key), do: key
+  defp normalize_payload_key(key) when is_atom(key), do: Atom.to_string(key)
+  defp normalize_payload_key(key), do: inspect(key)
 
   defp normalize_permissions(value) when is_map(value) do
     %{
