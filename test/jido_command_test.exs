@@ -707,6 +707,16 @@ defmodule JidoCommandTest do
              )
   end
 
+  test "invoke rejects conflicting normalized keys in permissions options" do
+    assert {:error, {:invalid_permissions_conflicting_keys, ["allow"]}} =
+             JidoCommand.invoke(
+               "review",
+               %{},
+               %{},
+               permissions: %{"allow" => ["Read"], allow: ["Write"]}
+             )
+  end
+
   test "unregister_command removes a command from registry" do
     root = tmp_root("unregister")
     global_root = Path.join(root, "global")
