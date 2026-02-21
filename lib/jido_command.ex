@@ -8,6 +8,7 @@ defmodule JidoCommand do
   alias JidoCommand.Extensibility.CommandRegistry
   @invoke_allowed_option_keys [:registry, :bus, :invocation_id, :permissions]
   @dispatch_allowed_option_keys [:bus, :invocation_id]
+  @registry_allowed_option_keys [:registry]
 
   @spec list_commands(keyword()) :: [String.t()]
   def list_commands(opts \\ []) do
@@ -93,24 +94,47 @@ defmodule JidoCommand do
 
   @spec reload(keyword()) :: :ok | {:error, term()}
   def reload(opts \\ []) do
-    registry = Keyword.get(opts, :registry, CommandRegistry)
-    CommandRegistry.reload(registry)
+    with :ok <-
+           validate_api_options(
+             opts,
+             @registry_allowed_option_keys,
+             :invalid_reload_options,
+             :invalid_reload_options_keys,
+             :invalid_reload_options_conflicting_keys
+           ) do
+      registry = Keyword.get(opts, :registry, CommandRegistry)
+      CommandRegistry.reload(registry)
+    end
   end
 
   @spec register_command(String.t(), keyword()) :: :ok | {:error, term()}
   def register_command(command_path, opts \\ []) do
-    registry = Keyword.get(opts, :registry, CommandRegistry)
-
-    with {:ok, normalized_path} <- validate_nonempty_string(command_path, :invalid_path) do
+    with :ok <-
+           validate_api_options(
+             opts,
+             @registry_allowed_option_keys,
+             :invalid_register_command_options,
+             :invalid_register_command_options_keys,
+             :invalid_register_command_options_conflicting_keys
+           ),
+         {:ok, normalized_path} <- validate_nonempty_string(command_path, :invalid_path) do
+      registry = Keyword.get(opts, :registry, CommandRegistry)
       CommandRegistry.register_command(normalized_path, registry)
     end
   end
 
   @spec unregister_command(String.t(), keyword()) :: :ok | {:error, term()}
   def unregister_command(command_name, opts \\ []) do
-    registry = Keyword.get(opts, :registry, CommandRegistry)
-
-    with {:ok, normalized_name} <- validate_nonempty_string(command_name, :invalid_name) do
+    with :ok <-
+           validate_api_options(
+             opts,
+             @registry_allowed_option_keys,
+             :invalid_unregister_command_options,
+             :invalid_unregister_command_options_keys,
+             :invalid_unregister_command_options_conflicting_keys
+           ),
+         {:ok, normalized_name} <- validate_nonempty_string(command_name, :invalid_name) do
+      registry = Keyword.get(opts, :registry, CommandRegistry)
       CommandRegistry.unregister_command(normalized_name, registry)
     end
   end

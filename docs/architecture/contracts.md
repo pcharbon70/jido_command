@@ -154,8 +154,11 @@ Registry validation rule:
 
 Public API validation rules:
 
+- `JidoCommand.reload/1` only accepts keyword options with `:registry`; non-keyword, unknown, or conflicting option keys are rejected.
 - `JidoCommand.register_command/2` requires a non-empty string path and returns `{:error, :invalid_path}` for invalid input
+- `JidoCommand.register_command/2` only accepts keyword options with `:registry`; non-keyword, unknown, or conflicting option keys are rejected.
 - `JidoCommand.unregister_command/2` requires a non-empty string name and returns `{:error, :invalid_name}` for invalid input
+- `JidoCommand.unregister_command/2` only accepts keyword options with `:registry`; non-keyword, unknown, or conflicting option keys are rejected.
 
 ## Command hook signals (`jido.hooks.pre`, `jido.hooks.after`)
 
