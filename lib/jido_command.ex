@@ -10,10 +10,19 @@ defmodule JidoCommand do
   @dispatch_allowed_option_keys [:bus, :invocation_id]
   @registry_allowed_option_keys [:registry]
 
-  @spec list_commands(keyword()) :: [String.t()]
+  @spec list_commands(keyword()) :: [String.t()] | {:error, term()}
   def list_commands(opts \\ []) do
-    registry = Keyword.get(opts, :registry, CommandRegistry)
-    CommandRegistry.list_commands(registry)
+    with :ok <-
+           validate_api_options(
+             opts,
+             @registry_allowed_option_keys,
+             :invalid_list_commands_options,
+             :invalid_list_commands_options_keys,
+             :invalid_list_commands_options_conflicting_keys
+           ) do
+      registry = Keyword.get(opts, :registry, CommandRegistry)
+      CommandRegistry.list_commands(registry)
+    end
   end
 
   @spec invoke(String.t(), map(), map(), keyword()) :: {:ok, map()} | {:error, term()}
