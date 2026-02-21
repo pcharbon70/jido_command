@@ -137,6 +137,11 @@ defmodule JidoCommandTest do
     refute_receive {:signal, %Signal{type: "command.invoke"}}, 250
   end
 
+  test "dispatch rejects invalid bus option values before publishing" do
+    assert {:error, :invalid_bus} = JidoCommand.dispatch("demo", %{}, %{}, bus: 123)
+    assert {:error, :invalid_bus} = JidoCommand.dispatch("demo", %{}, %{}, bus: "")
+  end
+
   test "dispatch rejects conflicting option keys before publishing" do
     bus = unique_bus_name()
     start_supervised!({Bus, name: bus})
@@ -776,6 +781,11 @@ defmodule JidoCommandTest do
 
     assert {:error, {:invalid_invoke_options_keys, ["permission"]}} =
              JidoCommand.invoke("review", %{}, %{}, permission: %{"allow" => ["Read"]})
+  end
+
+  test "invoke rejects invalid bus option values" do
+    assert {:error, :invalid_bus} = JidoCommand.invoke("review", %{}, %{}, bus: 123)
+    assert {:error, :invalid_bus} = JidoCommand.invoke("review", %{}, %{}, bus: "")
   end
 
   test "invoke rejects conflicting option keys" do
