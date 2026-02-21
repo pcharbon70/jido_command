@@ -24,6 +24,7 @@ defmodule JidoCommand do
     with {:ok, normalized_name} <- validate_command_name(name),
          :ok <- validate_map_arg(params, :invalid_params),
          :ok <- validate_map_arg(context, :invalid_context),
+         :ok <- validate_context_invocation_id_keys(context),
          {:ok, module} <- CommandRegistry.get_command(normalized_name, registry) do
       invocation_id = resolve_invocation_id(context, invocation_id_option)
 
@@ -44,7 +45,8 @@ defmodule JidoCommand do
 
     with {:ok, normalized_name} <- validate_command_name(name),
          :ok <- validate_map_arg(params, :invalid_params),
-         :ok <- validate_map_arg(context, :invalid_context) do
+         :ok <- validate_map_arg(context, :invalid_context),
+         :ok <- validate_context_invocation_id_keys(context) do
       invocation_id = resolve_invocation_id(context, invocation_id_option)
 
       with {:ok, signal} <-
@@ -119,6 +121,14 @@ defmodule JidoCommand do
 
   defp validate_map_arg(value, _error_tag) when is_map(value), do: :ok
   defp validate_map_arg(_value, error_tag), do: {:error, error_tag}
+
+  defp validate_context_invocation_id_keys(context) when is_map(context) do
+    if Map.has_key?(context, :invocation_id) and Map.has_key?(context, "invocation_id") do
+      {:error, :conflicting_context_invocation_id_keys}
+    else
+      :ok
+    end
+  end
 
   defp resolve_invocation_id(context, invocation_id_option) when is_map(context) do
     option_invocation_id = normalize_invocation_id(invocation_id_option, nil)

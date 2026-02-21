@@ -56,6 +56,17 @@ defmodule JidoCommandTest do
     assert data["invocation_id"] == "context-id"
   end
 
+  test "dispatch rejects conflicting context invocation_id key forms" do
+    bus = unique_bus_name()
+    start_supervised!({Bus, name: bus})
+
+    assert {:error, :conflicting_context_invocation_id_keys} =
+             JidoCommand.dispatch(
+               "demo",
+               %{"x" => 1},
+               %{"invocation_id" => "b", invocation_id: "a"}, bus: bus)
+  end
+
   test "dispatch options invocation_id overrides context invocation_id" do
     bus = unique_bus_name()
     start_supervised!({Bus, name: bus})
@@ -562,6 +573,11 @@ defmodule JidoCommandTest do
              )
 
     assert result["invocation_id"] == "context-id"
+  end
+
+  test "invoke rejects conflicting context invocation_id key forms" do
+    assert {:error, :conflicting_context_invocation_id_keys} =
+             JidoCommand.invoke("review", %{}, %{"invocation_id" => "b", invocation_id: "a"})
   end
 
   test "invoke options invocation_id overrides context invocation_id" do
