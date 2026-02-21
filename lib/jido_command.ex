@@ -6,6 +6,8 @@ defmodule JidoCommand do
   alias Jido.Signal
   alias Jido.Signal.Bus
   alias JidoCommand.Extensibility.CommandRegistry
+  @invoke_allowed_option_keys [:registry, :bus, :invocation_id, :permissions]
+  @dispatch_allowed_option_keys [:bus, :invocation_id]
 
   @spec list_commands(keyword()) :: [String.t()]
   def list_commands(opts \\ []) do
@@ -15,20 +17,29 @@ defmodule JidoCommand do
 
   @spec invoke(String.t(), map(), map(), keyword()) :: {:ok, map()} | {:error, term()}
   def invoke(name, params \\ %{}, context \\ %{}, opts \\ []) do
-    registry = Keyword.get(opts, :registry, CommandRegistry)
-    bus = Keyword.get(opts, :bus, :jido_code_bus)
-    invocation_id_option = Keyword.get(opts, :invocation_id)
-    permissions_option = Keyword.get(opts, :permissions)
-
-    with {:ok, normalized_name} <- validate_command_name(name),
+    with :ok <-
+           validate_api_options(
+             opts,
+             @invoke_allowed_option_keys,
+             :invalid_invoke_options,
+             :invalid_invoke_options_keys
+           ),
+         {:ok, normalized_name} <- validate_command_name(name),
          :ok <- validate_map_arg(params, :invalid_params),
          :ok <- validate_map_arg(context, :invalid_context),
          :ok <- validate_context_invocation_id_keys(context),
          :ok <- validate_non_conflicting_keys(params, :invalid_params_conflicting_keys),
          :ok <- validate_non_conflicting_keys(context, :invalid_context_conflicting_keys),
          :ok <- validate_context_permissions(context),
-         :ok <- validate_permissions_option(permissions_option),
-         {:ok, module} <- CommandRegistry.get_command(normalized_name, registry) do
+         :ok <- validate_permissions_option(Keyword.get(opts, :permissions)),
+         {:ok, module} <-
+           CommandRegistry.get_command(
+             normalized_name,
+             Keyword.get(opts, :registry, CommandRegistry)
+           ) do
+      bus = Keyword.get(opts, :bus, :jido_code_bus)
+      invocation_id_option = Keyword.get(opts, :invocation_id)
+      permissions_option = Keyword.get(opts, :permissions)
       permissions = normalize_permissions(permissions_option)
       invocation_id = resolve_invocation_id(context, invocation_id_option)
 
@@ -44,15 +55,21 @@ defmodule JidoCommand do
 
   @spec dispatch(String.t(), map(), map(), keyword()) :: {:ok, String.t()} | {:error, term()}
   def dispatch(name, params \\ %{}, context \\ %{}, opts \\ []) do
-    bus = Keyword.get(opts, :bus, :jido_code_bus)
-    invocation_id_option = Keyword.get(opts, :invocation_id)
-
-    with {:ok, normalized_name} <- validate_command_name(name),
+    with :ok <-
+           validate_api_options(
+             opts,
+             @dispatch_allowed_option_keys,
+             :invalid_dispatch_options,
+             :invalid_dispatch_options_keys
+           ),
+         {:ok, normalized_name} <- validate_command_name(name),
          :ok <- validate_map_arg(params, :invalid_params),
          :ok <- validate_map_arg(context, :invalid_context),
          :ok <- validate_context_invocation_id_keys(context),
          :ok <- validate_non_conflicting_keys(params, :invalid_params_conflicting_keys),
          :ok <- validate_non_conflicting_keys(context, :invalid_context_conflicting_keys) do
+      bus = Keyword.get(opts, :bus, :jido_code_bus)
+      invocation_id_option = Keyword.get(opts, :invocation_id)
       invocation_id = resolve_invocation_id(context, invocation_id_option)
 
       with {:ok, signal} <-
@@ -133,6 +150,30 @@ defmodule JidoCommand do
       {:error, :conflicting_context_invocation_id_keys}
     else
       :ok
+    end
+  end
+
+  defp validate_api_options(options, allowed_keys, invalid_options_error, invalid_keys_error) do
+    cond do
+      not is_list(options) ->
+        {:error, invalid_options_error}
+
+      not Keyword.keyword?(options) ->
+        {:error, invalid_options_error}
+
+      true ->
+        unknown_keys =
+          options
+          |> Keyword.keys()
+          |> Enum.reject(&(&1 in allowed_keys))
+          |> Enum.map(&normalize_payload_key/1)
+          |> Enum.sort()
+
+        if unknown_keys == [] do
+          :ok
+        else
+          {:error, {invalid_keys_error, unknown_keys}}
+        end
     end
   end
 
