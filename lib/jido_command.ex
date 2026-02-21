@@ -151,7 +151,7 @@ defmodule JidoCommand do
     end
   end
 
-  defp validate_permissions_option(_), do: :ok
+  defp validate_permissions_option(_), do: {:error, :invalid_permissions}
 
   defp validate_context_permissions(context) when is_map(context) do
     case context_permissions_option(context) do

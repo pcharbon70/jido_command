@@ -21,6 +21,7 @@ For API-level `JidoCommand.invoke/4` and `JidoCommand.dispatch/4`, command name 
 For API-level `JidoCommand.invoke/4` and `JidoCommand.dispatch/4`, context cannot include both `:invocation_id` and `"invocation_id"` keys at the same time.
 For API-level `JidoCommand.invoke/4` and `JidoCommand.dispatch/4`, `params` and `context` reject conflicting normalized keys recursively (including nested maps).
 For API-level `JidoCommand.invoke/4`, when context includes `permissions`, that value must be a permissions object with top-level keys `allow`, `deny`, and `ask`.
+For API-level `JidoCommand.invoke/4`, `opts[:permissions]` must be a permissions object when provided.
 For API-level `JidoCommand.invoke/4`, `opts[:permissions]` rejects conflicting normalized keys recursively when provided as a map.
 For API-level `JidoCommand.invoke/4`, `opts[:permissions]` only accepts top-level keys `allow`, `deny`, and `ask` when provided as a map.
 For API-level `JidoCommand.invoke/4`, each `opts[:permissions]` bucket (`allow`, `deny`, `ask`) must be a list of strings/atoms when provided.
