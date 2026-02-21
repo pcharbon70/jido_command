@@ -36,7 +36,11 @@ For API-level `JidoCommand.invoke/4`, permissions bucket values are validated by
 
 Dispatcher-enforced execution context fields:
 
+- `bus` (bus server reference): dispatcher runtime bus used during command execution and hook publication
+- `invocation_id` (string): resolved per invoke payload (`invocation_id` or fallback signal ID/generated ID)
 - `permissions` (object): normalized runtime permissions from settings (`allow`, `deny`, `ask`)
+
+Dispatcher normalizes these runtime-managed keys into atom-key entries and removes string-key aliases (`"bus"`, `"invocation_id"`, `"permissions"`) before command execution.
 
 Validation rules:
 
