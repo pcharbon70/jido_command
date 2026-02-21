@@ -26,6 +26,7 @@ defmodule JidoCommand do
          :ok <- validate_context_invocation_id_keys(context),
          :ok <- validate_non_conflicting_keys(params, :invalid_params_conflicting_keys),
          :ok <- validate_non_conflicting_keys(context, :invalid_context_conflicting_keys),
+         :ok <- validate_context_permissions(context),
          :ok <- validate_permissions_option(permissions_option),
          {:ok, module} <- CommandRegistry.get_command(normalized_name, registry) do
       permissions = normalize_permissions(permissions_option)
@@ -151,6 +152,43 @@ defmodule JidoCommand do
   end
 
   defp validate_permissions_option(_), do: :ok
+
+  defp validate_context_permissions(context) when is_map(context) do
+    case context_permissions_option(context) do
+      :missing ->
+        :ok
+
+      {:present, value} when is_map(value) ->
+        value
+        |> validate_permissions_option()
+        |> map_context_permissions_error()
+
+      {:present, _value} ->
+        {:error, :invalid_context_permissions}
+    end
+  end
+
+  defp context_permissions_option(context) when is_map(context) do
+    cond do
+      Map.has_key?(context, :permissions) -> {:present, Map.get(context, :permissions)}
+      Map.has_key?(context, "permissions") -> {:present, Map.get(context, "permissions")}
+      true -> :missing
+    end
+  end
+
+  defp map_context_permissions_error(:ok), do: :ok
+
+  defp map_context_permissions_error({:error, {:invalid_permissions_conflicting_keys, keys}}),
+    do: {:error, {:invalid_context_permissions_conflicting_keys, keys}}
+
+  defp map_context_permissions_error({:error, {:invalid_permissions_keys, keys}}),
+    do: {:error, {:invalid_context_permissions_keys, keys}}
+
+  defp map_context_permissions_error({:error, {:invalid_permissions_value, key, reason}}),
+    do: {:error, {:invalid_context_permissions_value, key, reason}}
+
+  defp map_context_permissions_error({:error, {:invalid_permissions_item, key, index}}),
+    do: {:error, {:invalid_context_permissions_item, key, index}}
 
   defp validate_permissions_option_keys(value) when is_map(value) do
     allowed_keys = ["allow", "deny", "ask"]

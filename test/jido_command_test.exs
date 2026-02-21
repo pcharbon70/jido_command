@@ -743,6 +743,26 @@ defmodule JidoCommandTest do
              JidoCommand.invoke("review", %{}, %{}, permissions: %{"ask" => ["Read", 123]})
   end
 
+  test "invoke rejects non-map context permissions value" do
+    assert {:error, :invalid_context_permissions} =
+             JidoCommand.invoke("review", %{}, %{"permissions" => "Read"})
+  end
+
+  test "invoke rejects unknown context permissions keys" do
+    assert {:error, {:invalid_context_permissions_keys, ["extra"]}} =
+             JidoCommand.invoke("review", %{}, %{
+               "permissions" => %{"allow" => ["Read"], "extra" => true}
+             })
+  end
+
+  test "invoke rejects invalid context permissions bucket values and items" do
+    assert {:error, {:invalid_context_permissions_value, "allow", :must_be_list}} =
+             JidoCommand.invoke("review", %{}, %{"permissions" => %{"allow" => "Read"}})
+
+    assert {:error, {:invalid_context_permissions_item, "ask", 1}} =
+             JidoCommand.invoke("review", %{}, %{"permissions" => %{"ask" => ["Read", 123]}})
+  end
+
   test "unregister_command removes a command from registry" do
     root = tmp_root("unregister")
     global_root = Path.join(root, "global")
