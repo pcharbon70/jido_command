@@ -38,7 +38,7 @@ defmodule JidoCommand.CLI do
   defp handle_parse_result({:error, errors}, parser, halt, _runtime) do
     parser
     |> Optimus.Errors.format(errors)
-    |> Enum.each(&IO.puts/1)
+    |> Enum.each(&IO.puts(:stderr, &1))
 
     halt.(1)
   end
@@ -46,7 +46,7 @@ defmodule JidoCommand.CLI do
   defp handle_parse_result({:error, subcommand_path, errors}, parser, halt, _runtime) do
     parser
     |> Optimus.Errors.format(subcommand_path, errors)
-    |> Enum.each(&IO.puts/1)
+    |> Enum.each(&IO.puts(:stderr, &1))
 
     halt.(1)
   end

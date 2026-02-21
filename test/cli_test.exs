@@ -434,4 +434,48 @@ defmodule JidoCommand.CLITest do
     assert stderr =~
              "unregister-command failed: invalid runtime response: {:ok, :unexpected}"
   end
+
+  test "top-level parse errors print to stderr and halt with 1" do
+    stderr =
+      capture_io(:stderr, fn ->
+        stdout =
+          capture_io(fn ->
+            assert {:halt, 1} ==
+                     catch_throw(
+                       CLI.main(
+                         ["--unknown-option"],
+                         fn code -> throw({:halt, code}) end,
+                         RuntimeStub
+                       )
+                     )
+          end)
+
+        send(self(), {:stdout, stdout})
+      end)
+
+    assert_receive {:stdout, ""}
+    assert stderr != ""
+  end
+
+  test "subcommand parse errors print to stderr and halt with 1" do
+    stderr =
+      capture_io(:stderr, fn ->
+        stdout =
+          capture_io(fn ->
+            assert {:halt, 1} ==
+                     catch_throw(
+                       CLI.main(
+                         ["invoke", "review", "--params", "{not-json}"],
+                         fn code -> throw({:halt, code}) end,
+                         RuntimeStub
+                       )
+                     )
+          end)
+
+        send(self(), {:stdout, stdout})
+      end)
+
+    assert_receive {:stdout, ""}
+    assert stderr =~ "invalid JSON"
+  end
 end
