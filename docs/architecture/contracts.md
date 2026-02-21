@@ -201,6 +201,8 @@ Any unknown top-level FrontMatter key is rejected, including non-string YAML key
 ### Allowed tools rules
 
 - when provided, `allowed-tools` / `allowed_tools` must resolve to at least one non-empty tool name
+- `allowed-tools` and `allowed_tools` are aliases and cannot both be present in the same command
+- explicit `null` values are rejected when either key is present
 - blank strings are rejected
 - empty lists are rejected
 - list or comma-string entries are trimmed; empty entries are ignored

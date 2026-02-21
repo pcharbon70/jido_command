@@ -126,20 +126,32 @@ defmodule JidoCommand.Extensibility.CommandFrontmatter do
   end
 
   defp parse_allowed_tools(metadata) do
-    case Map.get(metadata, "allowed-tools") || Map.get(metadata, "allowed_tools") do
-      nil ->
+    dashed_value = Map.get(metadata, "allowed-tools", :__missing__)
+    underscored_value = Map.get(metadata, "allowed_tools", :__missing__)
+
+    case {dashed_value, underscored_value} do
+      {:__missing__, :__missing__} ->
         {:ok, []}
 
-      value when is_binary(value) ->
-        parse_tools_string(value)
+      {value, :__missing__} ->
+        parse_allowed_tools_value(value)
 
-      value when is_list(value) ->
-        parse_tools_list(value, length(value))
+      {:__missing__, value} ->
+        parse_allowed_tools_value(value)
 
-      _ ->
-        {:error, {:invalid_allowed_tools, :must_be_nonempty_string_or_list}}
+      {_dashed_value, _underscored_value} ->
+        {:error, {:invalid_allowed_tools, :conflicting_keys}}
     end
   end
+
+  defp parse_allowed_tools_value(value) when is_binary(value),
+    do: parse_tools_string(value)
+
+  defp parse_allowed_tools_value(value) when is_list(value),
+    do: parse_tools_list(value, length(value))
+
+  defp parse_allowed_tools_value(_),
+    do: {:error, {:invalid_allowed_tools, :must_be_nonempty_string_or_list}}
 
   defp parse_tools_string(value) when is_binary(value) do
     trimmed = String.trim(value)
