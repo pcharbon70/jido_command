@@ -107,6 +107,13 @@ defmodule JidoCommand.Extensibility.CommandDispatcher do
           "invocation_id" => invocation_id,
           "error" => "command not found"
         })
+
+      {:error, reason} ->
+        emit_result(state.bus, "command.failed", %{
+          "name" => name,
+          "invocation_id" => invocation_id,
+          "error" => "registry unavailable: #{inspect(reason)}"
+        })
     end
   end
 

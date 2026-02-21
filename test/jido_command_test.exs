@@ -238,6 +238,11 @@ defmodule JidoCommandTest do
     assert {:error, :invalid_registry} = JidoCommand.reload(registry: 123)
   end
 
+  test "reload returns error when registry server is unavailable" do
+    registry = unique_registry_name()
+    assert {:error, {:registry_unavailable, _reason}} = JidoCommand.reload(registry: registry)
+  end
+
   test "list_commands rejects invalid, unknown, and conflicting options" do
     assert {:error, :invalid_list_commands_options} =
              JidoCommand.list_commands(%{registry: CommandRegistry})
@@ -251,6 +256,13 @@ defmodule JidoCommandTest do
 
   test "list_commands rejects invalid registry option values" do
     assert {:error, :invalid_registry} = JidoCommand.list_commands(registry: 123)
+  end
+
+  test "list_commands returns error when registry server is unavailable" do
+    registry = unique_registry_name()
+
+    assert {:error, {:registry_unavailable, _reason}} =
+             JidoCommand.list_commands(registry: registry)
   end
 
   test "register_command loads a command into registry" do
@@ -309,6 +321,13 @@ defmodule JidoCommandTest do
   test "register_command rejects invalid registry option values" do
     assert {:error, :invalid_registry} =
              JidoCommand.register_command("command.md", registry: 123)
+  end
+
+  test "register_command returns error when registry server is unavailable" do
+    registry = unique_registry_name()
+
+    assert {:error, {:registry_unavailable, _reason}} =
+             JidoCommand.register_command("command.md", registry: registry)
   end
 
   test "invoke applies permissions from options into execution context" do
@@ -906,6 +925,13 @@ defmodule JidoCommandTest do
              JidoCommand.invoke("review", %{}, %{}, registry: 123)
   end
 
+  test "invoke returns error when registry server is unavailable" do
+    registry = unique_registry_name()
+
+    assert {:error, {:registry_unavailable, _reason}} =
+             JidoCommand.invoke("review", %{}, %{}, registry: registry)
+  end
+
   test "invoke rejects conflicting normalized keys in params and context" do
     assert {:error, {:invalid_params_conflicting_keys, ["x"]}} =
              JidoCommand.invoke("review", %{"meta" => %{"x" => 1, :x => 2}}, %{})
@@ -1046,6 +1072,13 @@ defmodule JidoCommandTest do
   test "unregister_command rejects invalid registry option values" do
     assert {:error, :invalid_registry} =
              JidoCommand.unregister_command("review", registry: 123)
+  end
+
+  test "unregister_command returns error when registry server is unavailable" do
+    registry = unique_registry_name()
+
+    assert {:error, {:registry_unavailable, _reason}} =
+             JidoCommand.unregister_command("review", registry: registry)
   end
 
   defp unique_bus_name do

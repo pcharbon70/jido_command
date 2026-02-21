@@ -164,14 +164,19 @@ Public API validation rules:
 
 - `JidoCommand.list_commands/1` only accepts keyword options with `:registry`; non-keyword, unknown, or conflicting option keys are rejected.
 - `JidoCommand.list_commands/1` requires `:registry` to be a valid GenServer server reference when provided.
+- `JidoCommand.list_commands/1` returns `{:error, {:registry_unavailable, reason}}` when the selected registry server cannot be reached.
 - `JidoCommand.reload/1` only accepts keyword options with `:registry`; non-keyword, unknown, or conflicting option keys are rejected.
 - `JidoCommand.reload/1` requires `:registry` to be a valid GenServer server reference when provided.
+- `JidoCommand.reload/1` returns `{:error, {:registry_unavailable, reason}}` when the selected registry server cannot be reached.
 - `JidoCommand.register_command/2` requires a non-empty string path and returns `{:error, :invalid_path}` for invalid input
 - `JidoCommand.register_command/2` only accepts keyword options with `:registry`; non-keyword, unknown, or conflicting option keys are rejected.
 - `JidoCommand.register_command/2` requires `:registry` to be a valid GenServer server reference when provided.
+- `JidoCommand.register_command/2` returns `{:error, {:registry_unavailable, reason}}` when the selected registry server cannot be reached.
 - `JidoCommand.unregister_command/2` requires a non-empty string name and returns `{:error, :invalid_name}` for invalid input
 - `JidoCommand.unregister_command/2` only accepts keyword options with `:registry`; non-keyword, unknown, or conflicting option keys are rejected.
 - `JidoCommand.unregister_command/2` requires `:registry` to be a valid GenServer server reference when provided.
+- `JidoCommand.unregister_command/2` returns `{:error, {:registry_unavailable, reason}}` when the selected registry server cannot be reached.
+- `JidoCommand.invoke/4` returns `{:error, {:registry_unavailable, reason}}` when the selected registry server cannot be reached.
 
 ## Command hook signals (`jido.hooks.pre`, `jido.hooks.after`)
 
