@@ -11,11 +11,8 @@ defmodule JidoCommand.CLI do
     handle_parse_result(result, parser, halt, runtime)
   end
 
-  defp handle_parse_result({:ok, [:list], _result}, _parser, _halt, runtime) do
-    runtime.list_commands()
-    |> Enum.each(&IO.puts/1)
-
-    :ok
+  defp handle_parse_result({:ok, [:list], _result}, _parser, halt, runtime) do
+    handle_list(halt, runtime)
   end
 
   defp handle_parse_result({:ok, [:invoke], result}, _parser, halt, runtime) do
@@ -87,6 +84,18 @@ defmodule JidoCommand.CLI do
 
       {:error, reason} ->
         IO.puts(:stderr, "invoke failed: #{inspect(reason)}")
+        halt.(1)
+    end
+  end
+
+  defp handle_list(halt, runtime) do
+    case runtime.list_commands() do
+      commands when is_list(commands) ->
+        Enum.each(commands, &IO.puts/1)
+        :ok
+
+      {:error, reason} ->
+        IO.puts(:stderr, "list failed: #{inspect(reason)}")
         halt.(1)
     end
   end
