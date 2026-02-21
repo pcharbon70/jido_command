@@ -22,7 +22,8 @@ defmodule JidoCommand do
              opts,
              @invoke_allowed_option_keys,
              :invalid_invoke_options,
-             :invalid_invoke_options_keys
+             :invalid_invoke_options_keys,
+             :invalid_invoke_options_conflicting_keys
            ),
          {:ok, normalized_name} <- validate_command_name(name),
          :ok <- validate_map_arg(params, :invalid_params),
@@ -60,7 +61,8 @@ defmodule JidoCommand do
              opts,
              @dispatch_allowed_option_keys,
              :invalid_dispatch_options,
-             :invalid_dispatch_options_keys
+             :invalid_dispatch_options_keys,
+             :invalid_dispatch_options_conflicting_keys
            ),
          {:ok, normalized_name} <- validate_command_name(name),
          :ok <- validate_map_arg(params, :invalid_params),
@@ -153,7 +155,13 @@ defmodule JidoCommand do
     end
   end
 
-  defp validate_api_options(options, allowed_keys, invalid_options_error, invalid_keys_error) do
+  defp validate_api_options(
+         options,
+         allowed_keys,
+         invalid_options_error,
+         invalid_keys_error,
+         invalid_conflicting_keys_error
+       ) do
     cond do
       not is_list(options) ->
         {:error, invalid_options_error}
@@ -162,17 +170,36 @@ defmodule JidoCommand do
         {:error, invalid_options_error}
 
       true ->
-        unknown_keys =
+        normalized_keys =
           options
           |> Keyword.keys()
-          |> Enum.reject(&(&1 in allowed_keys))
           |> Enum.map(&normalize_payload_key/1)
+
+        conflicting_keys =
+          normalized_keys
+          |> Enum.frequencies()
+          |> Enum.reduce([], fn
+            {key, count}, acc when count > 1 -> [key | acc]
+            {_key, _count}, acc -> acc
+          end)
           |> Enum.sort()
 
-        if unknown_keys == [] do
-          :ok
-        else
-          {:error, {invalid_keys_error, unknown_keys}}
+        allowed_normalized_keys = Enum.map(allowed_keys, &normalize_payload_key/1)
+
+        unknown_keys =
+          normalized_keys
+          |> Enum.reject(&(&1 in allowed_normalized_keys))
+          |> Enum.sort()
+
+        cond do
+          conflicting_keys != [] ->
+            {:error, {invalid_conflicting_keys_error, conflicting_keys}}
+
+          unknown_keys != [] ->
+            {:error, {invalid_keys_error, unknown_keys}}
+
+          true ->
+            :ok
         end
     end
   end

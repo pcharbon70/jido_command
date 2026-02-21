@@ -137,6 +137,19 @@ defmodule JidoCommandTest do
     refute_receive {:signal, %Signal{type: "command.invoke"}}, 250
   end
 
+  test "dispatch rejects conflicting option keys before publishing" do
+    bus = unique_bus_name()
+    start_supervised!({Bus, name: bus})
+
+    {:ok, _subscription} =
+      Bus.subscribe(bus, "command.invoke", dispatch: {:pid, target: self()})
+
+    assert {:error, {:invalid_dispatch_options_conflicting_keys, ["bus"]}} =
+             JidoCommand.dispatch("demo", %{}, %{}, bus: bus, bus: :other_bus)
+
+    refute_receive {:signal, %Signal{type: "command.invoke"}}, 250
+  end
+
   test "dispatch rejects conflicting normalized keys in params and context before publishing" do
     bus = unique_bus_name()
     start_supervised!({Bus, name: bus})
@@ -717,6 +730,11 @@ defmodule JidoCommandTest do
 
     assert {:error, {:invalid_invoke_options_keys, ["permission"]}} =
              JidoCommand.invoke("review", %{}, %{}, permission: %{"allow" => ["Read"]})
+  end
+
+  test "invoke rejects conflicting option keys" do
+    assert {:error, {:invalid_invoke_options_conflicting_keys, ["bus"]}} =
+             JidoCommand.invoke("review", %{}, %{}, bus: :first, bus: :second)
   end
 
   test "invoke rejects conflicting normalized keys in params and context" do
