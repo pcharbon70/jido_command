@@ -43,6 +43,7 @@ defmodule JidoCommand do
          :ok <- validate_non_conflicting_keys(params, :invalid_params_conflicting_keys),
          :ok <- validate_non_conflicting_keys(context, :invalid_context_conflicting_keys),
          :ok <- validate_bus_server_option(Keyword.get(opts, :bus, :jido_code_bus)),
+         :ok <- validate_context_bus(context),
          :ok <- validate_context_permissions(context),
          :ok <- validate_permissions_option(Keyword.get(opts, :permissions)),
          :ok <- validate_registry_server_option(Keyword.get(opts, :registry, CommandRegistry)),
@@ -307,6 +308,29 @@ defmodule JidoCommand do
         {:error, :invalid_context_permissions}
     end
   end
+
+  defp validate_context_bus(context) when is_map(context) do
+    case context_bus_option(context) do
+      :missing ->
+        :ok
+
+      {:present, value} ->
+        value
+        |> validate_bus_server_option()
+        |> map_context_bus_error()
+    end
+  end
+
+  defp context_bus_option(context) when is_map(context) do
+    cond do
+      Map.has_key?(context, :bus) -> {:present, Map.get(context, :bus)}
+      Map.has_key?(context, "bus") -> {:present, Map.get(context, "bus")}
+      true -> :missing
+    end
+  end
+
+  defp map_context_bus_error(:ok), do: :ok
+  defp map_context_bus_error({:error, :invalid_bus}), do: {:error, :invalid_context_bus}
 
   defp context_permissions_option(context) when is_map(context) do
     cond do

@@ -22,6 +22,7 @@ For API-level `JidoCommand.invoke/4` and `JidoCommand.dispatch/4`, options must 
 For API-level `JidoCommand.invoke/4` and `JidoCommand.dispatch/4`, conflicting normalized option keys are rejected.
 For API-level `JidoCommand.invoke/4` and `JidoCommand.dispatch/4`, unknown option keys are rejected.
 For API-level `JidoCommand.invoke/4` and `JidoCommand.dispatch/4`, `opts[:bus]` must be a valid bus server reference when provided.
+For API-level `JidoCommand.invoke/4`, `context[:bus]`/`context["bus"]` must be a valid bus server reference when provided.
 For API-level `JidoCommand.invoke/4`, `opts[:registry]` must be a valid GenServer server reference when provided.
 For API-level `JidoCommand.invoke/4` and `JidoCommand.dispatch/4`, context cannot include both `:invocation_id` and `"invocation_id"` keys at the same time.
 For API-level `JidoCommand.invoke/4` and `JidoCommand.dispatch/4`, `params` and `context` reject conflicting normalized keys recursively (including nested maps).
