@@ -25,34 +25,34 @@ defmodule JidoCommand.Extensibility.CommandRegistry do
     GenServer.start_link(__MODULE__, opts, name: Keyword.get(opts, :name, __MODULE__))
   end
 
-  @spec get_command(String.t(), GenServer.server()) :: {:ok, module()} | {:error, :not_found}
+  @spec get_command(String.t(), GenServer.server()) :: {:ok, module()} | {:error, term()}
   def get_command(name, server \\ __MODULE__) do
-    GenServer.call(server, {:get_command, name})
+    safe_call(server, {:get_command, name})
   end
 
-  @spec get_command_entry(String.t(), GenServer.server()) :: {:ok, map()} | {:error, :not_found}
+  @spec get_command_entry(String.t(), GenServer.server()) :: {:ok, map()} | {:error, term()}
   def get_command_entry(name, server \\ __MODULE__) do
-    GenServer.call(server, {:get_command_entry, name})
+    safe_call(server, {:get_command_entry, name})
   end
 
-  @spec list_commands(GenServer.server()) :: [String.t()]
+  @spec list_commands(GenServer.server()) :: [String.t()] | {:error, term()}
   def list_commands(server \\ __MODULE__) do
-    GenServer.call(server, :list_commands)
+    safe_call(server, :list_commands)
   end
 
   @spec reload(GenServer.server()) :: :ok | {:error, term()}
   def reload(server \\ __MODULE__) do
-    GenServer.call(server, :reload)
+    safe_call(server, :reload)
   end
 
   @spec register_command(String.t(), GenServer.server()) :: :ok | {:error, term()}
   def register_command(command_path, server \\ __MODULE__) do
-    GenServer.call(server, {:register_command, command_path})
+    safe_call(server, {:register_command, command_path})
   end
 
   @spec unregister_command(String.t(), GenServer.server()) :: :ok | {:error, term()}
   def unregister_command(command_name, server \\ __MODULE__) do
-    GenServer.call(server, {:unregister_command, command_name})
+    safe_call(server, {:unregister_command, command_name})
   end
 
   @impl true
@@ -328,6 +328,13 @@ defmodule JidoCommand.Extensibility.CommandRegistry do
   end
 
   defp parse_default_model(_), do: nil
+
+  defp safe_call(server, request) do
+    GenServer.call(server, request)
+  catch
+    :exit, reason ->
+      {:error, {:registry_unavailable, reason}}
+  end
 
   defp emit_lifecycle_signal(state, type, data) do
     attrs = [source: "/jido_command/registry"]
