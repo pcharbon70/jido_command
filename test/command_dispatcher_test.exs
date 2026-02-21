@@ -202,6 +202,64 @@ defmodule JidoCommand.Extensibility.CommandDispatcherTest do
     assert data["error"] == "invalid command.invoke payload: conflicting keys: invocation_id"
   end
 
+  test "emits command.failed when params includes nested conflicting normalized keys" do
+    %{bus: bus, dispatcher: dispatcher} = start_runtime()
+
+    {:ok, _failed_sub} =
+      Bus.subscribe(bus, "command.failed", dispatch: {:pid, target: self()})
+
+    send(
+      dispatcher,
+      {:signal,
+       %Signal{
+         type: "command.invoke",
+         id: "sig-conflicting-params",
+         source: "/test",
+         data: %{
+           "name" => "hello",
+           "params" => %{"meta" => %{"x" => 1, :x => 2}}
+         }
+       }}
+    )
+
+    assert_receive {:signal, %Signal{type: "command.failed", data: data}}, 2_000
+    assert data["name"] == "hello"
+    assert data["invocation_id"] == "sig-conflicting-params"
+
+    assert data["error"] ==
+             "invalid command.invoke payload: params contains conflicting keys: x"
+  end
+
+  test "emits command.failed when context includes nested conflicting normalized keys" do
+    %{bus: bus, dispatcher: dispatcher} = start_runtime()
+
+    {:ok, _failed_sub} =
+      Bus.subscribe(bus, "command.failed", dispatch: {:pid, target: self()})
+
+    send(
+      dispatcher,
+      {:signal,
+       %Signal{
+         type: "command.invoke",
+         id: "sig-conflicting-context",
+         source: "/test",
+         data: %{
+           "name" => "hello",
+           "params" => %{},
+           "context" => %{"permissions" => %{"allow" => ["Read"], :allow => ["Write"]}},
+           "invocation_id" => "request-id"
+         }
+       }}
+    )
+
+    assert_receive {:signal, %Signal{type: "command.failed", data: data}}, 2_000
+    assert data["name"] == "hello"
+    assert data["invocation_id"] == "request-id"
+
+    assert data["error"] ==
+             "invalid command.invoke payload: context contains conflicting keys: allow"
+  end
+
   test "emits command.failed with generated invocation_id when non-map payload has no signal id" do
     %{bus: bus, dispatcher: dispatcher} = start_runtime()
 

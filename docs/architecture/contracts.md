@@ -33,6 +33,7 @@ Validation rules:
 - `invocation_id` must be a non-empty string when provided
 - unknown payload keys are rejected (including non-string keys)
 - conflicting normalized payload keys are rejected (for example `name` and `:name`)
+- `params` and `context` reject conflicting normalized keys recursively (including nested maps)
 
 Invalid payloads are rejected and result in a `command.failed` signal with a validation error message.
 

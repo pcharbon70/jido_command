@@ -270,11 +270,23 @@ defmodule JidoCommand.Extensibility.CommandDispatcher do
   defp validate_name(_), do: {:error, :invalid_name}
 
   defp validate_params(:missing), do: {:error, :missing_params}
-  defp validate_params(params) when is_map(params), do: {:ok, params}
+
+  defp validate_params(params) when is_map(params) do
+    with :ok <- validate_non_conflicting_payload_keys(params, :invalid_params_conflicting_keys) do
+      {:ok, params}
+    end
+  end
+
   defp validate_params(_), do: {:error, :invalid_params}
 
   defp validate_context(:missing), do: {:ok, %{}}
-  defp validate_context(context) when is_map(context), do: {:ok, context}
+
+  defp validate_context(context) when is_map(context) do
+    with :ok <- validate_non_conflicting_payload_keys(context, :invalid_context_conflicting_keys) do
+      {:ok, context}
+    end
+  end
+
   defp validate_context(_), do: {:error, :invalid_context}
 
   defp validate_invocation_id(:missing, fallback), do: {:ok, fallback}
@@ -313,6 +325,44 @@ defmodule JidoCommand.Extensibility.CommandDispatcher do
   defp normalize_payload_key(key) when is_atom(key), do: Atom.to_string(key)
   defp normalize_payload_key(key), do: inspect(key)
 
+  defp validate_non_conflicting_payload_keys(map, reason_tag) when is_map(map) do
+    normalized_keys =
+      map
+      |> Map.keys()
+      |> Enum.map(&normalize_payload_key/1)
+
+    conflicting_keys =
+      normalized_keys
+      |> Enum.frequencies()
+      |> Enum.reduce([], fn
+        {key, count}, acc when count > 1 -> [key | acc]
+        {_key, _count}, acc -> acc
+      end)
+      |> Enum.sort()
+
+    if conflicting_keys == [] do
+      validate_non_conflicting_payload_values(Map.values(map), reason_tag)
+    else
+      {:error, {reason_tag, conflicting_keys}}
+    end
+  end
+
+  defp validate_non_conflicting_payload_keys(list, reason_tag) when is_list(list),
+    do: validate_non_conflicting_payload_values(list, reason_tag)
+
+  defp validate_non_conflicting_payload_keys(_value, _reason_tag), do: :ok
+
+  defp validate_non_conflicting_payload_values(values, reason_tag) when is_list(values) do
+    Enum.reduce_while(values, :ok, fn value, :ok ->
+      value
+      |> validate_non_conflicting_payload_keys(reason_tag)
+      |> continue_or_halt()
+    end)
+  end
+
+  defp continue_or_halt(:ok), do: {:cont, :ok}
+  defp continue_or_halt({:error, _reason} = error), do: {:halt, error}
+
   defp invalid_payload_message(:payload_must_be_map),
     do: "invalid command.invoke payload: data must be an object"
 
@@ -328,8 +378,16 @@ defmodule JidoCommand.Extensibility.CommandDispatcher do
   defp invalid_payload_message(:invalid_params),
     do: "invalid command.invoke payload: params must be an object"
 
+  defp invalid_payload_message({:invalid_params_conflicting_keys, keys}),
+    do:
+      "invalid command.invoke payload: params contains conflicting keys: #{Enum.join(keys, ", ")}"
+
   defp invalid_payload_message(:invalid_context),
     do: "invalid command.invoke payload: context must be an object when provided"
+
+  defp invalid_payload_message({:invalid_context_conflicting_keys, keys}),
+    do:
+      "invalid command.invoke payload: context contains conflicting keys: #{Enum.join(keys, ", ")}"
 
   defp invalid_payload_message(:invalid_invocation_id),
     do: "invalid command.invoke payload: invocation_id must be a non-empty string when provided"
