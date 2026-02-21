@@ -177,13 +177,21 @@ defmodule JidoCommand.Extensibility.CommandRuntime do
 
   defp normalize_permissions(value) when is_map(value) do
     %{
-      allow: normalize_permission_list(Map.get(value, :allow) || Map.get(value, "allow")),
-      deny: normalize_permission_list(Map.get(value, :deny) || Map.get(value, "deny")),
-      ask: normalize_permission_list(Map.get(value, :ask) || Map.get(value, "ask"))
+      allow: normalize_permission_list(permission_bucket_value(value, :allow, "allow")),
+      deny: normalize_permission_list(permission_bucket_value(value, :deny, "deny")),
+      ask: normalize_permission_list(permission_bucket_value(value, :ask, "ask"))
     }
   end
 
   defp normalize_permissions(_), do: %{allow: [], deny: [], ask: []}
+
+  defp permission_bucket_value(value, atom_key, string_key)
+       when is_map(value) and is_atom(atom_key) and is_binary(string_key) do
+    case Map.fetch(value, atom_key) do
+      {:ok, bucket_value} -> bucket_value
+      :error -> Map.get(value, string_key)
+    end
+  end
 
   defp normalize_permission_list(list) when is_list(list) do
     list

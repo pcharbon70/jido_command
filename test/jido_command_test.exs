@@ -744,6 +744,12 @@ defmodule JidoCommandTest do
   test "invoke rejects non-list permissions option bucket values" do
     assert {:error, {:invalid_permissions_value, "allow", :must_be_list}} =
              JidoCommand.invoke("review", %{}, %{}, permissions: %{"allow" => "Read"})
+
+    assert {:error, {:invalid_permissions_value, "allow", :must_be_list}} =
+             JidoCommand.invoke("review", %{}, %{}, permissions: %{"allow" => false})
+
+    assert {:error, {:invalid_permissions_value, "allow", :must_be_list}} =
+             JidoCommand.invoke("review", %{}, %{}, permissions: %{allow: false})
   end
 
   test "invoke rejects non-string permissions option list items" do
@@ -766,6 +772,9 @@ defmodule JidoCommandTest do
   test "invoke rejects invalid context permissions bucket values and items" do
     assert {:error, {:invalid_context_permissions_value, "allow", :must_be_list}} =
              JidoCommand.invoke("review", %{}, %{"permissions" => %{"allow" => "Read"}})
+
+    assert {:error, {:invalid_context_permissions_value, "deny", :must_be_list}} =
+             JidoCommand.invoke("review", %{}, %{"permissions" => %{"deny" => false}})
 
     assert {:error, {:invalid_context_permissions_item, "ask", 1}} =
              JidoCommand.invoke("review", %{}, %{"permissions" => %{"ask" => ["Read", 123]}})
