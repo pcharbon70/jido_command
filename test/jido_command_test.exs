@@ -769,6 +769,109 @@ defmodule JidoCommandTest do
     assert result["invocation_id"] == "context-id"
   end
 
+  test "invoke uses string-key context bus when options bus is absent" do
+    root = tmp_root("invoke_context_string_bus")
+    global_root = Path.join(root, "global")
+    local_root = Path.join(root, "local")
+    local_commands_dir = Path.join(local_root, "commands")
+
+    File.mkdir_p!(Path.join(global_root, "commands"))
+    File.mkdir_p!(local_commands_dir)
+
+    File.write!(
+      Path.join(local_commands_dir, "review.md"),
+      """
+      ---
+      name: review
+      description: review command
+      jido:
+        hooks:
+          pre: true
+      ---
+      review
+      """
+    )
+
+    context_bus = unique_bus_name()
+    registry_bus = unique_bus_name()
+    registry = unique_registry_name()
+
+    start_supervised!({Bus, name: context_bus})
+    start_supervised!({Bus, name: registry_bus})
+
+    start_supervised!(
+      {CommandRegistry,
+       name: registry, bus: registry_bus, global_root: global_root, local_root: local_root}
+    )
+
+    {:ok, _subscription} =
+      Bus.subscribe(context_bus, "jido.hooks.pre", dispatch: {:pid, target: self()})
+
+    assert {:ok, _result} =
+             JidoCommand.invoke(
+               "review",
+               %{},
+               %{"bus" => context_bus},
+               registry: registry
+             )
+
+    assert_receive {:signal, %Signal{type: "jido.hooks.pre", data: data}}, 1_000
+    assert data["command"] == "review"
+  end
+
+  test "invoke options bus overrides context bus" do
+    root = tmp_root("invoke_options_bus_override")
+    global_root = Path.join(root, "global")
+    local_root = Path.join(root, "local")
+    local_commands_dir = Path.join(local_root, "commands")
+
+    File.mkdir_p!(Path.join(global_root, "commands"))
+    File.mkdir_p!(local_commands_dir)
+
+    File.write!(
+      Path.join(local_commands_dir, "review.md"),
+      """
+      ---
+      name: review
+      description: review command
+      jido:
+        hooks:
+          pre: true
+      ---
+      review
+      """
+    )
+
+    option_bus = unique_bus_name()
+    context_bus = unique_bus_name()
+    registry_bus = unique_bus_name()
+    registry = unique_registry_name()
+
+    start_supervised!({Bus, name: option_bus})
+    start_supervised!({Bus, name: context_bus})
+    start_supervised!({Bus, name: registry_bus})
+
+    start_supervised!(
+      {CommandRegistry,
+       name: registry, bus: registry_bus, global_root: global_root, local_root: local_root}
+    )
+
+    {:ok, _subscription} =
+      Bus.subscribe(option_bus, "jido.hooks.pre", dispatch: {:pid, target: self()})
+
+    assert {:ok, _result} =
+             JidoCommand.invoke(
+               "review",
+               %{},
+               %{bus: context_bus},
+               registry: registry,
+               bus: option_bus
+             )
+
+    assert_receive {:signal, %Signal{type: "jido.hooks.pre", data: data}}, 1_000
+    assert data["command"] == "review"
+  end
+
   test "invoke rejects invalid name, params, and context" do
     assert {:error, :invalid_name} = JidoCommand.invoke("   ", %{}, %{})
     assert {:error, :invalid_params} = JidoCommand.invoke("review", [], %{})

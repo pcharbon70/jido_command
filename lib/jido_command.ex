@@ -52,7 +52,7 @@ defmodule JidoCommand do
              normalized_name,
              Keyword.get(opts, :registry, CommandRegistry)
            ) do
-      bus = Keyword.get(opts, :bus, :jido_code_bus)
+      bus = resolve_bus(context, opts)
       invocation_id_option = Keyword.get(opts, :invocation_id)
       permissions_option = Keyword.get(opts, :permissions)
       permissions = normalize_permissions(permissions_option)
@@ -60,7 +60,7 @@ defmodule JidoCommand do
 
       run_context =
         context
-        |> Map.put_new(:bus, bus)
+        |> put_bus(bus)
         |> put_invocation_id(invocation_id)
         |> maybe_put_permissions(permissions)
 
@@ -164,6 +164,12 @@ defmodule JidoCommand do
     context
     |> Map.delete("invocation_id")
     |> Map.put(:invocation_id, invocation_id)
+  end
+
+  defp put_bus(context, bus) when is_map(context) do
+    context
+    |> Map.delete("bus")
+    |> Map.put(:bus, bus)
   end
 
   defp maybe_put_permissions(context, nil), do: context
@@ -432,6 +438,19 @@ defmodule JidoCommand do
 
   defp continue_or_halt(:ok), do: {:cont, :ok}
   defp continue_or_halt({:error, _reason} = error), do: {:halt, error}
+
+  defp resolve_bus(context, opts) when is_map(context) and is_list(opts) do
+    case Keyword.fetch(opts, :bus) do
+      {:ok, bus} ->
+        bus
+
+      :error ->
+        case context_bus_option(context) do
+          {:present, bus} -> bus
+          :missing -> :jido_code_bus
+        end
+    end
+  end
 
   defp resolve_invocation_id(context, invocation_id_option) when is_map(context) do
     option_invocation_id = normalize_invocation_id(invocation_id_option, nil)
