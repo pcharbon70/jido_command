@@ -8,7 +8,7 @@ It supports:
 - Exactly two optional command hook signals (`jido.hooks.pre`, `jido.hooks.after`)
 - Signal-bus command dispatch (`command.invoke` -> `command.completed` / `command.failed`)
 - `command.invoke` payloads are strictly validated (required/optional keys only)
-- API `invoke/dispatch` validate name/params/context input types before execution/publish
+- API `invoke/dispatch` validate name/params/context inputs (types + conflicting normalized keys) before execution/publish
 - Invalid or blank invocation IDs are normalized to generated non-empty IDs
 - Signal-bus registry lifecycle events (`command.registry.reloaded`, `command.registered`, `command.unregistered`, `command.registry.failed`)
 - Global + local config roots with local precedence

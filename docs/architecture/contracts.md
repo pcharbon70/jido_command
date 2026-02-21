@@ -19,6 +19,7 @@ Optional data fields:
 For API-level dispatch (`JidoCommand.dispatch/4`) and invoke (`JidoCommand.invoke/4`), invocation ID resolution order is: `opts[:invocation_id]` (when valid), then `context[:invocation_id]`/`context["invocation_id"]` (when valid), then a generated non-empty string.
 For API-level `JidoCommand.invoke/4` and `JidoCommand.dispatch/4`, command name must be a non-empty string and both `params` and `context` must be objects; invalid inputs return an error tuple (and `dispatch` does not publish a signal).
 For API-level `JidoCommand.invoke/4` and `JidoCommand.dispatch/4`, context cannot include both `:invocation_id` and `"invocation_id"` keys at the same time.
+For API-level `JidoCommand.invoke/4` and `JidoCommand.dispatch/4`, `params` and `context` reject conflicting normalized keys recursively (including nested maps).
 
 Dispatcher-enforced execution context fields:
 
