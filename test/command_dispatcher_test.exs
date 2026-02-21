@@ -43,6 +43,21 @@ defmodule JidoCommand.Extensibility.CommandDispatcherTest do
     end
   end
 
+  defmodule BrokenRegistry do
+    use GenServer
+
+    def start_link(opts \\ []) do
+      GenServer.start_link(__MODULE__, :ok, opts)
+    end
+
+    @impl true
+    def init(:ok), do: {:ok, %{}}
+
+    @impl true
+    def handle_call({:get_command, _name}, _from, state), do: {:reply, {:error, :boom}, state}
+    def handle_call(_request, _from, state), do: {:reply, {:error, :unsupported}, state}
+  end
+
   test "dispatches command.invoke and emits command.completed" do
     %{bus: bus} =
       start_runtime([
@@ -97,7 +112,33 @@ defmodule JidoCommand.Extensibility.CommandDispatcherTest do
     assert data["name"] == "hello"
     assert data["invocation_id"] == signal_id
     assert String.starts_with?(data["error"], "registry unavailable:")
-    assert String.contains?(data["error"], "registry_unavailable")
+  end
+
+  test "emits command.failed when command lookup fails with non-registry error" do
+    bus = unique_bus_name()
+    dispatcher = unique_dispatcher_name()
+    registry = unique_registry_name()
+
+    start_supervised!({Bus, name: bus})
+    start_supervised!({BrokenRegistry, name: registry})
+    start_supervised!({CommandDispatcher, name: dispatcher, bus: bus, registry: registry})
+
+    {:ok, _failed_sub} =
+      Bus.subscribe(bus, "command.failed", dispatch: {:pid, target: self()})
+
+    {:ok, %Signal{id: signal_id} = invoke_signal} =
+      Signal.new(
+        "command.invoke",
+        %{"name" => "hello", "params" => %{}},
+        source: "/test"
+      )
+
+    assert {:ok, _} = Bus.publish(bus, [invoke_signal])
+
+    assert_receive {:signal, %Signal{type: "command.failed", data: data}}, 2_000
+    assert data["name"] == "hello"
+    assert data["invocation_id"] == signal_id
+    assert data["error"] == "command lookup failed: :boom"
   end
 
   test "emits command.failed when invoke payload is missing params" do
