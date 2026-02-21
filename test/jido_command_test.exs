@@ -229,6 +229,17 @@ defmodule JidoCommandTest do
              JidoCommand.reload(registry: :first, registry: :second)
   end
 
+  test "list_commands rejects invalid, unknown, and conflicting options" do
+    assert {:error, :invalid_list_commands_options} =
+             JidoCommand.list_commands(%{registry: CommandRegistry})
+
+    assert {:error, {:invalid_list_commands_options_keys, ["bus"]}} =
+             JidoCommand.list_commands(bus: :jido_code_bus)
+
+    assert {:error, {:invalid_list_commands_options_conflicting_keys, ["registry"]}} =
+             JidoCommand.list_commands(registry: :first, registry: :second)
+  end
+
   test "register_command loads a command into registry" do
     root = tmp_root("register")
     global_root = Path.join(root, "global")
