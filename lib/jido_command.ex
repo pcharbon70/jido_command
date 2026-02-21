@@ -210,10 +210,7 @@ defmodule JidoCommand do
   defp validate_permissions_option_values(value) when is_map(value) do
     ["allow", "deny", "ask"]
     |> Enum.reduce_while(:ok, fn key, :ok ->
-      case validate_permission_bucket(
-             Map.get(value, key) || Map.get(value, String.to_atom(key)),
-             key
-           ) do
+      case validate_permission_bucket(permissions_bucket_value(value, key), key) do
         :ok -> {:cont, :ok}
         {:error, _reason} = error -> {:halt, error}
       end
@@ -299,13 +296,23 @@ defmodule JidoCommand do
 
   defp normalize_permissions(value) when is_map(value) do
     %{
-      allow: normalize_permission_list(Map.get(value, :allow) || Map.get(value, "allow")),
-      deny: normalize_permission_list(Map.get(value, :deny) || Map.get(value, "deny")),
-      ask: normalize_permission_list(Map.get(value, :ask) || Map.get(value, "ask"))
+      allow: normalize_permission_list(permissions_bucket_value(value, "allow")),
+      deny: normalize_permission_list(permissions_bucket_value(value, "deny")),
+      ask: normalize_permission_list(permissions_bucket_value(value, "ask"))
     }
   end
 
   defp normalize_permissions(_), do: nil
+
+  defp permissions_bucket_value(value, key) when is_map(value) and is_binary(key) do
+    case Map.fetch(value, key) do
+      {:ok, bucket_value} ->
+        bucket_value
+
+      :error ->
+        Map.get(value, String.to_atom(key))
+    end
+  end
 
   defp normalize_permission_list(list) when is_list(list) do
     list

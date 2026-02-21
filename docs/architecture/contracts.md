@@ -25,6 +25,7 @@ For API-level `JidoCommand.invoke/4`, `opts[:permissions]` must be a permissions
 For API-level `JidoCommand.invoke/4`, `opts[:permissions]` rejects conflicting normalized keys recursively when provided as a map.
 For API-level `JidoCommand.invoke/4`, `opts[:permissions]` only accepts top-level keys `allow`, `deny`, and `ask` when provided as a map.
 For API-level `JidoCommand.invoke/4`, each `opts[:permissions]` bucket (`allow`, `deny`, `ask`) must be a list of strings/atoms when provided.
+For API-level `JidoCommand.invoke/4`, permissions bucket values are validated by key presence; `false` is rejected as invalid bucket content.
 
 Dispatcher-enforced execution context fields:
 
