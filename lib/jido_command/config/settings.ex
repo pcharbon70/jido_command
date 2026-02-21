@@ -30,9 +30,11 @@ defmodule JidoCommand.Config.Settings do
 
   @spec from_map(map()) :: t()
   def from_map(map) when is_map(map) do
-    signal_bus = Map.get(map, "signal_bus", %{})
-    commands = Map.get(map, "commands", %{})
-    permissions = Map.get(map, "permissions", %{})
+    normalized_map = normalize_map_keys(map)
+
+    signal_bus = Map.get(normalized_map, "signal_bus", %{})
+    commands = Map.get(normalized_map, "commands", %{})
+    permissions = Map.get(normalized_map, "permissions", %{})
 
     %__MODULE__{
       bus_name: to_bus_name(Map.get(signal_bus, "name", ":jido_code_bus")),
@@ -47,15 +49,17 @@ defmodule JidoCommand.Config.Settings do
 
   @spec validate(map()) :: :ok | {:error, term()}
   def validate(map) when is_map(map) do
+    normalized_map = normalize_map_keys(map)
+
     :ok
     |> chain_validate(fn ->
-      validate_allowed_keys(map, @allowed_settings_keys, :invalid_settings_keys)
+      validate_allowed_keys(normalized_map, @allowed_settings_keys, :invalid_settings_keys)
     end)
-    |> chain_validate(fn -> validate_schema_url(Map.get(map, "$schema")) end)
-    |> chain_validate(fn -> validate_version(Map.get(map, "version")) end)
-    |> chain_validate(fn -> validate_signal_bus(Map.get(map, "signal_bus")) end)
-    |> chain_validate(fn -> validate_permissions(Map.get(map, "permissions")) end)
-    |> chain_validate(fn -> validate_commands(Map.get(map, "commands")) end)
+    |> chain_validate(fn -> validate_schema_url(Map.get(normalized_map, "$schema")) end)
+    |> chain_validate(fn -> validate_version(Map.get(normalized_map, "version")) end)
+    |> chain_validate(fn -> validate_signal_bus(Map.get(normalized_map, "signal_bus")) end)
+    |> chain_validate(fn -> validate_permissions(Map.get(normalized_map, "permissions")) end)
+    |> chain_validate(fn -> validate_commands(Map.get(normalized_map, "commands")) end)
   end
 
   def validate(_), do: {:error, {:invalid_settings, :root_must_be_map}}
@@ -385,6 +389,17 @@ defmodule JidoCommand.Config.Settings do
   defp normalize_settings_key(key) when is_binary(key), do: key
   defp normalize_settings_key(key) when is_atom(key), do: Atom.to_string(key)
   defp normalize_settings_key(key), do: inspect(key)
+
+  defp normalize_map_keys(map) when is_map(map) do
+    Enum.reduce(map, %{}, fn {key, value}, acc ->
+      Map.put(acc, normalize_settings_key(key), normalize_map_keys(value))
+    end)
+  end
+
+  defp normalize_map_keys(list) when is_list(list),
+    do: Enum.map(list, &normalize_map_keys/1)
+
+  defp normalize_map_keys(value), do: value
 
   defp chain_validate(:ok, validation), do: validation.()
   defp chain_validate({:error, _reason} = error, _validation), do: error

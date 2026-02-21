@@ -261,6 +261,48 @@ defmodule JidoCommand.Config.LoaderTest do
     assert "{:maybe, :key}" in unknown_keys
   end
 
+  test "settings validation enforces signal_bus.name with atom keys" do
+    settings = %{
+      signal_bus: %{name: "   "}
+    }
+
+    assert {:error, {:invalid_signal_bus_name, :must_be_nonempty_string_or_atom}} =
+             Settings.validate(settings)
+  end
+
+  test "settings validation enforces commands.max_concurrent with atom keys" do
+    settings = %{
+      commands: %{max_concurrent: 0}
+    }
+
+    assert {:error, {:invalid_max_concurrent, :must_be_positive_integer}} =
+             Settings.validate(settings)
+  end
+
+  test "settings validation enforces commands.default_model with atom keys" do
+    settings = %{
+      commands: %{default_model: "   "}
+    }
+
+    assert {:error, {:invalid_default_model, :must_be_nonempty_string}} =
+             Settings.validate(settings)
+  end
+
+  test "settings from_map normalizes atom-key maps" do
+    settings =
+      Settings.from_map(%{
+        signal_bus: %{name: "local_bus"},
+        commands: %{default_model: "local-model", max_concurrent: 7},
+        permissions: %{allow: ["Read"], ask: "Bash(npm:*)"}
+      })
+
+    assert settings.bus_name == :local_bus
+    assert settings.commands_default_model == "local-model"
+    assert settings.commands_max_concurrent == 7
+    assert settings.permissions_allow == ["Read"]
+    assert settings.permissions_ask == ["Bash(npm:*)"]
+  end
+
   test "returns invalid_settings for invalid permission item types" do
     root = tmp_root()
     global = Path.join(root, "global")
