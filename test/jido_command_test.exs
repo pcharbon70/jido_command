@@ -717,6 +717,22 @@ defmodule JidoCommandTest do
              )
   end
 
+  test "invoke rejects unknown permissions option keys" do
+    assert {:error, {:invalid_permissions_keys, ["extra"]}} =
+             JidoCommand.invoke("review", %{}, %{},
+               permissions: %{"allow" => ["Read"], "extra" => true}
+             )
+  end
+
+  test "invoke rejects non-string unknown permissions option keys" do
+    assert {:error, {:invalid_permissions_keys, unknown_keys}} =
+             JidoCommand.invoke("review", %{}, %{},
+               permissions: %{{:extra, :key} => true, allow: ["Read"]}
+             )
+
+    assert "{:extra, :key}" in unknown_keys
+  end
+
   test "unregister_command removes a command from registry" do
     root = tmp_root("unregister")
     global_root = Path.join(root, "global")
