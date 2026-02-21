@@ -717,6 +717,14 @@ defmodule JidoCommandTest do
              )
   end
 
+  test "invoke rejects non-map permissions option values" do
+    assert {:error, :invalid_permissions} =
+             JidoCommand.invoke("review", %{}, %{}, permissions: "Read")
+
+    assert {:error, :invalid_permissions} =
+             JidoCommand.invoke("review", %{}, %{}, permissions: ["Read"])
+  end
+
   test "invoke rejects unknown permissions option keys" do
     assert {:error, {:invalid_permissions_keys, ["extra"]}} =
              JidoCommand.invoke("review", %{}, %{},
