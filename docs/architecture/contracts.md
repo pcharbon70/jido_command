@@ -196,7 +196,7 @@ Optional keys:
 - `allowed-tools` / `allowed_tools` (non-empty comma string or non-empty list of strings/atoms)
 - `jido` (map)
 
-Any unknown top-level FrontMatter key is rejected.
+Any unknown top-level FrontMatter key is rejected, including non-string YAML keys.
 
 ### Allowed tools rules
 

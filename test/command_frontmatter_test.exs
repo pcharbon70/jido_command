@@ -157,6 +157,23 @@ defmodule JidoCommand.Extensibility.CommandFrontmatterTest do
              CommandFrontmatter.parse_string(markdown, "/tmp/bad_frontmatter_top_keys.md")
   end
 
+  test "rejects non-string top-level frontmatter keys without crashing" do
+    markdown = """
+    ---
+    name: unknown-complex-key
+    description: bad
+    ? [foo, bar]
+    : baz
+    ---
+    body
+    """
+
+    assert {:error, {:invalid_frontmatter_keys, {:unknown_keys, unknown_keys}}} =
+             CommandFrontmatter.parse_string(markdown, "/tmp/bad_frontmatter_complex_keys.md")
+
+    assert ~s(["foo", "bar"]) in unknown_keys
+  end
+
   test "supports allowed_tools alias at top-level frontmatter" do
     markdown = """
     ---
@@ -326,6 +343,24 @@ defmodule JidoCommand.Extensibility.CommandFrontmatterTest do
 
     assert {:error, {:invalid_schema_default_type, "retries", :integer}} =
              CommandFrontmatter.parse_string(markdown, "/tmp/bad_schema_default_type.md")
+  end
+
+  test "rejects non-string schema field keys without crashing" do
+    markdown = """
+    ---
+    name: bad-schema-field-key
+    description: bad
+    jido:
+      schema:
+        ? [field, name]
+        :
+          type: string
+    ---
+    body
+    """
+
+    assert {:error, {:invalid_schema_field, ~s(["field", "name"])}} =
+             CommandFrontmatter.parse_string(markdown, "/tmp/bad_schema_field_key.md")
   end
 
   test "accepts schema defaults when value matches declared type" do
