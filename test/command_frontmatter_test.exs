@@ -190,6 +190,37 @@ defmodule JidoCommand.Extensibility.CommandFrontmatterTest do
     assert definition.allowed_tools == ["Read", "Write"]
   end
 
+  test "rejects conflicting allowed-tools aliases when both are provided" do
+    markdown = """
+    ---
+    name: conflicting-tools-aliases
+    description: bad
+    allowed-tools:
+      - Read
+    allowed_tools:
+      - Write
+    ---
+    body
+    """
+
+    assert {:error, {:invalid_allowed_tools, :conflicting_keys}} =
+             CommandFrontmatter.parse_string(markdown, "/tmp/conflicting_tools_aliases.md")
+  end
+
+  test "rejects explicit nil allowed-tools value" do
+    markdown = """
+    ---
+    name: nil-tools
+    description: bad
+    allowed-tools:
+    ---
+    body
+    """
+
+    assert {:error, {:invalid_allowed_tools, :must_be_nonempty_string_or_list}} =
+             CommandFrontmatter.parse_string(markdown, "/tmp/nil_tools.md")
+  end
+
   test "rejects blank allowed-tools string" do
     markdown = """
     ---
