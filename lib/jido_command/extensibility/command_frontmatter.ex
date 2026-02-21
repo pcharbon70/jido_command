@@ -50,7 +50,8 @@ defmodule JidoCommand.Extensibility.CommandFrontmatter do
 
   defp parse_frontmatter_yaml(frontmatter_text, source_path) do
     with {:ok, yaml} <- YamlElixir.read_from_string(frontmatter_text),
-         true <- is_map(yaml) or {:error, {:invalid_frontmatter, source_path, :root_must_be_map}} do
+         true <- is_map(yaml) or {:error, {:invalid_frontmatter, source_path, :root_must_be_map}},
+         :ok <- validate_non_conflicting_normalized_keys(yaml, :invalid_frontmatter_keys) do
       {:ok, stringify_keys(yaml)}
     end
   end
@@ -475,6 +476,45 @@ defmodule JidoCommand.Extensibility.CommandFrontmatter do
       {:error, {error_tag, {:unknown_keys, unknown_keys}}}
     end
   end
+
+  defp validate_non_conflicting_normalized_keys(map, error_tag) when is_map(map) do
+    normalized_keys =
+      map
+      |> Map.keys()
+      |> Enum.map(&normalize_frontmatter_key/1)
+
+    conflicting_keys =
+      normalized_keys
+      |> Enum.frequencies()
+      |> Enum.reduce([], fn
+        {key, count}, acc when count > 1 -> [key | acc]
+        {_key, _count}, acc -> acc
+      end)
+      |> Enum.sort()
+
+    if conflicting_keys == [] do
+      validate_non_conflicting_enumerable(Map.values(map), error_tag)
+    else
+      {:error, {error_tag, {:conflicting_keys, conflicting_keys}}}
+    end
+  end
+
+  defp validate_non_conflicting_normalized_keys(list, error_tag) when is_list(list) do
+    validate_non_conflicting_enumerable(list, error_tag)
+  end
+
+  defp validate_non_conflicting_normalized_keys(_value, _error_tag), do: :ok
+
+  defp validate_non_conflicting_enumerable(values, error_tag) when is_list(values) do
+    Enum.reduce_while(values, :ok, fn value, :ok ->
+      value
+      |> validate_non_conflicting_normalized_keys(error_tag)
+      |> continue_or_halt()
+    end)
+  end
+
+  defp continue_or_halt(:ok), do: {:cont, :ok}
+  defp continue_or_halt({:error, _reason} = error), do: {:halt, error}
 
   defp stringify_keys(map) when is_map(map) do
     map

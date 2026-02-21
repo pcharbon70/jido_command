@@ -174,6 +174,38 @@ defmodule JidoCommand.Extensibility.CommandFrontmatterTest do
     assert ~s(["foo", "bar"]) in unknown_keys
   end
 
+  test "rejects conflicting normalized top-level frontmatter keys" do
+    markdown = """
+    ---
+    name: conflicting-top-level-keys
+    description: bad
+    1: alpha
+    "1": beta
+    ---
+    body
+    """
+
+    assert {:error, {:invalid_frontmatter_keys, {:conflicting_keys, ["1"]}}} =
+             CommandFrontmatter.parse_string(markdown, "/tmp/conflicting_top_level_keys.md")
+  end
+
+  test "rejects conflicting normalized nested frontmatter keys" do
+    markdown = """
+    ---
+    name: conflicting-nested-keys
+    description: bad
+    jido:
+      hooks:
+        1: true
+        "1": false
+    ---
+    body
+    """
+
+    assert {:error, {:invalid_frontmatter_keys, {:conflicting_keys, ["1"]}}} =
+             CommandFrontmatter.parse_string(markdown, "/tmp/conflicting_nested_keys.md")
+  end
+
   test "supports allowed_tools alias at top-level frontmatter" do
     markdown = """
     ---

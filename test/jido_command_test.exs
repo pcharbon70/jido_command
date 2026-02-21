@@ -64,7 +64,9 @@ defmodule JidoCommandTest do
              JidoCommand.dispatch(
                "demo",
                %{"x" => 1},
-               %{"invocation_id" => "b", invocation_id: "a"}, bus: bus)
+               %{"invocation_id" => "b", invocation_id: "a"},
+               bus: bus
+             )
   end
 
   test "dispatch options invocation_id overrides context invocation_id" do

@@ -200,6 +200,7 @@ Optional keys:
 - `jido` (map)
 
 Any unknown top-level FrontMatter key is rejected, including non-string YAML keys.
+Conflicting normalized FrontMatter keys are rejected (for example `1` and `"1"`), including nested maps.
 
 ### Allowed tools rules
 
