@@ -56,6 +56,7 @@ Validation rules:
 
 - unknown top-level settings keys are rejected (including non-string keys)
 - unknown keys under `signal_bus`, `permissions`, and `commands` are rejected (including non-string keys)
+- conflicting normalized settings keys are rejected at top-level and nested maps (for example both `commands` and `:commands`)
 - `$schema` must be a non-empty string when provided
 - `version` must be a valid SemVer string when provided
 - `signal_bus.name` must be a non-empty string/atom when provided
