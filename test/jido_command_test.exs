@@ -788,6 +788,11 @@ defmodule JidoCommandTest do
     assert {:error, :invalid_bus} = JidoCommand.invoke("review", %{}, %{}, bus: "")
   end
 
+  test "invoke rejects invalid context bus values" do
+    assert {:error, :invalid_context_bus} = JidoCommand.invoke("review", %{}, %{"bus" => 123})
+    assert {:error, :invalid_context_bus} = JidoCommand.invoke("review", %{}, %{bus: ""})
+  end
+
   test "invoke rejects conflicting option keys" do
     assert {:error, {:invalid_invoke_options_conflicting_keys, ["bus"]}} =
              JidoCommand.invoke("review", %{}, %{}, bus: :first, bus: :second)
