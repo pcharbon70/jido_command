@@ -21,6 +21,7 @@ For API-level `JidoCommand.invoke/4` and `JidoCommand.dispatch/4`, command name 
 For API-level `JidoCommand.invoke/4` and `JidoCommand.dispatch/4`, options must be keyword lists; non-keyword options are rejected.
 For API-level `JidoCommand.invoke/4` and `JidoCommand.dispatch/4`, conflicting normalized option keys are rejected.
 For API-level `JidoCommand.invoke/4` and `JidoCommand.dispatch/4`, unknown option keys are rejected.
+For API-level `JidoCommand.invoke/4`, `opts[:registry]` must be a valid GenServer server reference when provided.
 For API-level `JidoCommand.invoke/4` and `JidoCommand.dispatch/4`, context cannot include both `:invocation_id` and `"invocation_id"` keys at the same time.
 For API-level `JidoCommand.invoke/4` and `JidoCommand.dispatch/4`, `params` and `context` reject conflicting normalized keys recursively (including nested maps).
 For API-level `JidoCommand.invoke/4`, when context includes `permissions`, that value must be a permissions object with top-level keys `allow`, `deny`, and `ask`.
@@ -155,11 +156,15 @@ Registry validation rule:
 Public API validation rules:
 
 - `JidoCommand.list_commands/1` only accepts keyword options with `:registry`; non-keyword, unknown, or conflicting option keys are rejected.
+- `JidoCommand.list_commands/1` requires `:registry` to be a valid GenServer server reference when provided.
 - `JidoCommand.reload/1` only accepts keyword options with `:registry`; non-keyword, unknown, or conflicting option keys are rejected.
+- `JidoCommand.reload/1` requires `:registry` to be a valid GenServer server reference when provided.
 - `JidoCommand.register_command/2` requires a non-empty string path and returns `{:error, :invalid_path}` for invalid input
 - `JidoCommand.register_command/2` only accepts keyword options with `:registry`; non-keyword, unknown, or conflicting option keys are rejected.
+- `JidoCommand.register_command/2` requires `:registry` to be a valid GenServer server reference when provided.
 - `JidoCommand.unregister_command/2` requires a non-empty string name and returns `{:error, :invalid_name}` for invalid input
 - `JidoCommand.unregister_command/2` only accepts keyword options with `:registry`; non-keyword, unknown, or conflicting option keys are rejected.
+- `JidoCommand.unregister_command/2` requires `:registry` to be a valid GenServer server reference when provided.
 
 ## Command hook signals (`jido.hooks.pre`, `jido.hooks.after`)
 
