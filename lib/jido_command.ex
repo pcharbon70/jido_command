@@ -42,6 +42,7 @@ defmodule JidoCommand do
          :ok <- validate_context_invocation_id_keys(context),
          :ok <- validate_non_conflicting_keys(params, :invalid_params_conflicting_keys),
          :ok <- validate_non_conflicting_keys(context, :invalid_context_conflicting_keys),
+         :ok <- validate_bus_server_option(Keyword.get(opts, :bus, :jido_code_bus)),
          :ok <- validate_context_permissions(context),
          :ok <- validate_permissions_option(Keyword.get(opts, :permissions)),
          :ok <- validate_registry_server_option(Keyword.get(opts, :registry, CommandRegistry)),
@@ -81,7 +82,8 @@ defmodule JidoCommand do
          :ok <- validate_map_arg(context, :invalid_context),
          :ok <- validate_context_invocation_id_keys(context),
          :ok <- validate_non_conflicting_keys(params, :invalid_params_conflicting_keys),
-         :ok <- validate_non_conflicting_keys(context, :invalid_context_conflicting_keys) do
+         :ok <- validate_non_conflicting_keys(context, :invalid_context_conflicting_keys),
+         :ok <- validate_bus_server_option(Keyword.get(opts, :bus, :jido_code_bus)) do
       bus = Keyword.get(opts, :bus, :jido_code_bus)
       invocation_id_option = Keyword.get(opts, :invocation_id)
       invocation_id = resolve_invocation_id(context, invocation_id_option)
@@ -245,6 +247,24 @@ defmodule JidoCommand do
   defp validate_registry_server_option(server) do
     if valid_genserver_server?(server), do: :ok, else: {:error, :invalid_registry}
   end
+
+  defp validate_bus_server_option(server) do
+    if valid_bus_server?(server), do: :ok, else: {:error, :invalid_bus}
+  end
+
+  defp valid_bus_server?(server) when is_pid(server), do: true
+  defp valid_bus_server?(server) when is_atom(server) and not is_nil(server), do: true
+  defp valid_bus_server?(server) when is_binary(server), do: server != ""
+  defp valid_bus_server?({name, registry}) when is_atom(registry), do: valid_bus_name?(name)
+  defp valid_bus_server?(_server), do: false
+
+  defp valid_bus_name?(name) when is_atom(name), do: true
+
+  defp valid_bus_name?(name) when is_binary(name) do
+    String.trim(name) != ""
+  end
+
+  defp valid_bus_name?(_name), do: false
 
   defp valid_genserver_server?(server) when is_pid(server), do: true
   defp valid_genserver_server?(server) when is_atom(server) and not is_nil(server), do: true
