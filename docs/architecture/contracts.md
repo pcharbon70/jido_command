@@ -110,7 +110,7 @@ Runtime error messages include:
 
 - payload validation failures (for invalid `command.invoke` data)
 - `"command not found"` when registry lookup returns no command
-- `"registry unavailable: ..."` when dispatcher cannot reach the configured registry
+- `"registry unavailable: ..."` when dispatcher cannot reach the configured registry (missing process is normalized to `:noproc`)
 - `"command lookup failed: ..."` for other registry lookup errors
 
 ## Registry lifecycle signals
@@ -172,6 +172,7 @@ Public API validation rules:
 - `JidoCommand.list_commands/1` only accepts keyword options with `:registry`; non-keyword, unknown, or conflicting option keys are rejected.
 - `JidoCommand.list_commands/1` requires `:registry` to be a valid GenServer server reference when provided.
 - `JidoCommand.list_commands/1` returns `{:error, {:registry_unavailable, reason}}` when the selected registry server cannot be reached.
+  For missing registry processes, `reason` is normalized to `:noproc`.
 - `JidoCommand.reload/1` only accepts keyword options with `:registry`; non-keyword, unknown, or conflicting option keys are rejected.
 - `JidoCommand.reload/1` requires `:registry` to be a valid GenServer server reference when provided.
 - `JidoCommand.reload/1` returns `{:error, {:registry_unavailable, reason}}` when the selected registry server cannot be reached.

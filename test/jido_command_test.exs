@@ -240,7 +240,7 @@ defmodule JidoCommandTest do
 
   test "reload returns error when registry server is unavailable" do
     registry = unique_registry_name()
-    assert {:error, {:registry_unavailable, _reason}} = JidoCommand.reload(registry: registry)
+    assert {:error, {:registry_unavailable, :noproc}} = JidoCommand.reload(registry: registry)
   end
 
   test "list_commands rejects invalid, unknown, and conflicting options" do
@@ -261,7 +261,7 @@ defmodule JidoCommandTest do
   test "list_commands returns error when registry server is unavailable" do
     registry = unique_registry_name()
 
-    assert {:error, {:registry_unavailable, _reason}} =
+    assert {:error, {:registry_unavailable, :noproc}} =
              JidoCommand.list_commands(registry: registry)
   end
 
@@ -326,7 +326,7 @@ defmodule JidoCommandTest do
   test "register_command returns error when registry server is unavailable" do
     registry = unique_registry_name()
 
-    assert {:error, {:registry_unavailable, _reason}} =
+    assert {:error, {:registry_unavailable, :noproc}} =
              JidoCommand.register_command("command.md", registry: registry)
   end
 
@@ -928,7 +928,7 @@ defmodule JidoCommandTest do
   test "invoke returns error when registry server is unavailable" do
     registry = unique_registry_name()
 
-    assert {:error, {:registry_unavailable, _reason}} =
+    assert {:error, {:registry_unavailable, :noproc}} =
              JidoCommand.invoke("review", %{}, %{}, registry: registry)
   end
 
@@ -1077,7 +1077,7 @@ defmodule JidoCommandTest do
   test "unregister_command returns error when registry server is unavailable" do
     registry = unique_registry_name()
 
-    assert {:error, {:registry_unavailable, _reason}} =
+    assert {:error, {:registry_unavailable, :noproc}} =
              JidoCommand.unregister_command("review", registry: registry)
   end
 
