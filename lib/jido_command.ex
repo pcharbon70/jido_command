@@ -18,8 +18,7 @@ defmodule JidoCommand do
     registry = Keyword.get(opts, :registry, CommandRegistry)
     bus = Keyword.get(opts, :bus, :jido_code_bus)
     invocation_id_option = Keyword.get(opts, :invocation_id)
-
-    permissions = normalize_permissions(Keyword.get(opts, :permissions))
+    permissions_option = Keyword.get(opts, :permissions)
 
     with {:ok, normalized_name} <- validate_command_name(name),
          :ok <- validate_map_arg(params, :invalid_params),
@@ -27,7 +26,9 @@ defmodule JidoCommand do
          :ok <- validate_context_invocation_id_keys(context),
          :ok <- validate_non_conflicting_keys(params, :invalid_params_conflicting_keys),
          :ok <- validate_non_conflicting_keys(context, :invalid_context_conflicting_keys),
+         :ok <- validate_permissions_option(permissions_option),
          {:ok, module} <- CommandRegistry.get_command(normalized_name, registry) do
+      permissions = normalize_permissions(permissions_option)
       invocation_id = resolve_invocation_id(context, invocation_id_option)
 
       run_context =
@@ -133,6 +134,13 @@ defmodule JidoCommand do
       :ok
     end
   end
+
+  defp validate_permissions_option(nil), do: :ok
+
+  defp validate_permissions_option(value) when is_map(value),
+    do: validate_non_conflicting_keys(value, :invalid_permissions_conflicting_keys)
+
+  defp validate_permissions_option(_), do: :ok
 
   defp validate_non_conflicting_keys(value, error_tag) when is_map(value) do
     conflicting_keys =
