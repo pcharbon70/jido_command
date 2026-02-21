@@ -81,9 +81,9 @@ defmodule JidoCommand.Extensibility.CommandDispatcher do
       {:ok, command_module} ->
         exec_context =
           context
-          |> Map.put(:bus, state.bus)
-          |> Map.put(:invocation_id, invocation_id)
-          |> Map.put(:permissions, state.permissions)
+          |> put_runtime_context_key(:bus, state.bus)
+          |> put_runtime_context_key(:invocation_id, invocation_id)
+          |> put_runtime_context_key(:permissions, state.permissions)
 
         case Jido.Exec.run(command_module, params, exec_context) do
           {:ok, result} ->
@@ -165,6 +165,12 @@ defmodule JidoCommand.Extensibility.CommandDispatcher do
 
   defp parse_max_concurrent(value) when is_integer(value) and value > 0, do: value
   defp parse_max_concurrent(_), do: 5
+
+  defp put_runtime_context_key(context, key, value) when is_map(context) and is_atom(key) do
+    context
+    |> Map.delete(Atom.to_string(key))
+    |> Map.put(key, value)
+  end
 
   defp normalize_permissions(value) when is_map(value) do
     %{

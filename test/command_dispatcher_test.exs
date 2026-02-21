@@ -32,6 +32,17 @@ defmodule JidoCommand.Extensibility.CommandDispatcherTest do
     end
   end
 
+  defmodule ContextProbeExecutor do
+    @behaviour JidoCommand.Extensibility.CommandRuntime
+
+    @impl true
+    def execute(_definition, _prompt, _params, context) do
+      test_pid = Map.get(context, :test_pid)
+      if is_pid(test_pid), do: send(test_pid, {:context_seen, context})
+      {:ok, %{"ok" => true}}
+    end
+  end
+
   test "dispatches command.invoke and emits command.completed" do
     %{bus: bus} =
       start_runtime([
@@ -258,6 +269,54 @@ defmodule JidoCommand.Extensibility.CommandDispatcherTest do
 
     assert data["error"] ==
              "invalid command.invoke payload: context contains conflicting keys: allow"
+  end
+
+  test "normalizes dispatcher-managed context keys before command execution" do
+    %{bus: bus} =
+      start_runtime([
+        {"probe.md",
+         """
+         ---
+         name: probe
+         description: probe command
+         ---
+         probe
+         """}
+      ])
+
+    {:ok, _completed_sub} =
+      Bus.subscribe(bus, "command.completed", dispatch: {:pid, target: self()})
+
+    {:ok, %Signal{id: signal_id} = invoke_signal} =
+      Signal.new(
+        "command.invoke",
+        %{
+          "name" => "probe",
+          "params" => %{},
+          "context" => %{
+            "bus" => :ignored_bus,
+            "invocation_id" => "ignored-id",
+            "permissions" => %{"allow" => ["Read"]},
+            test_pid: self(),
+            command_executor: ContextProbeExecutor
+          }
+        },
+        source: "/test"
+      )
+
+    assert {:ok, _} = Bus.publish(bus, [invoke_signal])
+
+    assert_receive {:context_seen, runtime_context}, 2_000
+    assert runtime_context[:bus] == bus
+    assert runtime_context[:invocation_id] == signal_id
+    assert runtime_context[:permissions] == %{allow: [], deny: [], ask: []}
+    refute Map.has_key?(runtime_context, "bus")
+    refute Map.has_key?(runtime_context, "invocation_id")
+    refute Map.has_key?(runtime_context, "permissions")
+
+    assert_receive {:signal, %Signal{type: "command.completed", data: data}}, 2_000
+    assert data["name"] == "probe"
+    assert data["invocation_id"] == signal_id
   end
 
   test "emits command.failed with generated invocation_id when non-map payload has no signal id" do
