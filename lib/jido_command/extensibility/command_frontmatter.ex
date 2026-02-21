@@ -287,7 +287,7 @@ defmodule JidoCommand.Extensibility.CommandFrontmatter do
 
   defp parse_schema_map(map) do
     map
-    |> Enum.sort_by(fn {field, _} -> to_string(field) end)
+    |> Enum.sort_by(fn {field, _} -> normalize_frontmatter_key(field) end)
     |> Enum.reduce_while([], &accumulate_schema_entry/2)
     |> finalize_schema_entries()
   end
@@ -303,7 +303,7 @@ defmodule JidoCommand.Extensibility.CommandFrontmatter do
   defp finalize_schema_entries(entries), do: {:ok, Enum.reverse(entries)}
 
   defp parse_schema_entry(field, spec) when is_map(spec) do
-    field_name = field |> to_string() |> String.trim()
+    field_name = field |> normalize_frontmatter_key() |> String.trim()
 
     with :ok <- validate_schema_field_name(field_name),
          {:ok, spec_map} <- normalize_schema_spec(field_name, spec),
@@ -466,10 +466,14 @@ defmodule JidoCommand.Extensibility.CommandFrontmatter do
 
   defp stringify_keys(map) when is_map(map) do
     map
-    |> Enum.map(fn {key, value} -> {to_string(key), stringify_keys(value)} end)
+    |> Enum.map(fn {key, value} -> {normalize_frontmatter_key(key), stringify_keys(value)} end)
     |> Map.new()
   end
 
   defp stringify_keys(list) when is_list(list), do: Enum.map(list, &stringify_keys/1)
   defp stringify_keys(value), do: value
+
+  defp normalize_frontmatter_key(key) when is_binary(key), do: key
+  defp normalize_frontmatter_key(key) when is_atom(key), do: Atom.to_string(key)
+  defp normalize_frontmatter_key(key), do: inspect(key)
 end
