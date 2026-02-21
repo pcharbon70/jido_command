@@ -139,8 +139,14 @@ defmodule JidoCommand do
 
   defp validate_permissions_option(value) when is_map(value) do
     case validate_non_conflicting_keys(value, :invalid_permissions_conflicting_keys) do
-      :ok -> validate_permissions_option_keys(value)
-      {:error, _reason} = error -> error
+      :ok ->
+        case validate_permissions_option_keys(value) do
+          :ok -> validate_permissions_option_values(value)
+          {:error, _reason} = error -> error
+        end
+
+      {:error, _reason} = error ->
+        error
     end
   end
 
@@ -162,6 +168,36 @@ defmodule JidoCommand do
       {:error, {:invalid_permissions_keys, unknown_keys}}
     end
   end
+
+  defp validate_permissions_option_values(value) when is_map(value) do
+    ["allow", "deny", "ask"]
+    |> Enum.reduce_while(:ok, fn key, :ok ->
+      case validate_permission_bucket(
+             Map.get(value, key) || Map.get(value, String.to_atom(key)),
+             key
+           ) do
+        :ok -> {:cont, :ok}
+        {:error, _reason} = error -> {:halt, error}
+      end
+    end)
+  end
+
+  defp validate_permission_bucket(nil, _key), do: :ok
+
+  defp validate_permission_bucket(bucket, key) when is_list(bucket) do
+    bucket
+    |> Enum.with_index()
+    |> Enum.reduce_while(:ok, fn {item, index}, :ok ->
+      if is_binary(item) or is_atom(item) do
+        {:cont, :ok}
+      else
+        {:halt, {:error, {:invalid_permissions_item, key, index}}}
+      end
+    end)
+  end
+
+  defp validate_permission_bucket(_bucket, key),
+    do: {:error, {:invalid_permissions_value, key, :must_be_list}}
 
   defp validate_non_conflicting_keys(value, error_tag) when is_map(value) do
     conflicting_keys =

@@ -22,6 +22,7 @@ For API-level `JidoCommand.invoke/4` and `JidoCommand.dispatch/4`, context canno
 For API-level `JidoCommand.invoke/4` and `JidoCommand.dispatch/4`, `params` and `context` reject conflicting normalized keys recursively (including nested maps).
 For API-level `JidoCommand.invoke/4`, `opts[:permissions]` rejects conflicting normalized keys recursively when provided as a map.
 For API-level `JidoCommand.invoke/4`, `opts[:permissions]` only accepts top-level keys `allow`, `deny`, and `ask` when provided as a map.
+For API-level `JidoCommand.invoke/4`, each `opts[:permissions]` bucket (`allow`, `deny`, `ask`) must be a list of strings/atoms when provided.
 
 Dispatcher-enforced execution context fields:
 
