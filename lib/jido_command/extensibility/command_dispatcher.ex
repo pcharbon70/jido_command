@@ -228,18 +228,31 @@ defmodule JidoCommand.Extensibility.CommandDispatcher do
 
   defp validate_invoke_keys(data) when is_map(data) do
     allowed = ["name", "params", "context", "invocation_id"]
+    normalized_keys = Enum.map(Map.keys(data), &normalize_payload_key/1)
+
+    conflicting_keys =
+      normalized_keys
+      |> Enum.frequencies()
+      |> Enum.reduce([], fn
+        {key, count}, acc when count > 1 -> [key | acc]
+        {_key, _count}, acc -> acc
+      end)
+      |> Enum.sort()
 
     unknown_keys =
-      data
-      |> Map.keys()
-      |> Enum.map(&normalize_payload_key/1)
+      normalized_keys
       |> Enum.reject(&(&1 in allowed))
       |> Enum.sort()
 
-    if unknown_keys == [] do
-      :ok
-    else
-      {:error, {:unknown_keys, unknown_keys}}
+    cond do
+      conflicting_keys != [] ->
+        {:error, {:conflicting_keys, conflicting_keys}}
+
+      unknown_keys != [] ->
+        {:error, {:unknown_keys, unknown_keys}}
+
+      true ->
+        :ok
     end
   end
 
@@ -323,6 +336,9 @@ defmodule JidoCommand.Extensibility.CommandDispatcher do
 
   defp invalid_payload_message({:unknown_keys, keys}),
     do: "invalid command.invoke payload: unknown keys: #{Enum.join(keys, ", ")}"
+
+  defp invalid_payload_message({:conflicting_keys, keys}),
+    do: "invalid command.invoke payload: conflicting keys: #{Enum.join(keys, ", ")}"
 
   defp emit_result(bus, type, payload) do
     case Signal.new(type, payload, source: "/dispatcher") do
