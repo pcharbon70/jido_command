@@ -137,10 +137,31 @@ defmodule JidoCommand do
 
   defp validate_permissions_option(nil), do: :ok
 
-  defp validate_permissions_option(value) when is_map(value),
-    do: validate_non_conflicting_keys(value, :invalid_permissions_conflicting_keys)
+  defp validate_permissions_option(value) when is_map(value) do
+    case validate_non_conflicting_keys(value, :invalid_permissions_conflicting_keys) do
+      :ok -> validate_permissions_option_keys(value)
+      {:error, _reason} = error -> error
+    end
+  end
 
   defp validate_permissions_option(_), do: :ok
+
+  defp validate_permissions_option_keys(value) when is_map(value) do
+    allowed_keys = ["allow", "deny", "ask"]
+
+    unknown_keys =
+      value
+      |> Map.keys()
+      |> Enum.map(&normalize_payload_key/1)
+      |> Enum.reject(&(&1 in allowed_keys))
+      |> Enum.sort()
+
+    if unknown_keys == [] do
+      :ok
+    else
+      {:error, {:invalid_permissions_keys, unknown_keys}}
+    end
+  end
 
   defp validate_non_conflicting_keys(value, error_tag) when is_map(value) do
     conflicting_keys =
