@@ -333,8 +333,12 @@ defmodule JidoCommand.Extensibility.CommandRegistry do
     GenServer.call(server, request)
   catch
     :exit, reason ->
-      {:error, {:registry_unavailable, reason}}
+      {:error, {:registry_unavailable, normalize_unavailable_reason(reason)}}
   end
+
+  defp normalize_unavailable_reason({:noproc, _details}), do: :noproc
+  defp normalize_unavailable_reason({:timeout, _details}), do: :timeout
+  defp normalize_unavailable_reason(reason), do: reason
 
   defp emit_lifecycle_signal(state, type, data) do
     attrs = [source: "/jido_command/registry"]

@@ -111,7 +111,7 @@ defmodule JidoCommand.Extensibility.CommandDispatcherTest do
     assert_receive {:signal, %Signal{type: "command.failed", data: data}}, 2_000
     assert data["name"] == "hello"
     assert data["invocation_id"] == signal_id
-    assert String.starts_with?(data["error"], "registry unavailable:")
+    assert data["error"] == "registry unavailable: :noproc"
   end
 
   test "emits command.failed when command lookup fails with non-registry error" do

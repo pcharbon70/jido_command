@@ -71,6 +71,26 @@ defmodule JidoCommand.Extensibility.CommandRegistryTest do
     assert result["result"]["model"] == "gpt-5"
   end
 
+  test "returns normalized registry_unavailable errors when registry server is missing" do
+    registry = unique_registry_name()
+
+    assert {:error, {:registry_unavailable, :noproc}} = CommandRegistry.list_commands(registry)
+
+    assert {:error, {:registry_unavailable, :noproc}} =
+             CommandRegistry.get_command("review", registry)
+
+    assert {:error, {:registry_unavailable, :noproc}} =
+             CommandRegistry.get_command_entry("review", registry)
+
+    assert {:error, {:registry_unavailable, :noproc}} = CommandRegistry.reload(registry)
+
+    assert {:error, {:registry_unavailable, :noproc}} =
+             CommandRegistry.register_command("manual.md", registry)
+
+    assert {:error, {:registry_unavailable, :noproc}} =
+             CommandRegistry.unregister_command("review", registry)
+  end
+
   test "keeps command-specific model over default model" do
     root = tmp_root()
     global_root = Path.join(root, "global")
