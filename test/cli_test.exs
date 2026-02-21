@@ -97,6 +97,32 @@ defmodule JidoCommand.CLITest do
     end
   end
 
+  defmodule InvalidListResponseRuntimeStub do
+    def list_commands do
+      [123]
+    end
+  end
+
+  defmodule InvalidInvokeResponseRuntimeStub do
+    def invoke(_command, _params, _context), do: :ok
+  end
+
+  defmodule InvalidDispatchResponseRuntimeStub do
+    def dispatch(_command, _params, _context), do: {:ok, 123}
+  end
+
+  defmodule InvalidReloadResponseRuntimeStub do
+    def reload, do: {:ok, :unexpected}
+  end
+
+  defmodule InvalidRegisterCommandResponseRuntimeStub do
+    def register_command(_command_path), do: {:ok, :unexpected}
+  end
+
+  defmodule InvalidUnregisterCommandResponseRuntimeStub do
+    def unregister_command(_command_name), do: {:ok, :unexpected}
+  end
+
   test "list prints loaded command names" do
     output =
       capture_io(fn ->
@@ -125,6 +151,22 @@ defmodule JidoCommand.CLITest do
       end)
 
     assert stderr =~ "list failed: {:registry_unavailable, :noproc}"
+  end
+
+  test "list invalid response prints error and halts with 1" do
+    stderr =
+      capture_io(:stderr, fn ->
+        assert {:halt, 1} ==
+                 catch_throw(
+                   CLI.main(
+                     ["list"],
+                     fn code -> throw({:halt, code}) end,
+                     InvalidListResponseRuntimeStub
+                   )
+                 )
+      end)
+
+    assert stderr =~ "list failed: invalid runtime response: [123]"
   end
 
   test "dispatch publishes via runtime and prints invocation id" do
@@ -182,6 +224,22 @@ defmodule JidoCommand.CLITest do
              Jason.decode!(output)
   end
 
+  test "invoke invalid response prints error and halts with 1" do
+    stderr =
+      capture_io(:stderr, fn ->
+        assert {:halt, 1} ==
+                 catch_throw(
+                   CLI.main(
+                     ["invoke", "review"],
+                     fn code -> throw({:halt, code}) end,
+                     InvalidInvokeResponseRuntimeStub
+                   )
+                 )
+      end)
+
+    assert stderr =~ "invoke failed: invalid runtime response: :ok"
+  end
+
   test "dispatch failure prints error and halts with 1" do
     stderr =
       capture_io(:stderr, fn ->
@@ -213,6 +271,22 @@ defmodule JidoCommand.CLITest do
     assert_receive {:runtime_dispatch_with_opts, "demo", %{}, %{}, opts}, 500
     assert opts[:invocation_id] == "dispatch-123"
     assert %{"invocation_id" => "dispatch-123"} == Jason.decode!(output)
+  end
+
+  test "dispatch invalid response prints error and halts with 1" do
+    stderr =
+      capture_io(:stderr, fn ->
+        assert {:halt, 1} ==
+                 catch_throw(
+                   CLI.main(
+                     ["dispatch", "demo"],
+                     fn code -> throw({:halt, code}) end,
+                     InvalidDispatchResponseRuntimeStub
+                   )
+                 )
+      end)
+
+    assert stderr =~ "dispatch failed: invalid runtime response: {:ok, 123}"
   end
 
   test "reload calls runtime and prints ok status" do
@@ -247,6 +321,22 @@ defmodule JidoCommand.CLITest do
     assert stderr =~ "reload failed: :reload_error"
   end
 
+  test "reload invalid response prints error and halts with 1" do
+    stderr =
+      capture_io(:stderr, fn ->
+        assert {:halt, 1} ==
+                 catch_throw(
+                   CLI.main(
+                     ["reload"],
+                     fn code -> throw({:halt, code}) end,
+                     InvalidReloadResponseRuntimeStub
+                   )
+                 )
+      end)
+
+    assert stderr =~ "reload failed: invalid runtime response: {:ok, :unexpected}"
+  end
+
   test "register-command calls runtime and prints ok status" do
     output =
       capture_io(fn ->
@@ -279,6 +369,23 @@ defmodule JidoCommand.CLITest do
     assert stderr =~ "register-command failed: :register_command_error"
   end
 
+  test "register-command invalid response prints error and halts with 1" do
+    stderr =
+      capture_io(:stderr, fn ->
+        assert {:halt, 1} ==
+                 catch_throw(
+                   CLI.main(
+                     ["register-command", "commands/new.md"],
+                     fn code -> throw({:halt, code}) end,
+                     InvalidRegisterCommandResponseRuntimeStub
+                   )
+                 )
+      end)
+
+    assert stderr =~
+             "register-command failed: invalid runtime response: {:ok, :unexpected}"
+  end
+
   test "unregister-command calls runtime and prints ok status" do
     output =
       capture_io(fn ->
@@ -309,5 +416,22 @@ defmodule JidoCommand.CLITest do
 
     assert_receive {:runtime_unregister_command_failed, "review"}, 500
     assert stderr =~ "unregister-command failed: :unregister_command_error"
+  end
+
+  test "unregister-command invalid response prints error and halts with 1" do
+    stderr =
+      capture_io(:stderr, fn ->
+        assert {:halt, 1} ==
+                 catch_throw(
+                   CLI.main(
+                     ["unregister-command", "review"],
+                     fn code -> throw({:halt, code}) end,
+                     InvalidUnregisterCommandResponseRuntimeStub
+                   )
+                 )
+      end)
+
+    assert stderr =~
+             "unregister-command failed: invalid runtime response: {:ok, :unexpected}"
   end
 end

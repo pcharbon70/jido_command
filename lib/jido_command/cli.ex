@@ -79,24 +79,33 @@ defmodule JidoCommand.CLI do
 
     case invoke_runtime(runtime, command_name, params, context, invocation_id) do
       {:ok, value} ->
-        IO.puts(Jason.encode!(value, pretty: true))
-        :ok
+        print_json_or_fail("invoke", value, halt)
 
       {:error, reason} ->
         IO.puts(:stderr, "invoke failed: #{inspect(reason)}")
         halt.(1)
+
+      other ->
+        invalid_runtime_response("invoke", other, halt)
     end
   end
 
   defp handle_list(halt, runtime) do
     case runtime.list_commands() do
       commands when is_list(commands) ->
-        Enum.each(commands, &IO.puts/1)
-        :ok
+        if valid_command_name_list?(commands) do
+          Enum.each(commands, &IO.puts/1)
+          :ok
+        else
+          invalid_runtime_response("list", commands, halt)
+        end
 
       {:error, reason} ->
         IO.puts(:stderr, "list failed: #{inspect(reason)}")
         halt.(1)
+
+      other ->
+        invalid_runtime_response("list", other, halt)
     end
   end
 
@@ -107,13 +116,18 @@ defmodule JidoCommand.CLI do
     invocation_id = result.options.invocation_id
 
     case dispatch_runtime(runtime, command_name, params, context, invocation_id) do
-      {:ok, invocation_id} ->
-        IO.puts(Jason.encode!(%{"invocation_id" => invocation_id}, pretty: true))
-        :ok
+      {:ok, invocation_id} when is_binary(invocation_id) ->
+        print_json_or_fail("dispatch", %{"invocation_id" => invocation_id}, halt)
+
+      {:ok, _invocation_id} = other ->
+        invalid_runtime_response("dispatch", other, halt)
 
       {:error, reason} ->
         IO.puts(:stderr, "dispatch failed: #{inspect(reason)}")
         halt.(1)
+
+      other ->
+        invalid_runtime_response("dispatch", other, halt)
     end
   end
 
@@ -126,6 +140,9 @@ defmodule JidoCommand.CLI do
       {:error, reason} ->
         IO.puts(:stderr, "reload failed: #{inspect(reason)}")
         halt.(1)
+
+      other ->
+        invalid_runtime_response("reload", other, halt)
     end
   end
 
@@ -140,6 +157,9 @@ defmodule JidoCommand.CLI do
       {:error, reason} ->
         IO.puts(:stderr, "register-command failed: #{inspect(reason)}")
         halt.(1)
+
+      other ->
+        invalid_runtime_response("register-command", other, halt)
     end
   end
 
@@ -154,6 +174,9 @@ defmodule JidoCommand.CLI do
       {:error, reason} ->
         IO.puts(:stderr, "unregister-command failed: #{inspect(reason)}")
         halt.(1)
+
+      other ->
+        invalid_runtime_response("unregister-command", other, halt)
     end
   end
 
@@ -323,5 +346,29 @@ defmodule JidoCommand.CLI do
     else
       runtime.dispatch(command_name, params, Map.put(context, :invocation_id, invocation_id))
     end
+  end
+
+  defp valid_command_name_list?(commands) when is_list(commands) do
+    Enum.all?(commands, fn
+      name when is_binary(name) -> String.trim(name) != ""
+      _other -> false
+    end)
+  end
+
+  defp print_json_or_fail(command, value, halt) when is_binary(command) do
+    case Jason.encode(value, pretty: true) do
+      {:ok, encoded} ->
+        IO.puts(encoded)
+        :ok
+
+      {:error, reason} ->
+        invalid_runtime_response(command, {:json_encode_failed, reason}, halt)
+    end
+  end
+
+  defp invalid_runtime_response(command, response, halt) when is_binary(command) do
+    formatted = inspect(response, charlists: :as_lists)
+    IO.puts(:stderr, "#{command} failed: invalid runtime response: #{formatted}")
+    halt.(1)
   end
 end
