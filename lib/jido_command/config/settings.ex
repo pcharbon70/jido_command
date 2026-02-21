@@ -49,17 +49,15 @@ defmodule JidoCommand.Config.Settings do
 
   @spec validate(map()) :: :ok | {:error, term()}
   def validate(map) when is_map(map) do
-    normalized_map = normalize_map_keys(map)
-
     :ok
     |> chain_validate(fn ->
-      validate_allowed_keys(normalized_map, @allowed_settings_keys, :invalid_settings_keys)
+      validate_allowed_keys(map, @allowed_settings_keys, :invalid_settings_keys)
     end)
-    |> chain_validate(fn -> validate_schema_url(Map.get(normalized_map, "$schema")) end)
-    |> chain_validate(fn -> validate_version(Map.get(normalized_map, "version")) end)
-    |> chain_validate(fn -> validate_signal_bus(Map.get(normalized_map, "signal_bus")) end)
-    |> chain_validate(fn -> validate_permissions(Map.get(normalized_map, "permissions")) end)
-    |> chain_validate(fn -> validate_commands(Map.get(normalized_map, "commands")) end)
+    |> chain_validate(fn -> validate_schema_url(settings_get(map, "$schema")) end)
+    |> chain_validate(fn -> validate_version(settings_get(map, "version")) end)
+    |> chain_validate(fn -> validate_signal_bus(settings_get(map, "signal_bus")) end)
+    |> chain_validate(fn -> validate_permissions(settings_get(map, "permissions")) end)
+    |> chain_validate(fn -> validate_commands(settings_get(map, "commands")) end)
   end
 
   def validate(_), do: {:error, {:invalid_settings, :root_must_be_map}}
@@ -200,8 +198,10 @@ defmodule JidoCommand.Config.Settings do
     |> chain_validate(fn ->
       validate_allowed_keys(signal_bus, @allowed_signal_bus_keys, :invalid_signal_bus_keys)
     end)
-    |> chain_validate(fn -> validate_signal_bus_name(Map.get(signal_bus, "name")) end)
-    |> chain_validate(fn -> validate_signal_bus_middleware(Map.get(signal_bus, "middleware")) end)
+    |> chain_validate(fn -> validate_signal_bus_name(settings_get(signal_bus, "name")) end)
+    |> chain_validate(fn ->
+      validate_signal_bus_middleware(settings_get(signal_bus, "middleware"))
+    end)
   end
 
   defp validate_signal_bus(_), do: {:error, {:invalid_signal_bus, :must_be_map}}
@@ -227,8 +227,8 @@ defmodule JidoCommand.Config.Settings do
     |> chain_validate(fn ->
       validate_allowed_keys(item, @allowed_middleware_keys, :invalid_middleware_keys)
     end)
-    |> chain_validate(fn -> validate_middleware_module(Map.get(item, "module")) end)
-    |> chain_validate(fn -> validate_middleware_opts(Map.get(item, "opts")) end)
+    |> chain_validate(fn -> validate_middleware_module(settings_get(item, "module")) end)
+    |> chain_validate(fn -> validate_middleware_opts(settings_get(item, "opts")) end)
   end
 
   defp validate_middleware_item(_), do: {:error, :item_must_be_map}
@@ -245,7 +245,7 @@ defmodule JidoCommand.Config.Settings do
     |> chain_validate(fn ->
       validate_allowed_keys(opts, @allowed_middleware_option_keys, :invalid_middleware_opts_keys)
     end)
-    |> chain_validate(fn -> validate_middleware_level(Map.get(opts, "level")) end)
+    |> chain_validate(fn -> validate_middleware_level(settings_get(opts, "level")) end)
   end
 
   defp validate_middleware_opts(_), do: {:error, :opts_must_be_map}
@@ -277,7 +277,7 @@ defmodule JidoCommand.Config.Settings do
 
   defp validate_permission_entries(permissions) when is_map(permissions) do
     Enum.reduce_while(@allowed_permissions_keys, :ok, fn key, :ok ->
-      case validate_permission_value(Map.get(permissions, key), key) do
+      case validate_permission_value(settings_get(permissions, key), key) do
         :ok -> {:cont, :ok}
         {:error, _reason} = error -> {:halt, error}
       end
@@ -309,8 +309,8 @@ defmodule JidoCommand.Config.Settings do
     |> chain_validate(fn ->
       validate_allowed_keys(commands, @allowed_commands_keys, :invalid_commands_keys)
     end)
-    |> chain_validate(fn -> validate_default_model(Map.get(commands, "default_model")) end)
-    |> chain_validate(fn -> validate_max_concurrent(Map.get(commands, "max_concurrent")) end)
+    |> chain_validate(fn -> validate_default_model(settings_get(commands, "default_model")) end)
+    |> chain_validate(fn -> validate_max_concurrent(settings_get(commands, "max_concurrent")) end)
   end
 
   defp validate_commands(_), do: {:error, {:invalid_commands, :must_be_map}}
@@ -372,17 +372,34 @@ defmodule JidoCommand.Config.Settings do
     do: {:error, {:invalid_signal_bus_name, :must_be_nonempty_string_or_atom}}
 
   defp validate_allowed_keys(map, allowed_keys, tag) when is_map(map) do
-    unknown_keys =
+    normalized_keys =
       map
       |> Map.keys()
       |> Enum.map(&normalize_settings_key/1)
+
+    conflicting_keys =
+      normalized_keys
+      |> Enum.frequencies()
+      |> Enum.reduce([], fn
+        {key, count}, acc when count > 1 -> [key | acc]
+        {_key, _count}, acc -> acc
+      end)
+      |> Enum.sort()
+
+    unknown_keys =
+      normalized_keys
       |> Enum.reject(&(&1 in allowed_keys))
       |> Enum.sort()
 
-    if unknown_keys == [] do
-      :ok
-    else
-      {:error, {tag, {:unknown_keys, unknown_keys}}}
+    cond do
+      conflicting_keys != [] ->
+        {:error, {tag, {:conflicting_keys, conflicting_keys}}}
+
+      unknown_keys != [] ->
+        {:error, {tag, {:unknown_keys, unknown_keys}}}
+
+      true ->
+        :ok
     end
   end
 
@@ -400,6 +417,25 @@ defmodule JidoCommand.Config.Settings do
     do: Enum.map(list, &normalize_map_keys/1)
 
   defp normalize_map_keys(value), do: value
+
+  defp settings_get(map, key, default \\ nil) when is_map(map) and is_binary(key) do
+    case Map.fetch(map, key) do
+      {:ok, value} ->
+        value
+
+      :error ->
+        case safe_existing_atom(key) do
+          nil -> default
+          atom_key -> Map.get(map, atom_key, default)
+        end
+    end
+  end
+
+  defp safe_existing_atom(key) when is_binary(key) do
+    String.to_existing_atom(key)
+  rescue
+    ArgumentError -> nil
+  end
 
   defp chain_validate(:ok, validation), do: validation.()
   defp chain_validate({:error, _reason} = error, _validation), do: error

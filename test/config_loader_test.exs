@@ -225,6 +225,16 @@ defmodule JidoCommand.Config.LoaderTest do
     assert "{:unknown, :key}" in unknown_keys
   end
 
+  test "settings validation rejects conflicting normalized top-level keys" do
+    settings = %{
+      "commands" => %{"max_concurrent" => 5},
+      commands: %{"max_concurrent" => 7}
+    }
+
+    assert {:error, {:invalid_settings_keys, {:conflicting_keys, ["commands"]}}} =
+             Settings.validate(settings)
+  end
+
   test "returns invalid_settings for unknown nested permissions keys" do
     root = tmp_root()
     global = Path.join(root, "global")
@@ -259,6 +269,18 @@ defmodule JidoCommand.Config.LoaderTest do
              Settings.validate(settings)
 
     assert "{:maybe, :key}" in unknown_keys
+  end
+
+  test "settings validation rejects conflicting normalized nested keys" do
+    settings = %{
+      "permissions" => %{
+        "allow" => ["Read"],
+        allow: ["Write"]
+      }
+    }
+
+    assert {:error, {:invalid_permissions_keys, {:conflicting_keys, ["allow"]}}} =
+             Settings.validate(settings)
   end
 
   test "settings validation enforces signal_bus.name with atom keys" do
