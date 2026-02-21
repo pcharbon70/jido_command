@@ -733,6 +733,16 @@ defmodule JidoCommandTest do
     assert "{:extra, :key}" in unknown_keys
   end
 
+  test "invoke rejects non-list permissions option bucket values" do
+    assert {:error, {:invalid_permissions_value, "allow", :must_be_list}} =
+             JidoCommand.invoke("review", %{}, %{}, permissions: %{"allow" => "Read"})
+  end
+
+  test "invoke rejects non-string permissions option list items" do
+    assert {:error, {:invalid_permissions_item, "ask", 1}} =
+             JidoCommand.invoke("review", %{}, %{}, permissions: %{"ask" => ["Read", 123]})
+  end
+
   test "unregister_command removes a command from registry" do
     root = tmp_root("unregister")
     global_root = Path.join(root, "global")
