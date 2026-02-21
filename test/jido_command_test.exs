@@ -229,6 +229,10 @@ defmodule JidoCommandTest do
              JidoCommand.reload(registry: :first, registry: :second)
   end
 
+  test "reload rejects invalid registry option values" do
+    assert {:error, :invalid_registry} = JidoCommand.reload(registry: 123)
+  end
+
   test "list_commands rejects invalid, unknown, and conflicting options" do
     assert {:error, :invalid_list_commands_options} =
              JidoCommand.list_commands(%{registry: CommandRegistry})
@@ -238,6 +242,10 @@ defmodule JidoCommandTest do
 
     assert {:error, {:invalid_list_commands_options_conflicting_keys, ["registry"]}} =
              JidoCommand.list_commands(registry: :first, registry: :second)
+  end
+
+  test "list_commands rejects invalid registry option values" do
+    assert {:error, :invalid_registry} = JidoCommand.list_commands(registry: 123)
   end
 
   test "register_command loads a command into registry" do
@@ -291,6 +299,11 @@ defmodule JidoCommandTest do
 
     assert {:error, {:invalid_register_command_options_conflicting_keys, ["registry"]}} =
              JidoCommand.register_command("command.md", registry: :first, registry: :second)
+  end
+
+  test "register_command rejects invalid registry option values" do
+    assert {:error, :invalid_registry} =
+             JidoCommand.register_command("command.md", registry: 123)
   end
 
   test "invoke applies permissions from options into execution context" do
@@ -770,6 +783,11 @@ defmodule JidoCommandTest do
              JidoCommand.invoke("review", %{}, %{}, bus: :first, bus: :second)
   end
 
+  test "invoke rejects invalid registry option values" do
+    assert {:error, :invalid_registry} =
+             JidoCommand.invoke("review", %{}, %{}, registry: 123)
+  end
+
   test "invoke rejects conflicting normalized keys in params and context" do
     assert {:error, {:invalid_params_conflicting_keys, ["x"]}} =
              JidoCommand.invoke("review", %{"meta" => %{"x" => 1, :x => 2}}, %{})
@@ -905,6 +923,11 @@ defmodule JidoCommandTest do
 
     assert {:error, {:invalid_unregister_command_options_conflicting_keys, ["registry"]}} =
              JidoCommand.unregister_command("review", registry: :first, registry: :second)
+  end
+
+  test "unregister_command rejects invalid registry option values" do
+    assert {:error, :invalid_registry} =
+             JidoCommand.unregister_command("review", registry: 123)
   end
 
   defp unique_bus_name do

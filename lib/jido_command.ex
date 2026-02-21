@@ -19,7 +19,8 @@ defmodule JidoCommand do
              :invalid_list_commands_options,
              :invalid_list_commands_options_keys,
              :invalid_list_commands_options_conflicting_keys
-           ) do
+           ),
+         :ok <- validate_registry_server_option(Keyword.get(opts, :registry, CommandRegistry)) do
       registry = Keyword.get(opts, :registry, CommandRegistry)
       CommandRegistry.list_commands(registry)
     end
@@ -43,6 +44,7 @@ defmodule JidoCommand do
          :ok <- validate_non_conflicting_keys(context, :invalid_context_conflicting_keys),
          :ok <- validate_context_permissions(context),
          :ok <- validate_permissions_option(Keyword.get(opts, :permissions)),
+         :ok <- validate_registry_server_option(Keyword.get(opts, :registry, CommandRegistry)),
          {:ok, module} <-
            CommandRegistry.get_command(
              normalized_name,
@@ -110,7 +112,8 @@ defmodule JidoCommand do
              :invalid_reload_options,
              :invalid_reload_options_keys,
              :invalid_reload_options_conflicting_keys
-           ) do
+           ),
+         :ok <- validate_registry_server_option(Keyword.get(opts, :registry, CommandRegistry)) do
       registry = Keyword.get(opts, :registry, CommandRegistry)
       CommandRegistry.reload(registry)
     end
@@ -126,6 +129,7 @@ defmodule JidoCommand do
              :invalid_register_command_options_keys,
              :invalid_register_command_options_conflicting_keys
            ),
+         :ok <- validate_registry_server_option(Keyword.get(opts, :registry, CommandRegistry)),
          {:ok, normalized_path} <- validate_nonempty_string(command_path, :invalid_path) do
       registry = Keyword.get(opts, :registry, CommandRegistry)
       CommandRegistry.register_command(normalized_path, registry)
@@ -142,6 +146,7 @@ defmodule JidoCommand do
              :invalid_unregister_command_options_keys,
              :invalid_unregister_command_options_conflicting_keys
            ),
+         :ok <- validate_registry_server_option(Keyword.get(opts, :registry, CommandRegistry)),
          {:ok, normalized_name} <- validate_nonempty_string(command_name, :invalid_name) do
       registry = Keyword.get(opts, :registry, CommandRegistry)
       CommandRegistry.unregister_command(normalized_name, registry)
@@ -236,6 +241,20 @@ defmodule JidoCommand do
         end
     end
   end
+
+  defp validate_registry_server_option(server) do
+    if valid_genserver_server?(server), do: :ok, else: {:error, :invalid_registry}
+  end
+
+  defp valid_genserver_server?(server) when is_pid(server), do: true
+  defp valid_genserver_server?(server) when is_atom(server) and not is_nil(server), do: true
+  defp valid_genserver_server?({name, node}) when is_atom(name) and is_atom(node), do: true
+  defp valid_genserver_server?({:global, _name}), do: true
+
+  defp valid_genserver_server?({:via, module, _name}) when is_atom(module),
+    do: true
+
+  defp valid_genserver_server?(_server), do: false
 
   defp validate_permissions_option(nil), do: :ok
 
