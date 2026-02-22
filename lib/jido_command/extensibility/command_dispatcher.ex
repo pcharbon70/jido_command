@@ -27,8 +27,8 @@ defmodule JidoCommand.Extensibility.CommandDispatcher do
       queue: :queue.new()
     }
 
-    case Bus.subscribe(state.bus, "command.invoke", dispatch: {:pid, target: self()}) do
-      {:ok, _subscription_id} -> {:ok, state}
+    case subscribe_to_invoke_signals(state.bus, self()) do
+      :ok -> {:ok, state}
       {:error, reason} -> {:stop, {:subscribe_failed, reason}}
     end
   end
@@ -179,6 +179,33 @@ defmodule JidoCommand.Extensibility.CommandDispatcher do
 
   defp parse_max_concurrent(value) when is_integer(value) and value > 0, do: value
   defp parse_max_concurrent(_), do: 5
+
+  defp subscribe_to_invoke_signals(bus, target) do
+    case Bus.subscribe(bus, "command.invoke", dispatch: {:pid, target: target}) do
+      {:ok, _subscription_id} ->
+        :ok
+
+      {:error, reason} ->
+        {:error, normalize_subscribe_failure_reason(reason)}
+    end
+  rescue
+    error ->
+      {:error, normalize_subscribe_failure_exception(error)}
+  catch
+    :exit, reason ->
+      {:error, normalize_subscribe_failure_reason(reason)}
+  end
+
+  defp normalize_subscribe_failure_reason({:noproc, _details}), do: :noproc
+  defp normalize_subscribe_failure_reason({:timeout, _details}), do: :timeout
+  defp normalize_subscribe_failure_reason(:not_found), do: :noproc
+  defp normalize_subscribe_failure_reason({:not_found, _details}), do: :noproc
+  defp normalize_subscribe_failure_reason(reason), do: reason
+
+  defp normalize_subscribe_failure_exception(%ArgumentError{}), do: :invalid_bus_target
+
+  defp normalize_subscribe_failure_exception(error),
+    do: {:exception, Exception.message(error)}
 
   defp put_runtime_context_key(context, key, value) when is_map(context) and is_atom(key) do
     context
