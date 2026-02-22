@@ -115,7 +115,7 @@ defmodule JidoCommand.Extensibility.CommandRuntime do
     case Signal.new(type, payload, signal_attrs) do
       {:ok, signal} ->
         bus = Map.get(context, :bus, :jido_code_bus)
-        _ = Bus.publish(bus, [signal])
+        _ = publish_hook_signal(bus, signal)
         :ok
 
       {:error, _reason} ->
@@ -124,6 +124,16 @@ defmodule JidoCommand.Extensibility.CommandRuntime do
   end
 
   defp emit_hook(_invalid_type, _type, _definition, _params, _context, _metadata), do: :ok
+
+  defp publish_hook_signal(bus, signal) do
+    Bus.publish(bus, [signal])
+  rescue
+    _error ->
+      :ok
+  catch
+    :exit, _reason ->
+      :ok
+  end
 
   defp context_invocation_id(context) when is_map(context) do
     case Map.fetch(context, :invocation_id) do
