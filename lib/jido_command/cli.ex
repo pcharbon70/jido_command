@@ -77,7 +77,9 @@ defmodule JidoCommand.CLI do
     context = result.options.context || %{}
     invocation_id = result.options.invocation_id
 
-    case invoke_runtime(runtime, command_name, params, context, invocation_id) do
+    case safe_runtime_call("invoke", halt, fn ->
+           invoke_runtime(runtime, command_name, params, context, invocation_id)
+         end) do
       {:ok, value} ->
         print_json_or_fail("invoke", value, halt)
 
@@ -85,13 +87,16 @@ defmodule JidoCommand.CLI do
         IO.puts(:stderr, "invoke failed: #{inspect(reason)}")
         halt.(1)
 
+      :halted ->
+        :ok
+
       other ->
         invalid_runtime_response("invoke", other, halt)
     end
   end
 
   defp handle_list(halt, runtime) do
-    case runtime.list_commands() do
+    case safe_runtime_call("list", halt, fn -> runtime.list_commands() end) do
       commands when is_list(commands) ->
         if valid_command_name_list?(commands) do
           Enum.each(commands, &IO.puts/1)
@@ -104,6 +109,9 @@ defmodule JidoCommand.CLI do
         IO.puts(:stderr, "list failed: #{inspect(reason)}")
         halt.(1)
 
+      :halted ->
+        :ok
+
       other ->
         invalid_runtime_response("list", other, halt)
     end
@@ -115,7 +123,9 @@ defmodule JidoCommand.CLI do
     context = result.options.context || %{}
     invocation_id = result.options.invocation_id
 
-    case dispatch_runtime(runtime, command_name, params, context, invocation_id) do
+    case safe_runtime_call("dispatch", halt, fn ->
+           dispatch_runtime(runtime, command_name, params, context, invocation_id)
+         end) do
       {:ok, invocation_id} when is_binary(invocation_id) ->
         print_json_or_fail("dispatch", %{"invocation_id" => invocation_id}, halt)
 
@@ -126,13 +136,16 @@ defmodule JidoCommand.CLI do
         IO.puts(:stderr, "dispatch failed: #{inspect(reason)}")
         halt.(1)
 
+      :halted ->
+        :ok
+
       other ->
         invalid_runtime_response("dispatch", other, halt)
     end
   end
 
   defp handle_reload(halt, runtime) do
-    case runtime.reload() do
+    case safe_runtime_call("reload", halt, fn -> runtime.reload() end) do
       :ok ->
         IO.puts(Jason.encode!(%{"status" => "ok"}))
         :ok
@@ -140,6 +153,9 @@ defmodule JidoCommand.CLI do
       {:error, reason} ->
         IO.puts(:stderr, "reload failed: #{inspect(reason)}")
         halt.(1)
+
+      :halted ->
+        :ok
 
       other ->
         invalid_runtime_response("reload", other, halt)
@@ -149,7 +165,9 @@ defmodule JidoCommand.CLI do
   defp handle_register_command(result, halt, runtime) do
     command_path = result.args.command_path
 
-    case runtime.register_command(command_path) do
+    case safe_runtime_call("register-command", halt, fn ->
+           runtime.register_command(command_path)
+         end) do
       :ok ->
         IO.puts(Jason.encode!(%{"status" => "ok", "command_path" => command_path}))
         :ok
@@ -157,6 +175,9 @@ defmodule JidoCommand.CLI do
       {:error, reason} ->
         IO.puts(:stderr, "register-command failed: #{inspect(reason)}")
         halt.(1)
+
+      :halted ->
+        :ok
 
       other ->
         invalid_runtime_response("register-command", other, halt)
@@ -166,7 +187,9 @@ defmodule JidoCommand.CLI do
   defp handle_unregister_command(result, halt, runtime) do
     command_name = result.args.command_name
 
-    case runtime.unregister_command(command_name) do
+    case safe_runtime_call("unregister-command", halt, fn ->
+           runtime.unregister_command(command_name)
+         end) do
       :ok ->
         IO.puts(Jason.encode!(%{"status" => "ok", "command_name" => command_name}))
         :ok
@@ -174,6 +197,9 @@ defmodule JidoCommand.CLI do
       {:error, reason} ->
         IO.puts(:stderr, "unregister-command failed: #{inspect(reason)}")
         halt.(1)
+
+      :halted ->
+        :ok
 
       other ->
         invalid_runtime_response("unregister-command", other, halt)
@@ -370,5 +396,20 @@ defmodule JidoCommand.CLI do
     formatted = inspect(response, charlists: :as_lists)
     IO.puts(:stderr, "#{command} failed: invalid runtime response: #{formatted}")
     halt.(1)
+  end
+
+  defp safe_runtime_call(command, halt, fun) when is_binary(command) and is_function(fun, 0) do
+    fun.()
+  rescue
+    error ->
+      IO.puts(:stderr, "#{command} failed: runtime exception: #{Exception.message(error)}")
+      _ = halt.(1)
+      :halted
+  catch
+    kind, reason ->
+      formatted = inspect({kind, reason}, charlists: :as_lists)
+      IO.puts(:stderr, "#{command} failed: runtime throw: #{formatted}")
+      _ = halt.(1)
+      :halted
   end
 end
