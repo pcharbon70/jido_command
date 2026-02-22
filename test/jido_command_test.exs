@@ -165,6 +165,11 @@ defmodule JidoCommandTest do
              JidoCommand.dispatch("demo", %{}, %{}, bus: bus)
   end
 
+  test "dispatch normalizes publish argument errors for invalid tuple bus target" do
+    assert {:error, {:bus_unavailable, :invalid_bus_target}} =
+             JidoCommand.dispatch("demo", %{}, %{}, bus: {:demo, :global})
+  end
+
   test "dispatch rejects conflicting normalized keys in params and context before publishing" do
     bus = unique_bus_name()
     start_supervised!({Bus, name: bus})

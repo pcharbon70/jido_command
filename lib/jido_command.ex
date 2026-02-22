@@ -450,6 +450,9 @@ defmodule JidoCommand do
       {:error, reason} ->
         {:error, {:bus_unavailable, normalize_unavailable_reason(reason)}}
     end
+  rescue
+    error ->
+      {:error, {:bus_unavailable, normalize_unavailable_exception(error)}}
   catch
     :exit, reason ->
       {:error, {:bus_unavailable, normalize_unavailable_reason(reason)}}
@@ -460,6 +463,9 @@ defmodule JidoCommand do
   defp normalize_unavailable_reason(:not_found), do: :noproc
   defp normalize_unavailable_reason({:not_found, _details}), do: :noproc
   defp normalize_unavailable_reason(reason), do: reason
+
+  defp normalize_unavailable_exception(%ArgumentError{}), do: :invalid_bus_target
+  defp normalize_unavailable_exception(error), do: {:exception, Exception.message(error)}
 
   defp resolve_bus(context, opts) when is_map(context) and is_list(opts) do
     case Keyword.fetch(opts, :bus) do
