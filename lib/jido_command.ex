@@ -84,8 +84,9 @@ defmodule JidoCommand do
          :ok <- validate_context_invocation_id_keys(context),
          :ok <- validate_non_conflicting_keys(params, :invalid_params_conflicting_keys),
          :ok <- validate_non_conflicting_keys(context, :invalid_context_conflicting_keys),
-         :ok <- validate_bus_server_option(Keyword.get(opts, :bus, :jido_code_bus)) do
-      bus = Keyword.get(opts, :bus, :jido_code_bus)
+         :ok <- validate_bus_server_option(Keyword.get(opts, :bus, :jido_code_bus)),
+         :ok <- validate_context_bus(context) do
+      bus = resolve_bus(context, opts)
       invocation_id_option = Keyword.get(opts, :invocation_id)
       invocation_id = resolve_invocation_id(context, invocation_id_option)
 

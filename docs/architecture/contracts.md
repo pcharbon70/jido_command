@@ -23,6 +23,8 @@ For API-level `JidoCommand.invoke/4` and `JidoCommand.dispatch/4`, conflicting n
 For API-level `JidoCommand.invoke/4` and `JidoCommand.dispatch/4`, unknown option keys are rejected.
 For API-level `JidoCommand.invoke/4` and `JidoCommand.dispatch/4`, `opts[:bus]` must be a valid bus server reference when provided.
 For API-level `JidoCommand.invoke/4` and `JidoCommand.dispatch/4`, tuple bus targets using reserved `:global` position(s) are rejected as invalid bus references.
+For API-level `JidoCommand.dispatch/4`, `context[:bus]`/`context["bus"]` must be a valid bus server reference when provided.
+For API-level `JidoCommand.dispatch/4`, bus resolution order is: `opts[:bus]` (when provided), then `context[:bus]`/`context["bus"]`, then `:jido_code_bus`.
 For API-level `JidoCommand.invoke/4`, `context[:bus]`/`context["bus"]` must be a valid bus server reference when provided.
 For API-level `JidoCommand.invoke/4`, bus resolution order is: `opts[:bus]` (when provided), then `context[:bus]`/`context["bus"]`, then `:jido_code_bus`; the resolved value is normalized into `context[:bus]`.
 For API-level `JidoCommand.invoke/4`, `opts[:registry]` must be a valid GenServer server reference when provided.

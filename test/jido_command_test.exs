@@ -147,6 +147,63 @@ defmodule JidoCommandTest do
     assert {:error, :invalid_bus} = JidoCommand.dispatch("demo", %{}, %{}, bus: {:global, :demo})
   end
 
+  test "dispatch uses string-key context bus when options bus is absent" do
+    context_bus = unique_bus_name()
+    start_supervised!({Bus, name: context_bus})
+
+    {:ok, _subscription} =
+      Bus.subscribe(context_bus, "command.invoke", dispatch: {:pid, target: self()})
+
+    assert {:ok, invocation_id} =
+             JidoCommand.dispatch("demo", %{"x" => 1}, %{"bus" => context_bus})
+
+    assert_receive {:signal, %Signal{type: "command.invoke", data: data}}, 1_000
+    assert data["name"] == "demo"
+    assert data["params"] == %{"x" => 1}
+    assert data["invocation_id"] == invocation_id
+  end
+
+  test "dispatch options bus overrides context bus" do
+    option_bus = unique_bus_name()
+    context_bus = unique_bus_name()
+    start_supervised!({Bus, name: option_bus})
+    start_supervised!({Bus, name: context_bus})
+
+    {:ok, _subscription} =
+      Bus.subscribe(option_bus, "command.invoke", dispatch: {:pid, target: self()})
+
+    assert {:ok, invocation_id} =
+             JidoCommand.dispatch(
+               "demo",
+               %{"x" => 1},
+               %{"bus" => context_bus},
+               bus: option_bus
+             )
+
+    assert_receive {:signal, %Signal{type: "command.invoke", data: data}}, 1_000
+    assert data["name"] == "demo"
+    assert data["params"] == %{"x" => 1}
+    assert data["invocation_id"] == invocation_id
+  end
+
+  test "dispatch rejects invalid context bus values before publishing" do
+    assert {:error, :invalid_context_bus} = JidoCommand.dispatch("demo", %{}, %{"bus" => 123})
+    assert {:error, :invalid_context_bus} = JidoCommand.dispatch("demo", %{}, %{"bus" => ""})
+    assert {:error, :invalid_context_bus} = JidoCommand.dispatch("demo", %{}, %{bus: "   "})
+
+    assert {:error, :invalid_context_bus} =
+             JidoCommand.dispatch("demo", %{}, %{bus: {nil, :registry}})
+
+    assert {:error, :invalid_context_bus} =
+             JidoCommand.dispatch("demo", %{}, %{"bus" => {:demo, nil}})
+
+    assert {:error, :invalid_context_bus} =
+             JidoCommand.dispatch("demo", %{}, %{bus: {:demo, :global}})
+
+    assert {:error, :invalid_context_bus} =
+             JidoCommand.dispatch("demo", %{}, %{"bus" => {:global, :demo}})
+  end
+
   test "dispatch rejects conflicting option keys before publishing" do
     bus = unique_bus_name()
     start_supervised!({Bus, name: bus})
