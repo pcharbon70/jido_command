@@ -429,12 +429,22 @@ defmodule JidoCommand.Extensibility.CommandDispatcher do
   defp emit_result(bus, type, payload) do
     case Signal.new(type, payload, source: "/dispatcher") do
       {:ok, signal} ->
-        _ = Bus.publish(bus, [signal])
+        _ = publish_result_signal(bus, signal)
         :ok
 
       {:error, _reason} ->
         :ok
     end
+  end
+
+  defp publish_result_signal(bus, signal) do
+    Bus.publish(bus, [signal])
+  rescue
+    _error ->
+      :ok
+  catch
+    :exit, _reason ->
+      :ok
   end
 
   defp data_get(map, key, default \\ nil) when is_map(map) do
