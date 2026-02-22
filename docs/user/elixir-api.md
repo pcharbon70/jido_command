@@ -65,6 +65,11 @@ Publishes a `command.invoke` signal and returns:
 - `:bus`
 - `:invocation_id`
 
+Resolution rules:
+
+- Bus: `opts[:bus]` -> `context[:bus]`/`context["bus"]` -> `:jido_code_bus`
+- Invocation ID: `opts[:invocation_id]` -> context invocation ID -> generated ID
+
 ### `reload/1`
 
 ```elixir
