@@ -141,6 +141,7 @@ defmodule JidoCommandTest do
     assert {:error, :invalid_bus} = JidoCommand.dispatch("demo", %{}, %{}, bus: 123)
     assert {:error, :invalid_bus} = JidoCommand.dispatch("demo", %{}, %{}, bus: "")
     assert {:error, :invalid_bus} = JidoCommand.dispatch("demo", %{}, %{}, bus: "   ")
+    assert {:error, :invalid_bus} = JidoCommand.dispatch("demo", %{}, %{}, bus: ":")
     assert {:error, :invalid_bus} = JidoCommand.dispatch("demo", %{}, %{}, bus: {nil, :registry})
     assert {:error, :invalid_bus} = JidoCommand.dispatch("demo", %{}, %{}, bus: {:demo, nil})
     assert {:error, :invalid_bus} = JidoCommand.dispatch("demo", %{}, %{}, bus: {:demo, :global})
@@ -154,8 +155,27 @@ defmodule JidoCommandTest do
     {:ok, _subscription} =
       Bus.subscribe(context_bus, "command.invoke", dispatch: {:pid, target: self()})
 
+    context_bus_name = ":" <> Atom.to_string(context_bus)
+
     assert {:ok, invocation_id} =
-             JidoCommand.dispatch("demo", %{"x" => 1}, %{"bus" => context_bus})
+             JidoCommand.dispatch("demo", %{"x" => 1}, %{"bus" => context_bus_name})
+
+    assert_receive {:signal, %Signal{type: "command.invoke", data: data}}, 1_000
+    assert data["name"] == "demo"
+    assert data["params"] == %{"x" => 1}
+    assert data["invocation_id"] == invocation_id
+  end
+
+  test "dispatch accepts colon-prefixed bus option string" do
+    option_bus = unique_bus_name()
+    option_bus_name = ":" <> Atom.to_string(option_bus)
+    start_supervised!({Bus, name: option_bus})
+
+    {:ok, _subscription} =
+      Bus.subscribe(option_bus, "command.invoke", dispatch: {:pid, target: self()})
+
+    assert {:ok, invocation_id} =
+             JidoCommand.dispatch("demo", %{"x" => 1}, %{}, bus: option_bus_name)
 
     assert_receive {:signal, %Signal{type: "command.invoke", data: data}}, 1_000
     assert data["name"] == "demo"
@@ -190,6 +210,7 @@ defmodule JidoCommandTest do
     assert {:error, :invalid_context_bus} = JidoCommand.dispatch("demo", %{}, %{"bus" => 123})
     assert {:error, :invalid_context_bus} = JidoCommand.dispatch("demo", %{}, %{"bus" => ""})
     assert {:error, :invalid_context_bus} = JidoCommand.dispatch("demo", %{}, %{bus: "   "})
+    assert {:error, :invalid_context_bus} = JidoCommand.dispatch("demo", %{}, %{"bus" => ":"})
 
     assert {:error, :invalid_context_bus} =
              JidoCommand.dispatch("demo", %{}, %{bus: {nil, :registry}})
@@ -903,11 +924,13 @@ defmodule JidoCommandTest do
     {:ok, _subscription} =
       Bus.subscribe(context_bus, "jido.hooks.pre", dispatch: {:pid, target: self()})
 
+    context_bus_name = ":" <> Atom.to_string(context_bus)
+
     assert {:ok, _result} =
              JidoCommand.invoke(
                "review",
                %{},
-               %{"bus" => context_bus},
+               %{"bus" => context_bus_name},
                registry: registry
              )
 
@@ -955,13 +978,15 @@ defmodule JidoCommandTest do
     {:ok, _subscription} =
       Bus.subscribe(option_bus, "jido.hooks.pre", dispatch: {:pid, target: self()})
 
+    option_bus_name = ":" <> Atom.to_string(option_bus)
+
     assert {:ok, _result} =
              JidoCommand.invoke(
                "review",
                %{},
                %{bus: context_bus},
                registry: registry,
-               bus: option_bus
+               bus: option_bus_name
              )
 
     assert_receive {:signal, %Signal{type: "jido.hooks.pre", data: data}}, 1_000
@@ -986,6 +1011,7 @@ defmodule JidoCommandTest do
     assert {:error, :invalid_bus} = JidoCommand.invoke("review", %{}, %{}, bus: 123)
     assert {:error, :invalid_bus} = JidoCommand.invoke("review", %{}, %{}, bus: "")
     assert {:error, :invalid_bus} = JidoCommand.invoke("review", %{}, %{}, bus: "   ")
+    assert {:error, :invalid_bus} = JidoCommand.invoke("review", %{}, %{}, bus: ":")
     assert {:error, :invalid_bus} = JidoCommand.invoke("review", %{}, %{}, bus: {nil, :registry})
     assert {:error, :invalid_bus} = JidoCommand.invoke("review", %{}, %{}, bus: {:demo, nil})
     assert {:error, :invalid_bus} = JidoCommand.invoke("review", %{}, %{}, bus: {:demo, :global})
@@ -996,6 +1022,7 @@ defmodule JidoCommandTest do
     assert {:error, :invalid_context_bus} = JidoCommand.invoke("review", %{}, %{"bus" => 123})
     assert {:error, :invalid_context_bus} = JidoCommand.invoke("review", %{}, %{bus: ""})
     assert {:error, :invalid_context_bus} = JidoCommand.invoke("review", %{}, %{"bus" => "   "})
+    assert {:error, :invalid_context_bus} = JidoCommand.invoke("review", %{}, %{"bus" => ":"})
 
     assert {:error, :invalid_context_bus} =
              JidoCommand.invoke("review", %{}, %{bus: {nil, :registry}})
