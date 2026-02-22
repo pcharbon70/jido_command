@@ -161,7 +161,7 @@ defmodule JidoCommandTest do
   test "dispatch returns normalized bus_unavailable error when bus is not running" do
     bus = unique_bus_name()
 
-    assert {:error, {:bus_unavailable, :not_found}} =
+    assert {:error, {:bus_unavailable, :noproc}} =
              JidoCommand.dispatch("demo", %{}, %{}, bus: bus)
   end
 
