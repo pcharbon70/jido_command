@@ -143,6 +143,8 @@ defmodule JidoCommandTest do
     assert {:error, :invalid_bus} = JidoCommand.dispatch("demo", %{}, %{}, bus: "   ")
     assert {:error, :invalid_bus} = JidoCommand.dispatch("demo", %{}, %{}, bus: {nil, :registry})
     assert {:error, :invalid_bus} = JidoCommand.dispatch("demo", %{}, %{}, bus: {:demo, nil})
+    assert {:error, :invalid_bus} = JidoCommand.dispatch("demo", %{}, %{}, bus: {:demo, :global})
+    assert {:error, :invalid_bus} = JidoCommand.dispatch("demo", %{}, %{}, bus: {:global, :demo})
   end
 
   test "dispatch rejects conflicting option keys before publishing" do
@@ -165,9 +167,12 @@ defmodule JidoCommandTest do
              JidoCommand.dispatch("demo", %{}, %{}, bus: bus)
   end
 
-  test "dispatch normalizes publish argument errors for invalid tuple bus target" do
+  test "dispatch normalizes publish argument errors for unknown tuple registry bus target" do
+    missing_registry =
+      :"jido_command_missing_registry_#{System.unique_integer([:positive, :monotonic])}"
+
     assert {:error, {:bus_unavailable, :invalid_bus_target}} =
-             JidoCommand.dispatch("demo", %{}, %{}, bus: {:demo, :global})
+             JidoCommand.dispatch("demo", %{}, %{}, bus: {:demo, missing_registry})
   end
 
   test "dispatch rejects conflicting normalized keys in params and context before publishing" do
@@ -926,6 +931,8 @@ defmodule JidoCommandTest do
     assert {:error, :invalid_bus} = JidoCommand.invoke("review", %{}, %{}, bus: "   ")
     assert {:error, :invalid_bus} = JidoCommand.invoke("review", %{}, %{}, bus: {nil, :registry})
     assert {:error, :invalid_bus} = JidoCommand.invoke("review", %{}, %{}, bus: {:demo, nil})
+    assert {:error, :invalid_bus} = JidoCommand.invoke("review", %{}, %{}, bus: {:demo, :global})
+    assert {:error, :invalid_bus} = JidoCommand.invoke("review", %{}, %{}, bus: {:global, :demo})
   end
 
   test "invoke rejects invalid context bus values" do
@@ -938,6 +945,12 @@ defmodule JidoCommandTest do
 
     assert {:error, :invalid_context_bus} =
              JidoCommand.invoke("review", %{}, %{"bus" => {:demo, nil}})
+
+    assert {:error, :invalid_context_bus} =
+             JidoCommand.invoke("review", %{}, %{bus: {:demo, :global}})
+
+    assert {:error, :invalid_context_bus} =
+             JidoCommand.invoke("review", %{}, %{"bus" => {:global, :demo}})
   end
 
   test "invoke rejects conflicting option keys" do
