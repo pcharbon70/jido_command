@@ -18,18 +18,23 @@ defmodule JidoCommand.Extensibility.CommandDispatcher do
   def init(opts) do
     max_concurrent = parse_max_concurrent(Keyword.get(opts, :max_concurrent, 5))
 
-    state = %{
-      bus: Keyword.get(opts, :bus, :jido_code_bus),
-      registry: Keyword.get(opts, :registry, CommandRegistry),
-      permissions: normalize_permissions(Keyword.get(opts, :permissions, %{})),
-      max_concurrent: max_concurrent,
-      in_flight: 0,
-      queue: :queue.new()
-    }
+    with {:ok, bus} <- normalize_bus_server(Keyword.get(opts, :bus, :jido_code_bus)) do
+      state = %{
+        bus: bus,
+        registry: Keyword.get(opts, :registry, CommandRegistry),
+        permissions: normalize_permissions(Keyword.get(opts, :permissions, %{})),
+        max_concurrent: max_concurrent,
+        in_flight: 0,
+        queue: :queue.new()
+      }
 
-    case subscribe_to_invoke_signals(state.bus, self()) do
-      :ok -> {:ok, state}
-      {:error, reason} -> {:stop, {:subscribe_failed, reason}}
+      case subscribe_to_invoke_signals(state.bus, self()) do
+        :ok -> {:ok, state}
+        {:error, reason} -> {:stop, {:subscribe_failed, reason}}
+      end
+    else
+      {:error, reason} ->
+        {:stop, {:subscribe_failed, reason}}
     end
   end
 
@@ -179,6 +184,34 @@ defmodule JidoCommand.Extensibility.CommandDispatcher do
 
   defp parse_max_concurrent(value) when is_integer(value) and value > 0, do: value
   defp parse_max_concurrent(_), do: 5
+
+  defp normalize_bus_server({name, registry}) when is_atom(registry) do
+    with {:ok, normalized_name} <- normalize_bus_name(name) do
+      {:ok, {normalized_name, registry}}
+    end
+  end
+
+  defp normalize_bus_server(bus) do
+    normalize_bus_name(bus)
+  end
+
+  defp normalize_bus_name(name) when is_pid(name), do: {:ok, name}
+  defp normalize_bus_name(name) when is_atom(name) and not is_nil(name), do: {:ok, name}
+
+  defp normalize_bus_name(name) when is_binary(name) do
+    normalized =
+      name
+      |> String.trim()
+      |> String.trim_leading(":")
+
+    if normalized == "" do
+      {:error, :invalid_bus_target}
+    else
+      {:ok, normalized}
+    end
+  end
+
+  defp normalize_bus_name(_name), do: {:error, :invalid_bus_target}
 
   defp subscribe_to_invoke_signals(bus, target) do
     case Bus.subscribe(bus, "command.invoke", dispatch: {:pid, target: target}) do

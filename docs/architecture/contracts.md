@@ -59,6 +59,7 @@ Validation rules:
 
 Invalid payloads are rejected and result in a `command.failed` signal with a validation error message.
 Dispatcher startup subscription failures are normalized under `{:subscribe_failed, reason}` with `:not_found` mapped to `:noproc` and invalid tuple bus targets mapped to `:invalid_bus_target`.
+Dispatcher startup bus names accept binary values with optional leading `:` and reject names that normalize to empty as `:invalid_bus_target`.
 
 ## Settings contract (`settings.json`)
 
