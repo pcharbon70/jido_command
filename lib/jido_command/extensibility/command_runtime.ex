@@ -79,10 +79,20 @@ defmodule Jido.Code.Command.Extensibility.CommandRuntime do
   end
 
   def execute(%CommandDefinition{} = definition, params, context) when is_list(params) do
-    execute(definition, Map.new(params), context)
+    case map_from_list_params(params) do
+      {:ok, normalized_params} -> execute(definition, normalized_params, context)
+      :error -> {:error, :invalid_params}
+    end
   end
 
   def execute(_definition, _params, _context), do: {:error, :invalid_params}
+
+  defp map_from_list_params(params) when is_list(params) do
+    {:ok, Map.new(params)}
+  rescue
+    _error in [ArgumentError] ->
+      :error
+  end
 
   defp execute_with_error_capture(executor, definition, prompt, params, context) do
     result = executor.execute(definition, prompt, params, context)
