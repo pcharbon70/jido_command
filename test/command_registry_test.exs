@@ -687,6 +687,88 @@ defmodule JidoCommand.Extensibility.CommandRegistryTest do
     assert String.contains?(data["error"], "load_commands_failed")
   end
 
+  test "reload succeeds when lifecycle signal publish raises" do
+    root = tmp_root()
+    global_root = Path.join(root, "global")
+    local_root = Path.join(root, "local")
+    local_commands = Path.join(local_root, "commands")
+
+    File.mkdir_p!(Path.join(global_root, "commands"))
+    File.mkdir_p!(local_commands)
+
+    File.write!(
+      Path.join(local_commands, "first.md"),
+      command_markdown("first", "first")
+    )
+
+    missing_registry =
+      :"jido_command_missing_registry_#{System.unique_integer([:positive, :monotonic])}"
+
+    registry = unique_registry_name()
+
+    start_supervised!(
+      {CommandRegistry,
+       name: registry,
+       bus: {:registry_events, missing_registry},
+       global_root: global_root,
+       local_root: local_root}
+    )
+
+    assert ["first"] == CommandRegistry.list_commands(registry)
+    assert :ok = CommandRegistry.reload(registry)
+    assert ["first"] == CommandRegistry.list_commands(registry)
+  end
+
+  test "register command failures still return invalid_path when failure signal publish raises" do
+    root = tmp_root()
+    global_root = Path.join(root, "global")
+    local_root = Path.join(root, "local")
+
+    File.mkdir_p!(Path.join(global_root, "commands"))
+    File.mkdir_p!(Path.join(local_root, "commands"))
+
+    missing_registry =
+      :"jido_command_missing_registry_#{System.unique_integer([:positive, :monotonic])}"
+
+    registry = unique_registry_name()
+
+    start_supervised!(
+      {CommandRegistry,
+       name: registry,
+       bus: {:registry_events, missing_registry},
+       global_root: global_root,
+       local_root: local_root}
+    )
+
+    assert {:error, :invalid_path} = CommandRegistry.register_command("   ", registry)
+    assert [] == CommandRegistry.list_commands(registry)
+  end
+
+  test "unregister command failures still return invalid_name when failure signal publish raises" do
+    root = tmp_root()
+    global_root = Path.join(root, "global")
+    local_root = Path.join(root, "local")
+
+    File.mkdir_p!(Path.join(global_root, "commands"))
+    File.mkdir_p!(Path.join(local_root, "commands"))
+
+    missing_registry =
+      :"jido_command_missing_registry_#{System.unique_integer([:positive, :monotonic])}"
+
+    registry = unique_registry_name()
+
+    start_supervised!(
+      {CommandRegistry,
+       name: registry,
+       bus: {:registry_events, missing_registry},
+       global_root: global_root,
+       local_root: local_root}
+    )
+
+    assert {:error, :invalid_name} = CommandRegistry.unregister_command("   ", registry)
+    assert [] == CommandRegistry.list_commands(registry)
+  end
+
   defp command_markdown(name, body) do
     """
     ---

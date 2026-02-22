@@ -120,6 +120,7 @@ Runtime error messages include:
 ## Registry lifecycle signals
 
 Published by `CommandRegistry` when runtime command catalog changes.
+Registry lifecycle/failure signal publication is best-effort: bus publish failures/exceptions are ignored and do not change operation results.
 
 ### `command.registry.reloaded`
 

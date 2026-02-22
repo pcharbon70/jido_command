@@ -344,11 +344,24 @@ defmodule JidoCommand.Extensibility.CommandRegistry do
     attrs = [source: "/jido_command/registry"]
 
     with {:ok, signal} <- Signal.new(type, data, attrs),
-         {:ok, _recorded} <- Bus.publish(state.bus, [signal]) do
+         :ok <- publish_lifecycle_signal(state.bus, signal) do
       :ok
     else
       _ -> :ok
     end
+  end
+
+  defp publish_lifecycle_signal(bus, signal) do
+    case Bus.publish(bus, [signal]) do
+      {:ok, _recorded} -> :ok
+      _ -> :ok
+    end
+  rescue
+    _error ->
+      :ok
+  catch
+    :exit, _reason ->
+      :ok
   end
 
   defp emit_failure_signal(state, operation, reason, extra_data) do
