@@ -37,6 +37,7 @@ Published when execution fails.
 ## Hook signals
 
 Hooks are declared per command in FrontMatter under `jido.hooks`.
+Hook publication is best-effort. If hook signal publish fails, command execution still proceeds.
 
 ### `jido.hooks.pre`
 

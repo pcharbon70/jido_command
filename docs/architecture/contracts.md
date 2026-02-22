@@ -193,6 +193,7 @@ Public API validation rules:
 ## Command hook signals (`jido.hooks.pre`, `jido.hooks.after`)
 
 These are optional per command and are declared in markdown FrontMatter under `jido.hooks`.
+Hook publication is best-effort: bus publish failures/exceptions are ignored and do not fail command execution.
 
 ### `pre`
 

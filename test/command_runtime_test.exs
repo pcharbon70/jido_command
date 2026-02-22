@@ -121,6 +121,58 @@ defmodule JidoCommand.Extensibility.CommandRuntimeTest do
     assert after_data["status"] == "error"
   end
 
+  test "continues execution when pre hook publish raises for invalid bus target" do
+    missing_registry =
+      :"jido_command_missing_registry_#{System.unique_integer([:positive, :monotonic])}"
+
+    definition = %CommandDefinition{
+      name: "test",
+      description: "test",
+      hooks: %{pre: true, after: false},
+      body: "hello"
+    }
+
+    assert {:ok, result} =
+             CommandRuntime.execute(definition, %{}, %{bus: {:hooks_bus, missing_registry}})
+
+    assert result["result"]["prompt"] == "hello"
+  end
+
+  test "returns success result when after hook publish raises for invalid bus target" do
+    missing_registry =
+      :"jido_command_missing_registry_#{System.unique_integer([:positive, :monotonic])}"
+
+    definition = %CommandDefinition{
+      name: "test",
+      description: "test",
+      hooks: %{pre: false, after: true},
+      body: "hello"
+    }
+
+    assert {:ok, result} =
+             CommandRuntime.execute(definition, %{}, %{bus: {:hooks_bus, missing_registry}})
+
+    assert result["result"]["prompt"] == "hello"
+  end
+
+  test "returns executor error when after hook publish raises for invalid bus target" do
+    missing_registry =
+      :"jido_command_missing_registry_#{System.unique_integer([:positive, :monotonic])}"
+
+    definition = %CommandDefinition{
+      name: "test",
+      description: "test",
+      hooks: %{pre: false, after: true},
+      body: "ignored"
+    }
+
+    assert {:error, :boom} =
+             CommandRuntime.execute(definition, %{}, %{
+               bus: {:hooks_bus, missing_registry},
+               command_executor: FailingExecutor
+             })
+  end
+
   test "emits after hook when executor raises" do
     bus = unique_bus_name()
     start_supervised!({Bus, name: bus})
