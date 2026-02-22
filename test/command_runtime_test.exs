@@ -297,6 +297,30 @@ defmodule Jido.Code.Command.Extensibility.CommandRuntimeTest do
     assert seen_context.permissions == %{allow: [], deny: [], ask: []}
   end
 
+  test "accepts keyword-list params by normalizing to map" do
+    definition = %CommandDefinition{
+      name: "test",
+      description: "test",
+      hooks: %{pre: false, after: false},
+      body: "hello {{name}}"
+    }
+
+    assert {:ok, result} = CommandRuntime.execute(definition, [name: "Pascal"], %{})
+    assert result["result"]["prompt"] == "hello Pascal"
+  end
+
+  test "returns invalid_params for malformed list params instead of raising" do
+    definition = %CommandDefinition{
+      name: "test",
+      description: "test",
+      hooks: %{pre: false, after: false},
+      body: "hello"
+    }
+
+    assert {:error, :invalid_params} = CommandRuntime.execute(definition, [1], %{})
+    assert {:error, :invalid_params} = CommandRuntime.execute(definition, [{:bad, :tuple, :shape}], %{})
+  end
+
   test "does not emit hooks when both hook flags are disabled" do
     bus = unique_bus_name()
     start_supervised!({Bus, name: bus})
