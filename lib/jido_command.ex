@@ -457,6 +457,8 @@ defmodule JidoCommand do
 
   defp normalize_unavailable_reason({:noproc, _details}), do: :noproc
   defp normalize_unavailable_reason({:timeout, _details}), do: :timeout
+  defp normalize_unavailable_reason(:not_found), do: :noproc
+  defp normalize_unavailable_reason({:not_found, _details}), do: :noproc
   defp normalize_unavailable_reason(reason), do: reason
 
   defp resolve_bus(context, opts) when is_map(context) and is_list(opts) do
