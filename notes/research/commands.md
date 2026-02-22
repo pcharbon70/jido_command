@@ -1,4 +1,4 @@
-# JidoCode Command Runtime Design (Jido v2)
+# Jido.Code.Command Runtime Design (Jido v2)
 
 **A command-only architecture with two optional FrontMatter hook signals**
 
@@ -15,13 +15,13 @@ Jido v2 primitives used in this architecture:
 
 - **Commands**: `Jido.Action` modules with Zoi schemas
 - **Hook signals**: two predefined command lifecycle signals (`pre`, `after`)
-- **Pub/Sub**: `JidoSignal.Bus` as the only event transport
+- **Pub/Sub**: `Jido.Signal.Bus` as the only event transport
 - **Registry**: in-memory command registry loaded from global and local command roots
 
 | Runtime Concept | Jido v2 Primitive | Implementation Pattern |
 |-----------------|-------------------|------------------------|
 | Slash Command | `Jido.Action` | Action module generated from markdown frontmatter |
-| Pre/After Hook | `JidoSignal.Signal` | Optional boolean flags in FrontMatter for predefined signals |
+| Pre/After Hook | `Jido.Signal` | Optional boolean flags in FrontMatter for predefined signals |
 | Command Catalog | GenServer registry | Runtime loading/lookup of command modules |
 
 ## Jido v2 dependency structure
@@ -62,7 +62,7 @@ Local config overrides global config during merge.
     "name": ":jido_code_bus",
     "middleware": [
       {
-        "module": "JidoSignal.Bus.Middleware.Logger",
+        "module": "Jido.Signal.Bus.Middleware.Logger",
         "opts": { "level": "debug" }
       }
     ]
@@ -91,7 +91,7 @@ model: sonnet
 allowed-tools: Read, Grep, Glob, Bash(git diff:*)
 
 jido:
-  command_module: JidoCode.Commands.CodeReview
+  command_module: Jido.Code.Command.Commands.CodeReview
   schema:
     review_depth: Zoi.atom(values: [:quick, :standard, :thorough], default: :standard)
     focus_areas: Zoi.list(Zoi.string(), default: [:security, :performance])
@@ -115,7 +115,7 @@ You are an expert Elixir code reviewer.
 ### Command registry and loader
 
 ```elixir
-defmodule JidoCode.Extensibility.CommandRegistry do
+defmodule Jido.Code.Command.Extensibility.CommandRegistry do
   @moduledoc """
   Central registry for loaded command modules.
   """
@@ -139,14 +139,14 @@ end
 ### Action-based slash command implementation
 
 ```elixir
-defmodule JidoCode.Extensibility.Command do
+defmodule Jido.Code.Command.Extensibility.Command do
   @moduledoc """
   Slash commands implemented as Jido Actions with markdown configuration.
   Only two predefined hooks are supported: pre and after.
   """
 
-  alias JidoSignal.Signal
-  alias JidoSignal.Bus
+  alias Jido.Signal
+  alias Jido.Signal.Bus
 
   def from_markdown(path) do
     {:ok, content} = File.read(path)
@@ -194,32 +194,32 @@ defmodule JidoCode.Extensibility.Command do
 end
 ```
 
-### Command dispatch loop via signal paths
+### Command dispatch loop via signal bus topics
 
 ```elixir
-defmodule JidoCode.Extensibility.CommandDispatcher do
+defmodule Jido.Code.Command.Extensibility.CommandDispatcher do
   @moduledoc """
   Listens for command invocation signals and executes registered commands.
   """
 
-  alias JidoSignal.Signal
-  alias JidoSignal.Bus
-  alias JidoCode.Extensibility.CommandRegistry
+  alias Jido.Signal
+  alias Jido.Signal.Bus
+  alias Jido.Code.Command.Extensibility.CommandRegistry
 
   def init do
-    Bus.subscribe(:jido_code_bus, "command/invoke", dispatch: {:pid, target: self()})
+    Bus.subscribe(:jido_code_bus, "command.invoke", dispatch: {:pid, target: self()})
     :ok
   end
 
-  def handle_info({:signal, %{type: "command/invoke", data: %{"name" => name, "params" => params}}}, state) do
+  def handle_info({:signal, %{type: "command.invoke", data: %{"name" => name, "params" => params}}}, state) do
     with {:ok, command} <- CommandRegistry.get_command(name),
          {:ok, result} <- command.run(params, %{}) do
-      {:ok, completed} = Signal.new("command/completed", %{name: name, result: result}, source: "/dispatcher")
+      {:ok, completed} = Signal.new("command.completed", %{name: name, result: result}, source: "/dispatcher")
       Bus.publish(:jido_code_bus, [completed])
       {:noreply, state}
     else
       {:error, reason} ->
-        {:ok, failed} = Signal.new("command/failed", %{name: name, error: inspect(reason)}, source: "/dispatcher")
+        {:ok, failed} = Signal.new("command.failed", %{name: name, error: inspect(reason)}, source: "/dispatcher")
         Bus.publish(:jido_code_bus, [failed])
         {:noreply, state}
     end
@@ -230,23 +230,23 @@ end
 ## Application supervision tree
 
 ```elixir
-defmodule JidoCode.Application do
+defmodule Jido.Code.Command.Application do
   use Application
 
   def start(_type, _args) do
     children = [
-      {JidoSignal.Bus, [
+      {Jido.Signal.Bus, [
         name: :jido_code_bus,
-        middleware: [{JidoSignal.Bus.Middleware.Logger, level: :debug}]
+        middleware: [{Jido.Signal.Bus.Middleware.Logger, level: :debug}]
       ]},
-      {JidoCode.Extensibility.CommandRegistry, [
+      {Jido.Code.Command.Extensibility.CommandRegistry, [
         global_path: Path.expand("~/.jido_code"),
         local_path: ".jido_code"
       ]},
-      JidoCode.Extensibility.CommandDispatcher
+      Jido.Code.Command.Extensibility.CommandDispatcher
     ]
 
-    Supervisor.start_link(children, strategy: :one_for_one, name: JidoCode.Supervisor)
+    Supervisor.start_link(children, strategy: :one_for_one, name: Jido.Code.Command.Supervisor)
   end
 end
 ```
@@ -255,14 +255,14 @@ end
 
 - **Commands are the only execution abstraction**: each command is a `Jido.Action` compiled from markdown.
 - **Exactly two predefined hooks exist**: `pre` and `after`, both declared optionally in command FrontMatter.
-- **Hook transport is signal-only**: hooks emit `JidoSignal.Signal` events on `JidoSignal.Bus`.
+- **Hook transport is signal-only**: hooks emit `Jido.Signal` events on `Jido.Signal.Bus`.
 - **No extension layer or manifest exists in this architecture**.
 
 ## Jido v1 to v2 notes for this design
 
 | Aspect | Jido v1 | Jido v2 |
 |--------|---------|---------|
-| Routing style | Pattern-based (`"topic.**"`) | Path-based (`"command/invoke"`) |
+| Routing style | Pattern-based (`"topic.**"`) | Topic-based (`"command.invoke"`) |
 | Command schema | NimbleOptions | Zoi schemas |
 | Signal format | Custom | CloudEvents v1.0.2 |
 | Dependencies | Monolithic | Modular (`jido`, `jido_action`, `jido_signal`) |
