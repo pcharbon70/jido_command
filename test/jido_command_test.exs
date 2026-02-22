@@ -158,6 +158,13 @@ defmodule JidoCommandTest do
     refute_receive {:signal, %Signal{type: "command.invoke"}}, 250
   end
 
+  test "dispatch returns normalized bus_unavailable error when bus is not running" do
+    bus = unique_bus_name()
+
+    assert {:error, {:bus_unavailable, :not_found}} =
+             JidoCommand.dispatch("demo", %{}, %{}, bus: bus)
+  end
+
   test "dispatch rejects conflicting normalized keys in params and context before publishing" do
     bus = unique_bus_name()
     start_supervised!({Bus, name: bus})
