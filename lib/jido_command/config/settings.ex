@@ -107,8 +107,6 @@ defmodule Jido.Code.Command.Config.Settings do
     end
   end
 
-  defp normalize_binary_bus_name(_), do: nil
-
   defp parse_middleware(middleware) when is_list(middleware) do
     parsed =
       Enum.flat_map(middleware, fn item ->
