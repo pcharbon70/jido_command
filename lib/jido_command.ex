@@ -263,8 +263,10 @@ defmodule JidoCommand do
   defp valid_bus_server?(server) when is_atom(server) and not is_nil(server), do: true
   defp valid_bus_server?(server) when is_binary(server), do: String.trim(server) != ""
 
-  defp valid_bus_server?({name, registry}) when is_atom(registry) and not is_nil(registry),
-    do: valid_bus_name?(name)
+  # Jido.Signal.Bus treats 2-tuples as {name, registry}; reject reserved tuple forms
+  # that are commonly mistaken for generic GenServer server references.
+  defp valid_bus_server?({:global, _name}), do: false
+  defp valid_bus_server?({name, registry}) when is_atom(registry), do: valid_bus_name?(name) and valid_bus_registry?(registry)
 
   defp valid_bus_server?(_server), do: false
 
@@ -275,6 +277,12 @@ defmodule JidoCommand do
   end
 
   defp valid_bus_name?(_name), do: false
+
+  defp valid_bus_registry?(registry) when is_atom(registry) and not is_nil(registry) do
+    registry not in [:global]
+  end
+
+  defp valid_bus_registry?(_registry), do: false
 
   defp valid_genserver_server?(server) when is_pid(server), do: true
   defp valid_genserver_server?(server) when is_atom(server) and not is_nil(server), do: true
