@@ -47,6 +47,7 @@ Validation is strict:
 - `commands.default_model` -> default command model during compilation
 - `commands.max_concurrent` -> dispatcher in-flight limit
 - `permissions.allow|deny|ask` -> dispatcher runtime permissions
+- Registry/dispatcher startup bus targets normalize binary names (trim + optional leading `:`) and reject invalid empty-normalized targets
 
 ## Failure fallback
 

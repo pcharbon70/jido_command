@@ -91,6 +91,102 @@ defmodule Jido.Code.Command.Extensibility.CommandRegistryTest do
              CommandRegistry.unregister_command("review", registry)
   end
 
+  test "start_link accepts colon-prefixed binary bus names" do
+    root = tmp_root()
+    global_root = Path.join(root, "global")
+    local_root = Path.join(root, "local")
+    local_commands = Path.join(local_root, "commands")
+
+    File.mkdir_p!(Path.join(global_root, "commands"))
+    File.mkdir_p!(local_commands)
+
+    File.write!(
+      Path.join(local_commands, "first.md"),
+      command_markdown("first", "first")
+    )
+
+    bus = unique_bus_name()
+    bus_name = ":" <> Atom.to_string(bus)
+    registry = unique_registry_name()
+
+    start_supervised!({Bus, name: bus})
+
+    {:ok, _subscription} =
+      Bus.subscribe(bus, "command.registry.reloaded", dispatch: {:pid, target: self()})
+
+    start_supervised!(
+      {CommandRegistry,
+       name: registry,
+       bus: bus_name,
+       global_root: global_root,
+       local_root: local_root}
+    )
+
+    assert :ok = CommandRegistry.reload(registry)
+
+    assert_receive {:signal, %Signal{type: "command.registry.reloaded", data: data}}, 1_000
+    assert data["previous_count"] == 1
+    assert data["current_count"] == 1
+  end
+
+  test "start_link rejects empty normalized binary bus names" do
+    Process.flag(:trap_exit, true)
+
+    root = tmp_root()
+    global_root = Path.join(root, "global")
+    local_root = Path.join(root, "local")
+
+    File.mkdir_p!(Path.join(global_root, "commands"))
+    File.mkdir_p!(Path.join(local_root, "commands"))
+
+    registry = unique_registry_name()
+
+    assert {:error, {:invalid_bus_target}} =
+             CommandRegistry.start_link(
+               name: registry,
+               bus: ":",
+               global_root: global_root,
+               local_root: local_root
+             )
+
+    assert {:error, {:invalid_bus_target}} =
+             CommandRegistry.start_link(
+               name: registry,
+               bus: "   ",
+               global_root: global_root,
+               local_root: local_root
+             )
+  end
+
+  test "start_link rejects reserved global tuple bus targets" do
+    Process.flag(:trap_exit, true)
+
+    root = tmp_root()
+    global_root = Path.join(root, "global")
+    local_root = Path.join(root, "local")
+
+    File.mkdir_p!(Path.join(global_root, "commands"))
+    File.mkdir_p!(Path.join(local_root, "commands"))
+
+    registry = unique_registry_name()
+
+    assert {:error, {:invalid_bus_target}} =
+             CommandRegistry.start_link(
+               name: registry,
+               bus: {:global, :registry_events},
+               global_root: global_root,
+               local_root: local_root
+             )
+
+    assert {:error, {:invalid_bus_target}} =
+             CommandRegistry.start_link(
+               name: registry,
+               bus: {:registry_events, :global},
+               global_root: global_root,
+               local_root: local_root
+             )
+  end
+
   test "keeps command-specific model over default model" do
     root = tmp_root()
     global_root = Path.join(root, "global")
