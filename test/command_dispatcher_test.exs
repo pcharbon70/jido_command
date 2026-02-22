@@ -58,6 +58,30 @@ defmodule JidoCommand.Extensibility.CommandDispatcherTest do
     def handle_call(_request, _from, state), do: {:reply, {:error, :unsupported}, state}
   end
 
+  test "start_link returns subscribe_failed noproc when bus is unavailable" do
+    bus = unique_bus_name()
+    dispatcher = unique_dispatcher_name()
+    registry = unique_registry_name()
+
+    assert {:error, {:subscribe_failed, :noproc}} =
+             CommandDispatcher.start_link(name: dispatcher, bus: bus, registry: registry)
+  end
+
+  test "start_link normalizes invalid tuple bus target subscription failures" do
+    missing_registry =
+      :"jido_command_missing_registry_#{System.unique_integer([:positive, :monotonic])}"
+
+    dispatcher = unique_dispatcher_name()
+    registry = unique_registry_name()
+
+    assert {:error, {:subscribe_failed, :invalid_bus_target}} =
+             CommandDispatcher.start_link(
+               name: dispatcher,
+               bus: {:dispatcher_events, missing_registry},
+               registry: registry
+             )
+  end
+
   test "dispatches command.invoke and emits command.completed" do
     %{bus: bus} =
       start_runtime([

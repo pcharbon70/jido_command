@@ -58,6 +58,7 @@ Validation rules:
 - `params` and `context` reject conflicting normalized keys recursively (including nested maps)
 
 Invalid payloads are rejected and result in a `command.failed` signal with a validation error message.
+Dispatcher startup subscription failures are normalized under `{:subscribe_failed, reason}` with `:not_found` mapped to `:noproc` and invalid tuple bus targets mapped to `:invalid_bus_target`.
 
 ## Settings contract (`settings.json`)
 
