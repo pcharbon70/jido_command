@@ -262,10 +262,13 @@ defmodule JidoCommand do
   defp valid_bus_server?(server) when is_pid(server), do: true
   defp valid_bus_server?(server) when is_atom(server) and not is_nil(server), do: true
   defp valid_bus_server?(server) when is_binary(server), do: String.trim(server) != ""
-  defp valid_bus_server?({name, registry}) when is_atom(registry), do: valid_bus_name?(name)
+
+  defp valid_bus_server?({name, registry}) when is_atom(registry) and not is_nil(registry),
+    do: valid_bus_name?(name)
+
   defp valid_bus_server?(_server), do: false
 
-  defp valid_bus_name?(name) when is_atom(name), do: true
+  defp valid_bus_name?(name) when is_atom(name) and not is_nil(name), do: true
 
   defp valid_bus_name?(name) when is_binary(name) do
     String.trim(name) != ""
