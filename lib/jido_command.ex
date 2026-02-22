@@ -100,7 +100,7 @@ defmodule JidoCommand do
                },
                source: "/jido_command"
              ),
-           {:ok, _recorded} <- Bus.publish(bus, [signal]) do
+           {:ok, _recorded} <- publish_dispatch_signal(bus, signal) do
         {:ok, invocation_id}
       end
     end
@@ -441,6 +441,23 @@ defmodule JidoCommand do
 
   defp continue_or_halt(:ok), do: {:cont, :ok}
   defp continue_or_halt({:error, _reason} = error), do: {:halt, error}
+
+  defp publish_dispatch_signal(bus, signal) do
+    case Bus.publish(bus, [signal]) do
+      {:ok, _recorded} = ok ->
+        ok
+
+      {:error, reason} ->
+        {:error, {:bus_unavailable, normalize_unavailable_reason(reason)}}
+    end
+  catch
+    :exit, reason ->
+      {:error, {:bus_unavailable, normalize_unavailable_reason(reason)}}
+  end
+
+  defp normalize_unavailable_reason({:noproc, _details}), do: :noproc
+  defp normalize_unavailable_reason({:timeout, _details}), do: :timeout
+  defp normalize_unavailable_reason(reason), do: reason
 
   defp resolve_bus(context, opts) when is_map(context) and is_list(opts) do
     case Keyword.fetch(opts, :bus) do
