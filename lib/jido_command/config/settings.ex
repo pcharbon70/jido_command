@@ -83,19 +83,29 @@ defmodule Jido.Code.Command.Config.Settings do
   defp to_bus_name(name) when is_atom(name), do: name
 
   defp to_bus_name(name) when is_binary(name) do
+    case normalize_binary_bus_name(name) do
+      nil ->
+        :jido_code_bus
+
+      normalized ->
+        String.to_atom(normalized)
+    end
+  end
+
+  defp to_bus_name(_), do: :jido_code_bus
+
+  defp normalize_binary_bus_name(name) when is_binary(name) do
     normalized =
       name
       |> String.trim()
       |> String.trim_leading(":")
 
     if normalized == "" do
-      :jido_code_bus
+      nil
     else
-      String.to_atom(normalized)
+      normalized
     end
   end
-
-  defp to_bus_name(_), do: :jido_code_bus
 
   defp parse_middleware(middleware) when is_list(middleware) do
     parsed =
@@ -362,7 +372,7 @@ defmodule Jido.Code.Command.Config.Settings do
   defp validate_signal_bus_name(value) when is_atom(value), do: :ok
 
   defp validate_signal_bus_name(value) when is_binary(value) do
-    if String.trim(value) == "" do
+    if is_nil(normalize_binary_bus_name(value)) do
       {:error, {:invalid_signal_bus_name, :must_be_nonempty_string_or_atom}}
     else
       :ok
