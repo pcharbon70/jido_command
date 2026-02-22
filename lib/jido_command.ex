@@ -261,7 +261,7 @@ defmodule JidoCommand do
 
   defp valid_bus_server?(server) when is_pid(server), do: true
   defp valid_bus_server?(server) when is_atom(server) and not is_nil(server), do: true
-  defp valid_bus_server?(server) when is_binary(server), do: server != ""
+  defp valid_bus_server?(server) when is_binary(server), do: String.trim(server) != ""
   defp valid_bus_server?({name, registry}) when is_atom(registry), do: valid_bus_name?(name)
   defp valid_bus_server?(_server), do: false
 

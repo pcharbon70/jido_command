@@ -140,6 +140,7 @@ defmodule JidoCommandTest do
   test "dispatch rejects invalid bus option values before publishing" do
     assert {:error, :invalid_bus} = JidoCommand.dispatch("demo", %{}, %{}, bus: 123)
     assert {:error, :invalid_bus} = JidoCommand.dispatch("demo", %{}, %{}, bus: "")
+    assert {:error, :invalid_bus} = JidoCommand.dispatch("demo", %{}, %{}, bus: "   ")
   end
 
   test "dispatch rejects conflicting option keys before publishing" do
@@ -908,11 +909,13 @@ defmodule JidoCommandTest do
   test "invoke rejects invalid bus option values" do
     assert {:error, :invalid_bus} = JidoCommand.invoke("review", %{}, %{}, bus: 123)
     assert {:error, :invalid_bus} = JidoCommand.invoke("review", %{}, %{}, bus: "")
+    assert {:error, :invalid_bus} = JidoCommand.invoke("review", %{}, %{}, bus: "   ")
   end
 
   test "invoke rejects invalid context bus values" do
     assert {:error, :invalid_context_bus} = JidoCommand.invoke("review", %{}, %{"bus" => 123})
     assert {:error, :invalid_context_bus} = JidoCommand.invoke("review", %{}, %{bus: ""})
+    assert {:error, :invalid_context_bus} = JidoCommand.invoke("review", %{}, %{"bus" => "   "})
   end
 
   test "invoke rejects conflicting option keys" do
