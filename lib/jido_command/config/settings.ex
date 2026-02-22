@@ -79,6 +79,7 @@ defmodule JidoCommand.Config.Settings do
     }
   end
 
+  defp to_bus_name(nil), do: :jido_code_bus
   defp to_bus_name(name) when is_atom(name), do: name
 
   defp to_bus_name(name) when is_binary(name) do

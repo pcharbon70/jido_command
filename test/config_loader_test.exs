@@ -82,6 +82,25 @@ defmodule JidoCommand.Config.LoaderTest do
     assert settings.permissions_ask == []
   end
 
+  test "treats null signal_bus.name as default bus name" do
+    root = tmp_root()
+    global = Path.join(root, "global")
+    local = Path.join(root, "local")
+
+    File.mkdir_p!(global)
+    File.mkdir_p!(local)
+
+    File.write!(
+      Path.join(local, "settings.json"),
+      Jason.encode!(%{
+        "signal_bus" => %{"name" => nil}
+      })
+    )
+
+    assert {:ok, settings} = Loader.load(global_root: global, local_root: local)
+    assert settings.bus_name == :jido_code_bus
+  end
+
   test "returns invalid_json error for malformed settings file" do
     root = tmp_root()
     global = Path.join(root, "global")
