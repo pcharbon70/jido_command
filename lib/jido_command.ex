@@ -262,7 +262,7 @@ defmodule JidoCommand do
 
   defp valid_bus_server?(server) when is_pid(server), do: true
   defp valid_bus_server?(server) when is_atom(server) and not is_nil(server), do: true
-  defp valid_bus_server?(server) when is_binary(server), do: String.trim(server) != ""
+  defp valid_bus_server?(server) when is_binary(server), do: valid_bus_name?(server)
 
   # Jido.Signal.Bus treats 2-tuples as {name, registry}; reject reserved tuple forms
   # that are commonly mistaken for generic GenServer server references.
@@ -273,9 +273,7 @@ defmodule JidoCommand do
 
   defp valid_bus_name?(name) when is_atom(name) and not is_nil(name), do: true
 
-  defp valid_bus_name?(name) when is_binary(name) do
-    String.trim(name) != ""
-  end
+  defp valid_bus_name?(name) when is_binary(name), do: not is_nil(normalize_bus_name(name))
 
   defp valid_bus_name?(_name), do: false
 
@@ -479,13 +477,34 @@ defmodule JidoCommand do
   defp resolve_bus(context, opts) when is_map(context) and is_list(opts) do
     case Keyword.fetch(opts, :bus) do
       {:ok, bus} ->
-        bus
+        normalize_bus_server(bus)
 
       :error ->
         case context_bus_option(context) do
-          {:present, bus} -> bus
+          {:present, bus} -> normalize_bus_server(bus)
           :missing -> :jido_code_bus
         end
+    end
+  end
+
+  defp normalize_bus_server({name, registry}) when is_atom(registry),
+    do: {normalize_bus_name_or_passthrough(name), registry}
+
+  defp normalize_bus_server(name) when is_binary(name),
+    do: normalize_bus_name(name) || name
+
+  defp normalize_bus_server(name), do: name
+
+  defp normalize_bus_name_or_passthrough(name) when is_binary(name), do: normalize_bus_name(name) || name
+  defp normalize_bus_name_or_passthrough(name), do: name
+
+  defp normalize_bus_name(name) when is_binary(name) do
+    name
+    |> String.trim()
+    |> String.trim_leading(":")
+    |> case do
+      "" -> nil
+      normalized -> normalized
     end
   end
 

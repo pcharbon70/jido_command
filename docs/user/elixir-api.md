@@ -47,6 +47,7 @@ Resolution rules:
 
 - Bus: `opts[:bus]` -> `context[:bus]`/`context["bus"]` -> `:jido_code_bus`
 - Invocation ID: `opts[:invocation_id]` -> context invocation ID -> generated ID
+- Binary bus names support optional leading `:` (for example `":jido_code_bus"`).
 
 ### `dispatch/4`
 
@@ -69,6 +70,7 @@ Resolution rules:
 
 - Bus: `opts[:bus]` -> `context[:bus]`/`context["bus"]` -> `:jido_code_bus`
 - Invocation ID: `opts[:invocation_id]` -> context invocation ID -> generated ID
+- Binary bus names support optional leading `:` (for example `":jido_code_bus"`).
 
 ### `reload/1`
 
