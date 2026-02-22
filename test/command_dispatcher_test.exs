@@ -424,6 +424,61 @@ defmodule JidoCommand.Extensibility.CommandDispatcherTest do
     assert data["error"] == "invalid command.invoke payload: params is required"
   end
 
+  test "keeps dispatcher alive when failed-result publish raises" do
+    %{bus: bus, dispatcher: dispatcher} =
+      start_runtime([
+        {"hello.md",
+         """
+         ---
+         name: hello
+         description: hello command
+         ---
+         Hi {{user}}
+         """}
+      ])
+
+    missing_registry =
+      :"jido_command_missing_registry_#{System.unique_integer([:positive, :monotonic])}"
+
+    :sys.replace_state(dispatcher, fn state ->
+      %{state | bus: {:dispatcher_events, missing_registry}}
+    end)
+
+    send(
+      dispatcher,
+      {:signal,
+       %Signal{
+         type: "command.invoke",
+         id: "sig-invalid-payload",
+         source: "/test",
+         data: %{"name" => "hello"}
+       }}
+    )
+
+    Process.sleep(50)
+    assert Process.alive?(Process.whereis(dispatcher))
+
+    :sys.replace_state(dispatcher, fn state ->
+      %{state | bus: bus}
+    end)
+
+    {:ok, _completed_sub} =
+      Bus.subscribe(bus, "command.completed", dispatch: {:pid, target: self()})
+
+    {:ok, invoke_signal} =
+      Signal.new(
+        "command.invoke",
+        %{"name" => "hello", "params" => %{"user" => "Pascal"}},
+        source: "/test"
+      )
+
+    assert {:ok, _} = Bus.publish(bus, [invoke_signal])
+
+    assert_receive {:signal, %Signal{type: "command.completed", data: data}}, 2_000
+    assert data["name"] == "hello"
+    assert data["result"]["result"]["prompt"] == "Hi Pascal\n"
+  end
+
   test "runs invokes concurrently up to max_concurrent limit" do
     %{bus: bus} =
       start_runtime(

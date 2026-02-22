@@ -93,6 +93,7 @@ Validation rules:
 ## `command.completed`
 
 Published by the dispatcher when execution succeeds.
+Publication is best-effort; bus publish failures/exceptions are ignored.
 
 Data fields:
 
@@ -103,6 +104,7 @@ Data fields:
 ## `command.failed`
 
 Published by the dispatcher when execution fails.
+Publication is best-effort; bus publish failures/exceptions are ignored.
 
 Data fields:
 
