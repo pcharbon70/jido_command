@@ -84,7 +84,7 @@ Validation rules:
 - conflicting normalized settings keys are rejected at top-level and nested maps (for example both `commands` and `:commands`)
 - `$schema` must be a non-empty string when provided
 - `version` must be a valid SemVer string when provided
-- `signal_bus.name` must be a non-empty string/atom when provided
+- `signal_bus.name` must be a non-empty string/atom when provided; binary values are normalized by trimming whitespace and an optional leading `:`, and must not normalize to empty
 - each `signal_bus.middleware` item must use supported module `Jido.Signal.Bus.Middleware.Logger`
 - middleware `opts` only supports key `level`
 - middleware `opts.level` must be one of `debug|info|warn|warning|error`

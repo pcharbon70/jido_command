@@ -42,7 +42,7 @@ Validation is strict:
 
 ## Settings to runtime mapping
 
-- `signal_bus.name` -> bus process name (default `:jido_code_bus`)
+- `signal_bus.name` -> bus process name (default `:jido_code_bus`; string values are trimmed, optional leading `:` is removed, and the normalized name must be non-empty)
 - `signal_bus.middleware` -> bus middleware tuple list
 - `commands.default_model` -> default command model during compilation
 - `commands.max_concurrent` -> dispatcher in-flight limit

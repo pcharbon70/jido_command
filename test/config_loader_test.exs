@@ -212,6 +212,45 @@ defmodule Jido.Code.Command.Config.LoaderTest do
              Loader.load(global_root: global, local_root: local)
   end
 
+  test "returns invalid_settings for colon-only signal_bus.name" do
+    root = tmp_root()
+    global = Path.join(root, "global")
+    local = Path.join(root, "local")
+
+    File.mkdir_p!(global)
+    File.mkdir_p!(local)
+
+    File.write!(
+      Path.join(local, "settings.json"),
+      Jason.encode!(%{
+        "signal_bus" => %{"name" => ":"}
+      })
+    )
+
+    assert {:error,
+            {:invalid_settings, {:invalid_signal_bus_name, :must_be_nonempty_string_or_atom}}} =
+             Loader.load(global_root: global, local_root: local)
+  end
+
+  test "normalizes colon-prefixed signal_bus.name" do
+    root = tmp_root()
+    global = Path.join(root, "global")
+    local = Path.join(root, "local")
+
+    File.mkdir_p!(global)
+    File.mkdir_p!(local)
+
+    File.write!(
+      Path.join(local, "settings.json"),
+      Jason.encode!(%{
+        "signal_bus" => %{"name" => " :custom_bus "}
+      })
+    )
+
+    assert {:ok, settings} = Loader.load(global_root: global, local_root: local)
+    assert settings.bus_name == :custom_bus
+  end
+
   test "returns invalid_settings for unknown top-level settings keys" do
     root = tmp_root()
     global = Path.join(root, "global")
