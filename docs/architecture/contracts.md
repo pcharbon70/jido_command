@@ -125,6 +125,11 @@ Runtime error messages include:
 
 Published by `CommandRegistry` when runtime command catalog changes.
 Registry lifecycle/failure signal publication is best-effort: bus publish failures/exceptions are ignored and do not change operation results.
+`CommandRegistry` validates and normalizes its startup `:bus` target before loading commands:
+
+- binary names are normalized by trimming whitespace and an optional leading `:`
+- binary names that normalize to empty are rejected as `:invalid_bus_target`
+- reserved tuple forms using `:global` are rejected as `:invalid_bus_target`
 
 ### `command.registry.reloaded`
 

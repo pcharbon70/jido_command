@@ -12,7 +12,7 @@ defmodule Jido.Code.Command.Extensibility.CommandRegistry do
   alias Jido.Signal.Bus
 
   @type state :: %{
-          bus: atom(),
+          bus: term(),
           global_root: String.t(),
           local_root: String.t(),
           default_model: String.t() | nil,
@@ -59,21 +59,27 @@ defmodule Jido.Code.Command.Extensibility.CommandRegistry do
   def init(opts) do
     global_root = Keyword.get(opts, :global_root, Loader.default_global_root())
     local_root = Keyword.get(opts, :local_root, Loader.default_local_root())
-    bus = Keyword.get(opts, :bus, :jido_code_bus)
+    raw_bus = Keyword.get(opts, :bus, :jido_code_bus)
     default_model = parse_default_model(Keyword.get(opts, :default_model))
 
-    initial = %{
-      bus: bus,
-      global_root: global_root,
-      local_root: local_root,
-      default_model: default_model,
-      manual_paths: [],
-      commands: %{}
-    }
+    case normalize_bus_server(raw_bus) do
+      {:ok, bus} ->
+        initial = %{
+          bus: bus,
+          global_root: global_root,
+          local_root: local_root,
+          default_model: default_model,
+          manual_paths: [],
+          commands: %{}
+        }
 
-    case load_all(initial) do
-      {:ok, state} -> {:ok, state}
-      {:error, reason} -> {:stop, reason}
+        case load_all(initial) do
+          {:ok, state} -> {:ok, state}
+          {:error, reason} -> {:stop, reason}
+        end
+
+      {:error, :invalid_bus_target} ->
+        {:stop, {:invalid_bus_target}}
     end
   end
 
@@ -328,6 +334,61 @@ defmodule Jido.Code.Command.Extensibility.CommandRegistry do
   end
 
   defp parse_default_model(_), do: nil
+
+  defp normalize_bus_server(bus) when is_pid(bus), do: {:ok, bus}
+  defp normalize_bus_server(bus) when is_atom(bus) and not is_nil(bus), do: {:ok, bus}
+
+  defp normalize_bus_server({:global, _name}), do: {:error, :invalid_bus_target}
+
+  defp normalize_bus_server({name, registry}) when is_atom(registry) do
+    with :ok <- validate_bus_registry(registry),
+         {:ok, normalized_name} <- normalize_bus_tuple_name(name) do
+      {:ok, {normalized_name, registry}}
+    end
+  end
+
+  defp normalize_bus_server(bus) when is_binary(bus) do
+    case normalize_binary_bus_name(bus) do
+      nil -> {:error, :invalid_bus_target}
+      normalized -> {:ok, normalized}
+    end
+  end
+
+  defp normalize_bus_server(_), do: {:error, :invalid_bus_target}
+
+  defp normalize_bus_tuple_name(name) when is_atom(name) and not is_nil(name), do: {:ok, name}
+
+  defp normalize_bus_tuple_name(name) when is_binary(name) do
+    case normalize_binary_bus_name(name) do
+      nil -> {:error, :invalid_bus_target}
+      normalized -> {:ok, normalized}
+    end
+  end
+
+  defp normalize_bus_tuple_name(_), do: {:error, :invalid_bus_target}
+
+  defp validate_bus_registry(registry) when is_atom(registry) and not is_nil(registry) do
+    if registry == :global do
+      {:error, :invalid_bus_target}
+    else
+      :ok
+    end
+  end
+
+  defp validate_bus_registry(_registry), do: {:error, :invalid_bus_target}
+
+  defp normalize_binary_bus_name(name) when is_binary(name) do
+    normalized =
+      name
+      |> String.trim()
+      |> String.trim_leading(":")
+
+    if normalized == "" do
+      nil
+    else
+      normalized
+    end
+  end
 
   defp safe_call(server, request) do
     GenServer.call(server, request)
