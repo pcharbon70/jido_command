@@ -45,9 +45,10 @@ Returns:
 
 Resolution rules:
 
-- Bus: `opts[:bus]` -> `context[:bus]`/`context["bus"]` -> `:jido_code_bus`
+- Bus: `opts[:bus]` -> `context[:bus]`/`context["bus"]` -> `Application.get_env(:jido_command, :default_bus, :jido_code_bus)`
 - Invocation ID: `opts[:invocation_id]` -> context invocation ID -> generated ID
 - Binary bus names support optional leading `:` (for example `":jido_code_bus"`).
+- If configured application default bus is invalid, runtime falls back to `:jido_code_bus`.
 
 ### `dispatch/4`
 
@@ -68,9 +69,10 @@ Publishes a `command.invoke` signal and returns:
 
 Resolution rules:
 
-- Bus: `opts[:bus]` -> `context[:bus]`/`context["bus"]` -> `:jido_code_bus`
+- Bus: `opts[:bus]` -> `context[:bus]`/`context["bus"]` -> `Application.get_env(:jido_command, :default_bus, :jido_code_bus)`
 - Invocation ID: `opts[:invocation_id]` -> context invocation ID -> generated ID
 - Binary bus names support optional leading `:` (for example `":jido_code_bus"`).
+- If configured application default bus is invalid, runtime falls back to `:jido_code_bus`.
 
 ### `reload/1`
 
