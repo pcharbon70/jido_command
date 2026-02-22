@@ -67,6 +67,45 @@ defmodule JidoCommand.Extensibility.CommandDispatcherTest do
              CommandDispatcher.start_link(name: dispatcher, bus: bus, registry: registry)
   end
 
+  test "start_link accepts colon-prefixed binary bus names" do
+    bus = unique_bus_name()
+    bus_name = ":" <> Atom.to_string(bus)
+    dispatcher = unique_dispatcher_name()
+    registry = unique_registry_name()
+
+    start_supervised!({Bus, name: bus})
+
+    start_supervised!({CommandDispatcher, name: dispatcher, bus: bus_name, registry: registry})
+
+    {:ok, _failed_sub} =
+      Bus.subscribe(bus, "command.failed", dispatch: {:pid, target: self()})
+
+    {:ok, %Signal{id: signal_id} = invoke_signal} =
+      Signal.new(
+        "command.invoke",
+        %{"name" => "hello", "params" => %{}},
+        source: "/test"
+      )
+
+    assert {:ok, _} = Bus.publish(bus, [invoke_signal])
+
+    assert_receive {:signal, %Signal{type: "command.failed", data: data}}, 2_000
+    assert data["name"] == "hello"
+    assert data["invocation_id"] == signal_id
+    assert data["error"] == "registry unavailable: :noproc"
+  end
+
+  test "start_link rejects empty normalized binary bus names" do
+    dispatcher = unique_dispatcher_name()
+    registry = unique_registry_name()
+
+    assert {:error, {:subscribe_failed, :invalid_bus_target}} =
+             CommandDispatcher.start_link(name: dispatcher, bus: ":", registry: registry)
+
+    assert {:error, {:subscribe_failed, :invalid_bus_target}} =
+             CommandDispatcher.start_link(name: dispatcher, bus: "   ", registry: registry)
+  end
+
   test "start_link normalizes invalid tuple bus target subscription failures" do
     missing_registry =
       :"jido_command_missing_registry_#{System.unique_integer([:positive, :monotonic])}"
