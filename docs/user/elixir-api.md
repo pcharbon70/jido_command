@@ -1,14 +1,14 @@
 # Elixir API Usage
 
-`JidoCommand` exposes the main runtime API.
+`Jido.Code.Command` exposes the main runtime API.
 
 ## Functions
 
 ### `list_commands/1`
 
 ```elixir
-JidoCommand.list_commands()
-JidoCommand.list_commands(registry: MyRegistry)
+Jido.Code.Command.list_commands()
+Jido.Code.Command.list_commands(registry: MyRegistry)
 ```
 
 Returns:
@@ -19,9 +19,9 @@ Returns:
 ### `invoke/4`
 
 ```elixir
-JidoCommand.invoke("code-review", %{"target_file" => "lib/foo.ex"})
+Jido.Code.Command.invoke("code-review", %{"target_file" => "lib/foo.ex"})
 
-JidoCommand.invoke(
+Jido.Code.Command.invoke(
   "code-review",
   %{"target_file" => "lib/foo.ex"},
   %{"source" => "api"},
@@ -52,7 +52,7 @@ Resolution rules:
 ### `dispatch/4`
 
 ```elixir
-JidoCommand.dispatch("code-review", %{"target_file" => "lib/foo.ex"})
+Jido.Code.Command.dispatch("code-review", %{"target_file" => "lib/foo.ex"})
 ```
 
 Publishes a `command.invoke` signal and returns:
@@ -75,8 +75,8 @@ Resolution rules:
 ### `reload/1`
 
 ```elixir
-JidoCommand.reload()
-JidoCommand.reload(registry: MyRegistry)
+Jido.Code.Command.reload()
+Jido.Code.Command.reload(registry: MyRegistry)
 ```
 
 Returns `:ok` or `{:error, reason}`.
@@ -84,7 +84,7 @@ Returns `:ok` or `{:error, reason}`.
 ### `register_command/2`
 
 ```elixir
-JidoCommand.register_command("commands/review.md")
+Jido.Code.Command.register_command("commands/review.md")
 ```
 
 Returns:
@@ -96,7 +96,7 @@ Returns:
 ### `unregister_command/2`
 
 ```elixir
-JidoCommand.unregister_command("review")
+Jido.Code.Command.unregister_command("review")
 ```
 
 Returns:

@@ -1,9 +1,10 @@
-defmodule JidoCommandTest do
+defmodule Jido.Code.CommandTest do
   use ExUnit.Case
 
+  alias Jido.Code.Command, as: Command
+  alias Jido.Code.Command.Extensibility.CommandRegistry
   alias Jido.Signal
   alias Jido.Signal.Bus
-  alias JidoCommand.Extensibility.CommandRegistry
 
   test "dispatch publishes command.invoke signal" do
     bus = unique_bus_name()
@@ -12,7 +13,7 @@ defmodule JidoCommandTest do
     {:ok, _subscription} =
       Bus.subscribe(bus, "command.invoke", dispatch: {:pid, target: self()})
 
-    assert {:ok, invocation_id} = JidoCommand.dispatch("demo", %{"x" => 1}, %{}, bus: bus)
+    assert {:ok, invocation_id} = Command.dispatch("demo", %{"x" => 1}, %{}, bus: bus)
     assert is_binary(invocation_id)
 
     assert_receive {:signal, %Signal{type: "command.invoke", data: data}}, 1_000
@@ -29,7 +30,7 @@ defmodule JidoCommandTest do
       Bus.subscribe(bus, "command.invoke", dispatch: {:pid, target: self()})
 
     assert {:ok, invocation_id} =
-             JidoCommand.dispatch("demo", %{"x" => 1}, %{}, bus: bus, invocation_id: 123)
+             Command.dispatch("demo", %{"x" => 1}, %{}, bus: bus, invocation_id: 123)
 
     assert is_binary(invocation_id)
     assert invocation_id != ""
@@ -46,7 +47,7 @@ defmodule JidoCommandTest do
       Bus.subscribe(bus, "command.invoke", dispatch: {:pid, target: self()})
 
     assert {:ok, invocation_id} =
-             JidoCommand.dispatch("demo", %{"x" => 1}, %{"invocation_id" => "context-id"},
+             Command.dispatch("demo", %{"x" => 1}, %{"invocation_id" => "context-id"},
                bus: bus
              )
 
@@ -61,7 +62,7 @@ defmodule JidoCommandTest do
     start_supervised!({Bus, name: bus})
 
     assert {:error, :conflicting_context_invocation_id_keys} =
-             JidoCommand.dispatch(
+             Command.dispatch(
                "demo",
                %{"x" => 1},
                %{"invocation_id" => "b", invocation_id: "a"},
@@ -77,7 +78,7 @@ defmodule JidoCommandTest do
       Bus.subscribe(bus, "command.invoke", dispatch: {:pid, target: self()})
 
     assert {:ok, invocation_id} =
-             JidoCommand.dispatch("demo", %{"x" => 1}, %{"invocation_id" => "context-id"},
+             Command.dispatch("demo", %{"x" => 1}, %{"invocation_id" => "context-id"},
                bus: bus,
                invocation_id: "options-id"
              )
@@ -96,7 +97,7 @@ defmodule JidoCommandTest do
       Bus.subscribe(bus, "command.invoke", dispatch: {:pid, target: self()})
 
     assert {:ok, invocation_id} =
-             JidoCommand.dispatch("demo", %{"x" => 1}, %{"invocation_id" => "context-id"},
+             Command.dispatch("demo", %{"x" => 1}, %{"invocation_id" => "context-id"},
                bus: bus,
                invocation_id: 123
              )
@@ -114,9 +115,9 @@ defmodule JidoCommandTest do
     {:ok, _subscription} =
       Bus.subscribe(bus, "command.invoke", dispatch: {:pid, target: self()})
 
-    assert {:error, :invalid_name} = JidoCommand.dispatch("   ", %{}, %{}, bus: bus)
-    assert {:error, :invalid_params} = JidoCommand.dispatch("demo", [], %{}, bus: bus)
-    assert {:error, :invalid_context} = JidoCommand.dispatch("demo", %{}, [], bus: bus)
+    assert {:error, :invalid_name} = Command.dispatch("   ", %{}, %{}, bus: bus)
+    assert {:error, :invalid_params} = Command.dispatch("demo", [], %{}, bus: bus)
+    assert {:error, :invalid_context} = Command.dispatch("demo", %{}, [], bus: bus)
 
     refute_receive {:signal, %Signal{type: "command.invoke"}}, 250
   end
@@ -129,23 +130,23 @@ defmodule JidoCommandTest do
       Bus.subscribe(bus, "command.invoke", dispatch: {:pid, target: self()})
 
     assert {:error, :invalid_dispatch_options} =
-             JidoCommand.dispatch("demo", %{}, %{}, %{bus: bus})
+             Command.dispatch("demo", %{}, %{}, %{bus: bus})
 
     assert {:error, {:invalid_dispatch_options_keys, ["permissions"]}} =
-             JidoCommand.dispatch("demo", %{}, %{}, bus: bus, permissions: %{"allow" => ["Read"]})
+             Command.dispatch("demo", %{}, %{}, bus: bus, permissions: %{"allow" => ["Read"]})
 
     refute_receive {:signal, %Signal{type: "command.invoke"}}, 250
   end
 
   test "dispatch rejects invalid bus option values before publishing" do
-    assert {:error, :invalid_bus} = JidoCommand.dispatch("demo", %{}, %{}, bus: 123)
-    assert {:error, :invalid_bus} = JidoCommand.dispatch("demo", %{}, %{}, bus: "")
-    assert {:error, :invalid_bus} = JidoCommand.dispatch("demo", %{}, %{}, bus: "   ")
-    assert {:error, :invalid_bus} = JidoCommand.dispatch("demo", %{}, %{}, bus: ":")
-    assert {:error, :invalid_bus} = JidoCommand.dispatch("demo", %{}, %{}, bus: {nil, :registry})
-    assert {:error, :invalid_bus} = JidoCommand.dispatch("demo", %{}, %{}, bus: {:demo, nil})
-    assert {:error, :invalid_bus} = JidoCommand.dispatch("demo", %{}, %{}, bus: {:demo, :global})
-    assert {:error, :invalid_bus} = JidoCommand.dispatch("demo", %{}, %{}, bus: {:global, :demo})
+    assert {:error, :invalid_bus} = Command.dispatch("demo", %{}, %{}, bus: 123)
+    assert {:error, :invalid_bus} = Command.dispatch("demo", %{}, %{}, bus: "")
+    assert {:error, :invalid_bus} = Command.dispatch("demo", %{}, %{}, bus: "   ")
+    assert {:error, :invalid_bus} = Command.dispatch("demo", %{}, %{}, bus: ":")
+    assert {:error, :invalid_bus} = Command.dispatch("demo", %{}, %{}, bus: {nil, :registry})
+    assert {:error, :invalid_bus} = Command.dispatch("demo", %{}, %{}, bus: {:demo, nil})
+    assert {:error, :invalid_bus} = Command.dispatch("demo", %{}, %{}, bus: {:demo, :global})
+    assert {:error, :invalid_bus} = Command.dispatch("demo", %{}, %{}, bus: {:global, :demo})
   end
 
   test "dispatch uses string-key context bus when options bus is absent" do
@@ -158,7 +159,7 @@ defmodule JidoCommandTest do
     context_bus_name = ":" <> Atom.to_string(context_bus)
 
     assert {:ok, invocation_id} =
-             JidoCommand.dispatch("demo", %{"x" => 1}, %{"bus" => context_bus_name})
+             Command.dispatch("demo", %{"x" => 1}, %{"bus" => context_bus_name})
 
     assert_receive {:signal, %Signal{type: "command.invoke", data: data}}, 1_000
     assert data["name"] == "demo"
@@ -175,7 +176,7 @@ defmodule JidoCommandTest do
       Bus.subscribe(option_bus, "command.invoke", dispatch: {:pid, target: self()})
 
     assert {:ok, invocation_id} =
-             JidoCommand.dispatch("demo", %{"x" => 1}, %{}, bus: option_bus_name)
+             Command.dispatch("demo", %{"x" => 1}, %{}, bus: option_bus_name)
 
     assert_receive {:signal, %Signal{type: "command.invoke", data: data}}, 1_000
     assert data["name"] == "demo"
@@ -193,7 +194,7 @@ defmodule JidoCommandTest do
       Bus.subscribe(option_bus, "command.invoke", dispatch: {:pid, target: self()})
 
     assert {:ok, invocation_id} =
-             JidoCommand.dispatch(
+             Command.dispatch(
                "demo",
                %{"x" => 1},
                %{"bus" => context_bus},
@@ -207,22 +208,22 @@ defmodule JidoCommandTest do
   end
 
   test "dispatch rejects invalid context bus values before publishing" do
-    assert {:error, :invalid_context_bus} = JidoCommand.dispatch("demo", %{}, %{"bus" => 123})
-    assert {:error, :invalid_context_bus} = JidoCommand.dispatch("demo", %{}, %{"bus" => ""})
-    assert {:error, :invalid_context_bus} = JidoCommand.dispatch("demo", %{}, %{bus: "   "})
-    assert {:error, :invalid_context_bus} = JidoCommand.dispatch("demo", %{}, %{"bus" => ":"})
+    assert {:error, :invalid_context_bus} = Command.dispatch("demo", %{}, %{"bus" => 123})
+    assert {:error, :invalid_context_bus} = Command.dispatch("demo", %{}, %{"bus" => ""})
+    assert {:error, :invalid_context_bus} = Command.dispatch("demo", %{}, %{bus: "   "})
+    assert {:error, :invalid_context_bus} = Command.dispatch("demo", %{}, %{"bus" => ":"})
 
     assert {:error, :invalid_context_bus} =
-             JidoCommand.dispatch("demo", %{}, %{bus: {nil, :registry}})
+             Command.dispatch("demo", %{}, %{bus: {nil, :registry}})
 
     assert {:error, :invalid_context_bus} =
-             JidoCommand.dispatch("demo", %{}, %{"bus" => {:demo, nil}})
+             Command.dispatch("demo", %{}, %{"bus" => {:demo, nil}})
 
     assert {:error, :invalid_context_bus} =
-             JidoCommand.dispatch("demo", %{}, %{bus: {:demo, :global}})
+             Command.dispatch("demo", %{}, %{bus: {:demo, :global}})
 
     assert {:error, :invalid_context_bus} =
-             JidoCommand.dispatch("demo", %{}, %{"bus" => {:global, :demo}})
+             Command.dispatch("demo", %{}, %{"bus" => {:global, :demo}})
   end
 
   test "dispatch rejects conflicting option keys before publishing" do
@@ -233,7 +234,7 @@ defmodule JidoCommandTest do
       Bus.subscribe(bus, "command.invoke", dispatch: {:pid, target: self()})
 
     assert {:error, {:invalid_dispatch_options_conflicting_keys, ["bus"]}} =
-             JidoCommand.dispatch("demo", %{}, %{}, bus: bus, bus: :other_bus)
+             Command.dispatch("demo", %{}, %{}, bus: bus, bus: :other_bus)
 
     refute_receive {:signal, %Signal{type: "command.invoke"}}, 250
   end
@@ -242,7 +243,7 @@ defmodule JidoCommandTest do
     bus = unique_bus_name()
 
     assert {:error, {:bus_unavailable, :noproc}} =
-             JidoCommand.dispatch("demo", %{}, %{}, bus: bus)
+             Command.dispatch("demo", %{}, %{}, bus: bus)
   end
 
   test "dispatch normalizes publish argument errors for unknown tuple registry bus target" do
@@ -250,7 +251,7 @@ defmodule JidoCommandTest do
       :"jido_command_missing_registry_#{System.unique_integer([:positive, :monotonic])}"
 
     assert {:error, {:bus_unavailable, :invalid_bus_target}} =
-             JidoCommand.dispatch("demo", %{}, %{}, bus: {:demo, missing_registry})
+             Command.dispatch("demo", %{}, %{}, bus: {:demo, missing_registry})
   end
 
   test "dispatch rejects conflicting normalized keys in params and context before publishing" do
@@ -261,10 +262,10 @@ defmodule JidoCommandTest do
       Bus.subscribe(bus, "command.invoke", dispatch: {:pid, target: self()})
 
     assert {:error, {:invalid_params_conflicting_keys, ["x"]}} =
-             JidoCommand.dispatch("demo", %{"meta" => %{"x" => 1, :x => 2}}, %{}, bus: bus)
+             Command.dispatch("demo", %{"meta" => %{"x" => 1, :x => 2}}, %{}, bus: bus)
 
     assert {:error, {:invalid_context_conflicting_keys, ["allow"]}} =
-             JidoCommand.dispatch(
+             Command.dispatch(
                "demo",
                %{},
                %{"permissions" => %{"allow" => ["Read"], :allow => ["Write"]}},
@@ -304,7 +305,7 @@ defmodule JidoCommandTest do
        name: registry, bus: bus, global_root: global_root, local_root: local_root}
     )
 
-    assert ["first"] == JidoCommand.list_commands(registry: registry)
+    assert ["first"] == Command.list_commands(registry: registry)
 
     File.write!(
       Path.join(local_commands_dir, "second.md"),
@@ -317,50 +318,50 @@ defmodule JidoCommandTest do
       """
     )
 
-    assert :ok = JidoCommand.reload(registry: registry)
-    assert ["first", "second"] == JidoCommand.list_commands(registry: registry)
+    assert :ok = Command.reload(registry: registry)
+    assert ["first", "second"] == Command.list_commands(registry: registry)
   end
 
   test "reload rejects invalid, unknown, and conflicting options" do
     assert {:error, :invalid_reload_options} =
-             JidoCommand.reload(%{registry: CommandRegistry})
+             Command.reload(%{registry: CommandRegistry})
 
     assert {:error, {:invalid_reload_options_keys, ["bus"]}} =
-             JidoCommand.reload(bus: :jido_code_bus)
+             Command.reload(bus: :jido_code_bus)
 
     assert {:error, {:invalid_reload_options_conflicting_keys, ["registry"]}} =
-             JidoCommand.reload(registry: :first, registry: :second)
+             Command.reload(registry: :first, registry: :second)
   end
 
   test "reload rejects invalid registry option values" do
-    assert {:error, :invalid_registry} = JidoCommand.reload(registry: 123)
+    assert {:error, :invalid_registry} = Command.reload(registry: 123)
   end
 
   test "reload returns error when registry server is unavailable" do
     registry = unique_registry_name()
-    assert {:error, {:registry_unavailable, :noproc}} = JidoCommand.reload(registry: registry)
+    assert {:error, {:registry_unavailable, :noproc}} = Command.reload(registry: registry)
   end
 
   test "list_commands rejects invalid, unknown, and conflicting options" do
     assert {:error, :invalid_list_commands_options} =
-             JidoCommand.list_commands(%{registry: CommandRegistry})
+             Command.list_commands(%{registry: CommandRegistry})
 
     assert {:error, {:invalid_list_commands_options_keys, ["bus"]}} =
-             JidoCommand.list_commands(bus: :jido_code_bus)
+             Command.list_commands(bus: :jido_code_bus)
 
     assert {:error, {:invalid_list_commands_options_conflicting_keys, ["registry"]}} =
-             JidoCommand.list_commands(registry: :first, registry: :second)
+             Command.list_commands(registry: :first, registry: :second)
   end
 
   test "list_commands rejects invalid registry option values" do
-    assert {:error, :invalid_registry} = JidoCommand.list_commands(registry: 123)
+    assert {:error, :invalid_registry} = Command.list_commands(registry: 123)
   end
 
   test "list_commands returns error when registry server is unavailable" do
     registry = unique_registry_name()
 
     assert {:error, {:registry_unavailable, :noproc}} =
-             JidoCommand.list_commands(registry: registry)
+             Command.list_commands(registry: registry)
   end
 
   test "register_command loads a command into registry" do
@@ -395,37 +396,37 @@ defmodule JidoCommandTest do
        name: registry, bus: bus, global_root: global_root, local_root: local_root}
     )
 
-    assert [] == JidoCommand.list_commands(registry: registry)
-    assert :ok = JidoCommand.register_command(command_path, registry: registry)
-    assert ["extra"] == JidoCommand.list_commands(registry: registry)
+    assert [] == Command.list_commands(registry: registry)
+    assert :ok = Command.register_command(command_path, registry: registry)
+    assert ["extra"] == Command.list_commands(registry: registry)
   end
 
   test "register_command rejects blank and non-string paths" do
-    assert {:error, :invalid_path} = JidoCommand.register_command("   ")
-    assert {:error, :invalid_path} = JidoCommand.register_command(123)
+    assert {:error, :invalid_path} = Command.register_command("   ")
+    assert {:error, :invalid_path} = Command.register_command(123)
   end
 
   test "register_command rejects invalid, unknown, and conflicting options" do
     assert {:error, :invalid_register_command_options} =
-             JidoCommand.register_command("command.md", %{registry: CommandRegistry})
+             Command.register_command("command.md", %{registry: CommandRegistry})
 
     assert {:error, {:invalid_register_command_options_keys, ["bus"]}} =
-             JidoCommand.register_command("command.md", bus: :jido_code_bus)
+             Command.register_command("command.md", bus: :jido_code_bus)
 
     assert {:error, {:invalid_register_command_options_conflicting_keys, ["registry"]}} =
-             JidoCommand.register_command("command.md", registry: :first, registry: :second)
+             Command.register_command("command.md", registry: :first, registry: :second)
   end
 
   test "register_command rejects invalid registry option values" do
     assert {:error, :invalid_registry} =
-             JidoCommand.register_command("command.md", registry: 123)
+             Command.register_command("command.md", registry: 123)
   end
 
   test "register_command returns error when registry server is unavailable" do
     registry = unique_registry_name()
 
     assert {:error, {:registry_unavailable, :noproc}} =
-             JidoCommand.register_command("command.md", registry: registry)
+             Command.register_command("command.md", registry: registry)
   end
 
   test "invoke applies permissions from options into execution context" do
@@ -465,7 +466,7 @@ defmodule JidoCommandTest do
     }
 
     assert {:ok, result} =
-             JidoCommand.invoke(
+             Command.invoke(
                "review",
                %{},
                %{},
@@ -522,7 +523,7 @@ defmodule JidoCommandTest do
     }
 
     assert {:ok, result} =
-             JidoCommand.invoke(
+             Command.invoke(
                "review",
                %{},
                %{},
@@ -579,7 +580,7 @@ defmodule JidoCommandTest do
     }
 
     assert {:ok, result} =
-             JidoCommand.invoke(
+             Command.invoke(
                "review",
                %{},
                %{},
@@ -638,7 +639,7 @@ defmodule JidoCommandTest do
     }
 
     assert {:ok, result} =
-             JidoCommand.invoke("review", %{}, context, registry: registry, bus: bus)
+             Command.invoke("review", %{}, context, registry: registry, bus: bus)
 
     assert result["result"]["permissions"] == expected_permissions
   end
@@ -696,7 +697,7 @@ defmodule JidoCommandTest do
     }
 
     assert {:ok, result} =
-             JidoCommand.invoke(
+             Command.invoke(
                "review",
                %{},
                context,
@@ -739,7 +740,7 @@ defmodule JidoCommandTest do
     )
 
     assert {:ok, result} =
-             JidoCommand.invoke(
+             Command.invoke(
                "review",
                %{},
                %{invocation_id: 123},
@@ -784,7 +785,7 @@ defmodule JidoCommandTest do
     )
 
     assert {:ok, result} =
-             JidoCommand.invoke(
+             Command.invoke(
                "review",
                %{},
                %{"invocation_id" => "context-id"},
@@ -797,7 +798,7 @@ defmodule JidoCommandTest do
 
   test "invoke rejects conflicting context invocation_id key forms" do
     assert {:error, :conflicting_context_invocation_id_keys} =
-             JidoCommand.invoke("review", %{}, %{"invocation_id" => "b", invocation_id: "a"})
+             Command.invoke("review", %{}, %{"invocation_id" => "b", invocation_id: "a"})
   end
 
   test "invoke options invocation_id overrides context invocation_id" do
@@ -831,7 +832,7 @@ defmodule JidoCommandTest do
     )
 
     assert {:ok, result} =
-             JidoCommand.invoke(
+             Command.invoke(
                "review",
                %{},
                %{"invocation_id" => "context-id"},
@@ -874,7 +875,7 @@ defmodule JidoCommandTest do
     )
 
     assert {:ok, result} =
-             JidoCommand.invoke(
+             Command.invoke(
                "review",
                %{},
                %{"invocation_id" => "context-id"},
@@ -927,7 +928,7 @@ defmodule JidoCommandTest do
     context_bus_name = ":" <> Atom.to_string(context_bus)
 
     assert {:ok, _result} =
-             JidoCommand.invoke(
+             Command.invoke(
                "review",
                %{},
                %{"bus" => context_bus_name},
@@ -981,7 +982,7 @@ defmodule JidoCommandTest do
     option_bus_name = ":" <> Atom.to_string(option_bus)
 
     assert {:ok, _result} =
-             JidoCommand.invoke(
+             Command.invoke(
                "review",
                %{},
                %{bus: context_bus},
@@ -994,72 +995,72 @@ defmodule JidoCommandTest do
   end
 
   test "invoke rejects invalid name, params, and context" do
-    assert {:error, :invalid_name} = JidoCommand.invoke("   ", %{}, %{})
-    assert {:error, :invalid_params} = JidoCommand.invoke("review", [], %{})
-    assert {:error, :invalid_context} = JidoCommand.invoke("review", %{}, [])
+    assert {:error, :invalid_name} = Command.invoke("   ", %{}, %{})
+    assert {:error, :invalid_params} = Command.invoke("review", [], %{})
+    assert {:error, :invalid_context} = Command.invoke("review", %{}, [])
   end
 
   test "invoke rejects invalid and unknown options" do
     assert {:error, :invalid_invoke_options} =
-             JidoCommand.invoke("review", %{}, %{}, %{registry: CommandRegistry})
+             Command.invoke("review", %{}, %{}, %{registry: CommandRegistry})
 
     assert {:error, {:invalid_invoke_options_keys, ["permission"]}} =
-             JidoCommand.invoke("review", %{}, %{}, permission: %{"allow" => ["Read"]})
+             Command.invoke("review", %{}, %{}, permission: %{"allow" => ["Read"]})
   end
 
   test "invoke rejects invalid bus option values" do
-    assert {:error, :invalid_bus} = JidoCommand.invoke("review", %{}, %{}, bus: 123)
-    assert {:error, :invalid_bus} = JidoCommand.invoke("review", %{}, %{}, bus: "")
-    assert {:error, :invalid_bus} = JidoCommand.invoke("review", %{}, %{}, bus: "   ")
-    assert {:error, :invalid_bus} = JidoCommand.invoke("review", %{}, %{}, bus: ":")
-    assert {:error, :invalid_bus} = JidoCommand.invoke("review", %{}, %{}, bus: {nil, :registry})
-    assert {:error, :invalid_bus} = JidoCommand.invoke("review", %{}, %{}, bus: {:demo, nil})
-    assert {:error, :invalid_bus} = JidoCommand.invoke("review", %{}, %{}, bus: {:demo, :global})
-    assert {:error, :invalid_bus} = JidoCommand.invoke("review", %{}, %{}, bus: {:global, :demo})
+    assert {:error, :invalid_bus} = Command.invoke("review", %{}, %{}, bus: 123)
+    assert {:error, :invalid_bus} = Command.invoke("review", %{}, %{}, bus: "")
+    assert {:error, :invalid_bus} = Command.invoke("review", %{}, %{}, bus: "   ")
+    assert {:error, :invalid_bus} = Command.invoke("review", %{}, %{}, bus: ":")
+    assert {:error, :invalid_bus} = Command.invoke("review", %{}, %{}, bus: {nil, :registry})
+    assert {:error, :invalid_bus} = Command.invoke("review", %{}, %{}, bus: {:demo, nil})
+    assert {:error, :invalid_bus} = Command.invoke("review", %{}, %{}, bus: {:demo, :global})
+    assert {:error, :invalid_bus} = Command.invoke("review", %{}, %{}, bus: {:global, :demo})
   end
 
   test "invoke rejects invalid context bus values" do
-    assert {:error, :invalid_context_bus} = JidoCommand.invoke("review", %{}, %{"bus" => 123})
-    assert {:error, :invalid_context_bus} = JidoCommand.invoke("review", %{}, %{bus: ""})
-    assert {:error, :invalid_context_bus} = JidoCommand.invoke("review", %{}, %{"bus" => "   "})
-    assert {:error, :invalid_context_bus} = JidoCommand.invoke("review", %{}, %{"bus" => ":"})
+    assert {:error, :invalid_context_bus} = Command.invoke("review", %{}, %{"bus" => 123})
+    assert {:error, :invalid_context_bus} = Command.invoke("review", %{}, %{bus: ""})
+    assert {:error, :invalid_context_bus} = Command.invoke("review", %{}, %{"bus" => "   "})
+    assert {:error, :invalid_context_bus} = Command.invoke("review", %{}, %{"bus" => ":"})
 
     assert {:error, :invalid_context_bus} =
-             JidoCommand.invoke("review", %{}, %{bus: {nil, :registry}})
+             Command.invoke("review", %{}, %{bus: {nil, :registry}})
 
     assert {:error, :invalid_context_bus} =
-             JidoCommand.invoke("review", %{}, %{"bus" => {:demo, nil}})
+             Command.invoke("review", %{}, %{"bus" => {:demo, nil}})
 
     assert {:error, :invalid_context_bus} =
-             JidoCommand.invoke("review", %{}, %{bus: {:demo, :global}})
+             Command.invoke("review", %{}, %{bus: {:demo, :global}})
 
     assert {:error, :invalid_context_bus} =
-             JidoCommand.invoke("review", %{}, %{"bus" => {:global, :demo}})
+             Command.invoke("review", %{}, %{"bus" => {:global, :demo}})
   end
 
   test "invoke rejects conflicting option keys" do
     assert {:error, {:invalid_invoke_options_conflicting_keys, ["bus"]}} =
-             JidoCommand.invoke("review", %{}, %{}, bus: :first, bus: :second)
+             Command.invoke("review", %{}, %{}, bus: :first, bus: :second)
   end
 
   test "invoke rejects invalid registry option values" do
     assert {:error, :invalid_registry} =
-             JidoCommand.invoke("review", %{}, %{}, registry: 123)
+             Command.invoke("review", %{}, %{}, registry: 123)
   end
 
   test "invoke returns error when registry server is unavailable" do
     registry = unique_registry_name()
 
     assert {:error, {:registry_unavailable, :noproc}} =
-             JidoCommand.invoke("review", %{}, %{}, registry: registry)
+             Command.invoke("review", %{}, %{}, registry: registry)
   end
 
   test "invoke rejects conflicting normalized keys in params and context" do
     assert {:error, {:invalid_params_conflicting_keys, ["x"]}} =
-             JidoCommand.invoke("review", %{"meta" => %{"x" => 1, :x => 2}}, %{})
+             Command.invoke("review", %{"meta" => %{"x" => 1, :x => 2}}, %{})
 
     assert {:error, {:invalid_context_conflicting_keys, ["allow"]}} =
-             JidoCommand.invoke(
+             Command.invoke(
                "review",
                %{},
                %{"permissions" => %{"allow" => ["Read"], :allow => ["Write"]}}
@@ -1068,7 +1069,7 @@ defmodule JidoCommandTest do
 
   test "invoke rejects conflicting normalized keys in permissions options" do
     assert {:error, {:invalid_permissions_conflicting_keys, ["allow"]}} =
-             JidoCommand.invoke(
+             Command.invoke(
                "review",
                %{},
                %{},
@@ -1078,22 +1079,22 @@ defmodule JidoCommandTest do
 
   test "invoke rejects non-map permissions option values" do
     assert {:error, :invalid_permissions} =
-             JidoCommand.invoke("review", %{}, %{}, permissions: "Read")
+             Command.invoke("review", %{}, %{}, permissions: "Read")
 
     assert {:error, :invalid_permissions} =
-             JidoCommand.invoke("review", %{}, %{}, permissions: ["Read"])
+             Command.invoke("review", %{}, %{}, permissions: ["Read"])
   end
 
   test "invoke rejects unknown permissions option keys" do
     assert {:error, {:invalid_permissions_keys, ["extra"]}} =
-             JidoCommand.invoke("review", %{}, %{},
+             Command.invoke("review", %{}, %{},
                permissions: %{"allow" => ["Read"], "extra" => true}
              )
   end
 
   test "invoke rejects non-string unknown permissions option keys" do
     assert {:error, {:invalid_permissions_keys, unknown_keys}} =
-             JidoCommand.invoke("review", %{}, %{},
+             Command.invoke("review", %{}, %{},
                permissions: %{{:extra, :key} => true, allow: ["Read"]}
              )
 
@@ -1102,41 +1103,41 @@ defmodule JidoCommandTest do
 
   test "invoke rejects non-list permissions option bucket values" do
     assert {:error, {:invalid_permissions_value, "allow", :must_be_list}} =
-             JidoCommand.invoke("review", %{}, %{}, permissions: %{"allow" => "Read"})
+             Command.invoke("review", %{}, %{}, permissions: %{"allow" => "Read"})
 
     assert {:error, {:invalid_permissions_value, "allow", :must_be_list}} =
-             JidoCommand.invoke("review", %{}, %{}, permissions: %{"allow" => false})
+             Command.invoke("review", %{}, %{}, permissions: %{"allow" => false})
 
     assert {:error, {:invalid_permissions_value, "allow", :must_be_list}} =
-             JidoCommand.invoke("review", %{}, %{}, permissions: %{allow: false})
+             Command.invoke("review", %{}, %{}, permissions: %{allow: false})
   end
 
   test "invoke rejects non-string permissions option list items" do
     assert {:error, {:invalid_permissions_item, "ask", 1}} =
-             JidoCommand.invoke("review", %{}, %{}, permissions: %{"ask" => ["Read", 123]})
+             Command.invoke("review", %{}, %{}, permissions: %{"ask" => ["Read", 123]})
   end
 
   test "invoke rejects non-map context permissions value" do
     assert {:error, :invalid_context_permissions} =
-             JidoCommand.invoke("review", %{}, %{"permissions" => "Read"})
+             Command.invoke("review", %{}, %{"permissions" => "Read"})
   end
 
   test "invoke rejects unknown context permissions keys" do
     assert {:error, {:invalid_context_permissions_keys, ["extra"]}} =
-             JidoCommand.invoke("review", %{}, %{
+             Command.invoke("review", %{}, %{
                "permissions" => %{"allow" => ["Read"], "extra" => true}
              })
   end
 
   test "invoke rejects invalid context permissions bucket values and items" do
     assert {:error, {:invalid_context_permissions_value, "allow", :must_be_list}} =
-             JidoCommand.invoke("review", %{}, %{"permissions" => %{"allow" => "Read"}})
+             Command.invoke("review", %{}, %{"permissions" => %{"allow" => "Read"}})
 
     assert {:error, {:invalid_context_permissions_value, "deny", :must_be_list}} =
-             JidoCommand.invoke("review", %{}, %{"permissions" => %{"deny" => false}})
+             Command.invoke("review", %{}, %{"permissions" => %{"deny" => false}})
 
     assert {:error, {:invalid_context_permissions_item, "ask", 1}} =
-             JidoCommand.invoke("review", %{}, %{"permissions" => %{"ask" => ["Read", 123]}})
+             Command.invoke("review", %{}, %{"permissions" => %{"ask" => ["Read", 123]}})
   end
 
   test "unregister_command removes a command from registry" do
@@ -1169,38 +1170,38 @@ defmodule JidoCommandTest do
        name: registry, bus: bus, global_root: global_root, local_root: local_root}
     )
 
-    assert ["review"] == JidoCommand.list_commands(registry: registry)
-    assert :ok = JidoCommand.unregister_command("review", registry: registry)
-    assert [] == JidoCommand.list_commands(registry: registry)
-    assert {:error, :not_found} = JidoCommand.unregister_command("review", registry: registry)
+    assert ["review"] == Command.list_commands(registry: registry)
+    assert :ok = Command.unregister_command("review", registry: registry)
+    assert [] == Command.list_commands(registry: registry)
+    assert {:error, :not_found} = Command.unregister_command("review", registry: registry)
   end
 
   test "unregister_command rejects blank and non-string names" do
-    assert {:error, :invalid_name} = JidoCommand.unregister_command("   ")
-    assert {:error, :invalid_name} = JidoCommand.unregister_command(123)
+    assert {:error, :invalid_name} = Command.unregister_command("   ")
+    assert {:error, :invalid_name} = Command.unregister_command(123)
   end
 
   test "unregister_command rejects invalid, unknown, and conflicting options" do
     assert {:error, :invalid_unregister_command_options} =
-             JidoCommand.unregister_command("review", %{registry: CommandRegistry})
+             Command.unregister_command("review", %{registry: CommandRegistry})
 
     assert {:error, {:invalid_unregister_command_options_keys, ["bus"]}} =
-             JidoCommand.unregister_command("review", bus: :jido_code_bus)
+             Command.unregister_command("review", bus: :jido_code_bus)
 
     assert {:error, {:invalid_unregister_command_options_conflicting_keys, ["registry"]}} =
-             JidoCommand.unregister_command("review", registry: :first, registry: :second)
+             Command.unregister_command("review", registry: :first, registry: :second)
   end
 
   test "unregister_command rejects invalid registry option values" do
     assert {:error, :invalid_registry} =
-             JidoCommand.unregister_command("review", registry: 123)
+             Command.unregister_command("review", registry: 123)
   end
 
   test "unregister_command returns error when registry server is unavailable" do
     registry = unique_registry_name()
 
     assert {:error, {:registry_unavailable, :noproc}} =
-             JidoCommand.unregister_command("review", registry: registry)
+             Command.unregister_command("review", registry: registry)
   end
 
   defp unique_bus_name do

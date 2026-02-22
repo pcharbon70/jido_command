@@ -1,14 +1,14 @@
-defmodule JidoCommand.Application do
+defmodule Jido.Code.Command.Application do
   @moduledoc false
 
   use Application
 
   require Logger
 
-  alias JidoCommand.Config.Loader
-  alias JidoCommand.Config.Settings
-  alias JidoCommand.Extensibility.CommandDispatcher
-  alias JidoCommand.Extensibility.CommandRegistry
+  alias Jido.Code.Command.Config.Loader
+  alias Jido.Code.Command.Config.Settings
+  alias Jido.Code.Command.Extensibility.CommandDispatcher
+  alias Jido.Code.Command.Extensibility.CommandRegistry
 
   @impl true
   def start(_type, _args) do
@@ -40,7 +40,7 @@ defmodule JidoCommand.Application do
        ]}
     ]
 
-    opts = [strategy: :one_for_one, name: JidoCommand.Supervisor]
+    opts = [strategy: :one_for_one, name: Jido.Code.Command.Supervisor]
     Supervisor.start_link(children, opts)
   end
 end

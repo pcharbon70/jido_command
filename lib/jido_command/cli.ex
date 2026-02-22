@@ -1,11 +1,11 @@
-defmodule JidoCommand.CLI do
+defmodule Jido.Code.Command.CLI do
   @moduledoc """
   Optimus-based CLI for invoking and listing registered commands.
   """
 
   @spec main([String.t()], (integer() -> no_return()), module()) :: :ok | no_return()
   @spec main([String.t()], (integer() -> no_return())) :: :ok | no_return()
-  def main(argv, halt \\ &System.halt/1, runtime \\ JidoCommand) do
+  def main(argv, halt \\ &System.halt/1, runtime \\ Jido.Code.Command) do
     parser = parser_spec()
     result = Optimus.parse(parser, argv)
     handle_parse_result(result, parser, halt, runtime)
@@ -211,7 +211,7 @@ defmodule JidoCommand.CLI do
       name: "jido_command",
       description: "Signal-driven command runtime",
       version: "0.1.0",
-      author: "JidoCommand",
+      author: "Jido.Code.Command",
       about: "Invoke markdown-defined commands",
       allow_unknown_args: false,
       parse_double_dash: true,

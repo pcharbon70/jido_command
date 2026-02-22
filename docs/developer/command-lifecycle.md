@@ -2,12 +2,12 @@
 
 This page documents how commands move through runtime paths.
 
-## Path A: Direct API invoke (`JidoCommand.invoke/4`)
+## Path A: Direct API invoke (`Jido.Code.Command.invoke/4`)
 
 ```mermaid
 sequenceDiagram
   participant Caller as "Caller"
-  participant API as "JidoCommand.invoke/4"
+  participant API as "Jido.Code.Command.invoke/4"
   participant Registry as "CommandRegistry"
   participant Action as "Compiled Jido.Action"
   participant Runtime as "CommandRuntime"
@@ -33,12 +33,12 @@ Notes:
 - `invoke/4` returns execution result directly.
 - `command.completed` / `command.failed` are not emitted on this direct path.
 
-## Path B: Signal dispatch (`JidoCommand.dispatch/4` -> dispatcher)
+## Path B: Signal dispatch (`Jido.Code.Command.dispatch/4` -> dispatcher)
 
 ```mermaid
 sequenceDiagram
   participant Caller as "Caller"
-  participant API as "JidoCommand.dispatch/4"
+  participant API as "Jido.Code.Command.dispatch/4"
   participant Bus as "Signal Bus"
   participant Dispatcher as "CommandDispatcher"
   participant Registry as "CommandRegistry"

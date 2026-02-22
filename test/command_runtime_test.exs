@@ -1,34 +1,34 @@
-defmodule JidoCommand.Extensibility.CommandRuntimeTest do
+defmodule Jido.Code.Command.Extensibility.CommandRuntimeTest do
   use ExUnit.Case, async: true
 
+  alias Jido.Code.Command.Extensibility.CommandDefinition
+  alias Jido.Code.Command.Extensibility.CommandRuntime
   alias Jido.Signal
   alias Jido.Signal.Bus
-  alias JidoCommand.Extensibility.CommandDefinition
-  alias JidoCommand.Extensibility.CommandRuntime
 
   defmodule FailingExecutor do
-    @behaviour JidoCommand.Extensibility.CommandRuntime
+    @behaviour Jido.Code.Command.Extensibility.CommandRuntime
 
     @impl true
     def execute(_definition, _prompt, _params, _context), do: {:error, :boom}
   end
 
   defmodule RaisingExecutor do
-    @behaviour JidoCommand.Extensibility.CommandRuntime
+    @behaviour Jido.Code.Command.Extensibility.CommandRuntime
 
     @impl true
     def execute(_definition, _prompt, _params, _context), do: raise("boom")
   end
 
   defmodule InvalidResponseExecutor do
-    @behaviour JidoCommand.Extensibility.CommandRuntime
+    @behaviour Jido.Code.Command.Extensibility.CommandRuntime
 
     @impl true
     def execute(_definition, _prompt, _params, _context), do: :ok
   end
 
   defmodule ContextProbeExecutor do
-    @behaviour JidoCommand.Extensibility.CommandRuntime
+    @behaviour Jido.Code.Command.Extensibility.CommandRuntime
 
     @impl true
     def execute(_definition, _prompt, _params, context) do

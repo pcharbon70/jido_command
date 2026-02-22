@@ -1,9 +1,9 @@
-defmodule JidoCommand.Extensibility.CommandFrontmatter do
+defmodule Jido.Code.Command.Extensibility.CommandFrontmatter do
   @moduledoc """
   Parses markdown command files with YAML frontmatter into `CommandDefinition` structs.
   """
 
-  alias JidoCommand.Extensibility.CommandDefinition
+  alias Jido.Code.Command.Extensibility.CommandDefinition
 
   @frontmatter_regex ~r/\A---\s*\n(?<frontmatter>.*?)\n---\s*\n(?<body>.*)\z/s
 

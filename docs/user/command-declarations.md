@@ -31,7 +31,7 @@ allowed-tools:
   - Grep
   - Bash(git diff:*)
 jido:
-  command_module: JidoCommand.Commands.CodeReview
+  command_module: Jido.Code.Command.Commands.CodeReview
   hooks:
     pre: true
     after: true
@@ -82,7 +82,7 @@ Allowed keys under `jido`:
 ### `jido.command_module`
 
 - Optional module name string.
-- Must be a valid module path format (for example `JidoCommand.Commands.MyCommand`).
+- Must be a valid module path format (for example `Jido.Code.Command.Commands.MyCommand`).
 - If omitted, runtime creates a deterministic dynamic module.
 
 ### `jido.hooks`

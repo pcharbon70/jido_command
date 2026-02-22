@@ -1,6 +1,6 @@
-# JidoCommand
+# Jido.Code.Command
 
-JidoCommand is a command-only extensibility runtime built on `jido`, `jido_action`, and `jido_signal`.
+Jido.Code.Command is a command-only extensibility runtime built on `jido`, `jido_action`, and `jido_signal`.
 
 It supports:
 
@@ -47,50 +47,50 @@ Review {{target_file}} and summarize findings.
 
 ```elixir
 # direct invoke
-JidoCommand.invoke("code-review", %{"target_file" => "lib/foo.ex"})
+Jido.Code.Command.invoke("code-review", %{"target_file" => "lib/foo.ex"})
 
 # signal-based dispatch
-JidoCommand.dispatch("code-review", %{"target_file" => "lib/foo.ex"})
+Jido.Code.Command.dispatch("code-review", %{"target_file" => "lib/foo.ex"})
 
 # list currently loaded commands
-JidoCommand.list_commands()
+Jido.Code.Command.list_commands()
 
 # reload command registry from disk
-JidoCommand.reload()
+Jido.Code.Command.reload()
 
 # register one command file at runtime
-JidoCommand.register_command("commands/review.md")
+Jido.Code.Command.register_command("commands/review.md")
 
 # unregister a command by name
-JidoCommand.unregister_command("review")
+Jido.Code.Command.unregister_command("review")
 ```
 
 ## CLI usage
 
 ```bash
 # list commands
-mix run -e 'JidoCommand.CLI.main(["list"])'
+mix run -e 'Jido.Code.Command.CLI.main(["list"])'
 
 # invoke command
-mix run -e 'JidoCommand.CLI.main(["invoke", "code-review", "--params", "{\"target_file\":\"lib/foo.ex\"}"])'
+mix run -e 'Jido.Code.Command.CLI.main(["invoke", "code-review", "--params", "{\"target_file\":\"lib/foo.ex\"}"])'
 
 # invoke command with explicit invocation id
-mix run -e 'JidoCommand.CLI.main(["invoke", "code-review", "--invocation-id", "my-invoke-id"])'
+mix run -e 'Jido.Code.Command.CLI.main(["invoke", "code-review", "--invocation-id", "my-invoke-id"])'
 
 # dispatch command.invoke signal
-mix run -e 'JidoCommand.CLI.main(["dispatch", "code-review", "--params", "{\"target_file\":\"lib/foo.ex\"}"])'
+mix run -e 'Jido.Code.Command.CLI.main(["dispatch", "code-review", "--params", "{\"target_file\":\"lib/foo.ex\"}"])'
 
 # dispatch command.invoke signal with explicit invocation id
-mix run -e 'JidoCommand.CLI.main(["dispatch", "code-review", "--invocation-id", "my-dispatch-id"])'
+mix run -e 'Jido.Code.Command.CLI.main(["dispatch", "code-review", "--invocation-id", "my-dispatch-id"])'
 
 # reload command registry from configured roots
-mix run -e 'JidoCommand.CLI.main(["reload"])'
+mix run -e 'Jido.Code.Command.CLI.main(["reload"])'
 
 # register one command markdown file at runtime
-mix run -e 'JidoCommand.CLI.main(["register-command", "commands/review.md"])'
+mix run -e 'Jido.Code.Command.CLI.main(["register-command", "commands/review.md"])'
 
 # unregister one command by name at runtime
-mix run -e 'JidoCommand.CLI.main(["unregister-command", "review"])'
+mix run -e 'Jido.Code.Command.CLI.main(["unregister-command", "review"])'
 ```
 
 ## Settings

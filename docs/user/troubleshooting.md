@@ -45,8 +45,8 @@ mix test test/config_loader_test.exs
 
 ## Debug checklist
 
-1. Run `mix run -e 'JidoCommand.CLI.main(["list"])'` to verify registry load.
-2. Run `mix run -e 'JidoCommand.CLI.main(["invoke", "<name>"])'` with minimal params.
+1. Run `mix run -e 'Jido.Code.Command.CLI.main(["list"])'` to verify registry load.
+2. Run `mix run -e 'Jido.Code.Command.CLI.main(["invoke", "<name>"])'` with minimal params.
 3. Confirm command frontmatter contains only supported keys.
 4. Confirm `settings.json` keys match the supported contract.
 5. Subscribe to `command.failed` and `jido.hooks.after` to inspect runtime errors.

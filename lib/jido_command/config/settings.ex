@@ -1,4 +1,4 @@
-defmodule JidoCommand.Config.Settings do
+defmodule Jido.Code.Command.Config.Settings do
   @moduledoc """
   Normalized runtime settings loaded from global and local `settings.json` files.
   """

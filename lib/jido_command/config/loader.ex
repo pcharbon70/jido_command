@@ -1,9 +1,9 @@
-defmodule JidoCommand.Config.Loader do
+defmodule Jido.Code.Command.Config.Loader do
   @moduledoc """
   Loads global and local `settings.json` files and merges them with local precedence.
   """
 
-  alias JidoCommand.Config.Settings
+  alias Jido.Code.Command.Config.Settings
 
   @type load_error ::
           {:invalid_json, String.t(), term()}

@@ -1,9 +1,9 @@
-defmodule JidoCommand.Extensibility.CommandRegistryTest do
+defmodule Jido.Code.Command.Extensibility.CommandRegistryTest do
   use ExUnit.Case, async: true
 
+  alias Jido.Code.Command.Extensibility.CommandRegistry
   alias Jido.Signal
   alias Jido.Signal.Bus
-  alias JidoCommand.Extensibility.CommandRegistry
 
   test "loads global and local commands with local override" do
     root = tmp_root()

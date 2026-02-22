@@ -1,6 +1,6 @@
 # Settings and Startup
 
-`JidoCommand.Application` builds runtime configuration from global and local `settings.json` files.
+`Jido.Code.Command.Application` builds runtime configuration from global and local `settings.json` files.
 
 ## Startup flow
 

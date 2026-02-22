@@ -1,11 +1,11 @@
 # CLI Usage
 
-`JidoCommand.CLI` provides subcommands for command operations.
+`Jido.Code.Command.CLI` provides subcommands for command operations.
 
 ## Invocation pattern
 
 ```bash
-mix run -e 'JidoCommand.CLI.main(["list"])'
+mix run -e 'Jido.Code.Command.CLI.main(["list"])'
 ```
 
 ## Subcommands
@@ -13,7 +13,7 @@ mix run -e 'JidoCommand.CLI.main(["list"])'
 ### `list`
 
 ```bash
-mix run -e 'JidoCommand.CLI.main(["list"])'
+mix run -e 'Jido.Code.Command.CLI.main(["list"])'
 ```
 
 Prints loaded command names, one per line.
@@ -21,7 +21,7 @@ Prints loaded command names, one per line.
 ### `invoke`
 
 ```bash
-mix run -e 'JidoCommand.CLI.main(["invoke", "code-review", "--params", "{\"target_file\":\"lib/foo.ex\"}"])'
+mix run -e 'Jido.Code.Command.CLI.main(["invoke", "code-review", "--params", "{\"target_file\":\"lib/foo.ex\"}"])'
 ```
 
 Options:
@@ -33,7 +33,7 @@ Options:
 ### `dispatch`
 
 ```bash
-mix run -e 'JidoCommand.CLI.main(["dispatch", "code-review", "--params", "{\"target_file\":\"lib/foo.ex\"}"])'
+mix run -e 'Jido.Code.Command.CLI.main(["dispatch", "code-review", "--params", "{\"target_file\":\"lib/foo.ex\"}"])'
 ```
 
 Publishes `command.invoke` and prints JSON:
@@ -47,7 +47,7 @@ Options are the same as `invoke`.
 ### `reload`
 
 ```bash
-mix run -e 'JidoCommand.CLI.main(["reload"])'
+mix run -e 'Jido.Code.Command.CLI.main(["reload"])'
 ```
 
 Reloads command registry from configured roots.
@@ -55,7 +55,7 @@ Reloads command registry from configured roots.
 ### `register-command`
 
 ```bash
-mix run -e 'JidoCommand.CLI.main(["register-command", "commands/review.md"])'
+mix run -e 'Jido.Code.Command.CLI.main(["register-command", "commands/review.md"])'
 ```
 
 Registers one markdown command file at runtime.
@@ -63,7 +63,7 @@ Registers one markdown command file at runtime.
 ### `unregister-command`
 
 ```bash
-mix run -e 'JidoCommand.CLI.main(["unregister-command", "review"])'
+mix run -e 'Jido.Code.Command.CLI.main(["unregister-command", "review"])'
 ```
 
 Unregisters one command by name.

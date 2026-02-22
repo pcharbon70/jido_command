@@ -16,27 +16,27 @@ Optional data fields:
 - `context` (object): execution context merged into dispatcher context
 - `invocation_id` (string): caller-supplied ID; if absent dispatcher uses the inbound signal ID (or generates one if the inbound ID is invalid/missing)
 
-For API-level dispatch (`JidoCommand.dispatch/4`) and invoke (`JidoCommand.invoke/4`), invocation ID resolution order is: `opts[:invocation_id]` (when valid), then `context[:invocation_id]`/`context["invocation_id"]` (when valid), then a generated non-empty string.
-For API-level `JidoCommand.invoke/4` and `JidoCommand.dispatch/4`, command name must be a non-empty string and both `params` and `context` must be objects; invalid inputs return an error tuple (and `dispatch` does not publish a signal).
-For API-level `JidoCommand.invoke/4` and `JidoCommand.dispatch/4`, options must be keyword lists; non-keyword options are rejected.
-For API-level `JidoCommand.invoke/4` and `JidoCommand.dispatch/4`, conflicting normalized option keys are rejected.
-For API-level `JidoCommand.invoke/4` and `JidoCommand.dispatch/4`, unknown option keys are rejected.
-For API-level `JidoCommand.invoke/4` and `JidoCommand.dispatch/4`, `opts[:bus]` must be a valid bus server reference when provided.
-For API-level `JidoCommand.invoke/4` and `JidoCommand.dispatch/4`, tuple bus targets using reserved `:global` position(s) are rejected as invalid bus references.
-For API-level `JidoCommand.invoke/4` and `JidoCommand.dispatch/4`, binary bus names are normalized by trimming whitespace and an optional leading `:`.
-For API-level `JidoCommand.dispatch/4`, `context[:bus]`/`context["bus"]` must be a valid bus server reference when provided.
-For API-level `JidoCommand.dispatch/4`, bus resolution order is: `opts[:bus]` (when provided), then `context[:bus]`/`context["bus"]`, then `:jido_code_bus`.
-For API-level `JidoCommand.invoke/4`, `context[:bus]`/`context["bus"]` must be a valid bus server reference when provided.
-For API-level `JidoCommand.invoke/4`, bus resolution order is: `opts[:bus]` (when provided), then `context[:bus]`/`context["bus"]`, then `:jido_code_bus`; the resolved value is normalized into `context[:bus]`.
-For API-level `JidoCommand.invoke/4`, `opts[:registry]` must be a valid GenServer server reference when provided.
-For API-level `JidoCommand.invoke/4` and `JidoCommand.dispatch/4`, context cannot include both `:invocation_id` and `"invocation_id"` keys at the same time.
-For API-level `JidoCommand.invoke/4` and `JidoCommand.dispatch/4`, `params` and `context` reject conflicting normalized keys recursively (including nested maps).
-For API-level `JidoCommand.invoke/4`, when context includes `permissions`, that value must be a permissions object with top-level keys `allow`, `deny`, and `ask`.
-For API-level `JidoCommand.invoke/4`, `opts[:permissions]` must be a permissions object when provided.
-For API-level `JidoCommand.invoke/4`, `opts[:permissions]` rejects conflicting normalized keys recursively when provided as a map.
-For API-level `JidoCommand.invoke/4`, `opts[:permissions]` only accepts top-level keys `allow`, `deny`, and `ask` when provided as a map.
-For API-level `JidoCommand.invoke/4`, each `opts[:permissions]` bucket (`allow`, `deny`, `ask`) must be a list of strings/atoms when provided.
-For API-level `JidoCommand.invoke/4`, permissions bucket values are validated by key presence; `false` is rejected as invalid bucket content.
+For API-level dispatch (`Jido.Code.Command.dispatch/4`) and invoke (`Jido.Code.Command.invoke/4`), invocation ID resolution order is: `opts[:invocation_id]` (when valid), then `context[:invocation_id]`/`context["invocation_id"]` (when valid), then a generated non-empty string.
+For API-level `Jido.Code.Command.invoke/4` and `Jido.Code.Command.dispatch/4`, command name must be a non-empty string and both `params` and `context` must be objects; invalid inputs return an error tuple (and `dispatch` does not publish a signal).
+For API-level `Jido.Code.Command.invoke/4` and `Jido.Code.Command.dispatch/4`, options must be keyword lists; non-keyword options are rejected.
+For API-level `Jido.Code.Command.invoke/4` and `Jido.Code.Command.dispatch/4`, conflicting normalized option keys are rejected.
+For API-level `Jido.Code.Command.invoke/4` and `Jido.Code.Command.dispatch/4`, unknown option keys are rejected.
+For API-level `Jido.Code.Command.invoke/4` and `Jido.Code.Command.dispatch/4`, `opts[:bus]` must be a valid bus server reference when provided.
+For API-level `Jido.Code.Command.invoke/4` and `Jido.Code.Command.dispatch/4`, tuple bus targets using reserved `:global` position(s) are rejected as invalid bus references.
+For API-level `Jido.Code.Command.invoke/4` and `Jido.Code.Command.dispatch/4`, binary bus names are normalized by trimming whitespace and an optional leading `:`.
+For API-level `Jido.Code.Command.dispatch/4`, `context[:bus]`/`context["bus"]` must be a valid bus server reference when provided.
+For API-level `Jido.Code.Command.dispatch/4`, bus resolution order is: `opts[:bus]` (when provided), then `context[:bus]`/`context["bus"]`, then `:jido_code_bus`.
+For API-level `Jido.Code.Command.invoke/4`, `context[:bus]`/`context["bus"]` must be a valid bus server reference when provided.
+For API-level `Jido.Code.Command.invoke/4`, bus resolution order is: `opts[:bus]` (when provided), then `context[:bus]`/`context["bus"]`, then `:jido_code_bus`; the resolved value is normalized into `context[:bus]`.
+For API-level `Jido.Code.Command.invoke/4`, `opts[:registry]` must be a valid GenServer server reference when provided.
+For API-level `Jido.Code.Command.invoke/4` and `Jido.Code.Command.dispatch/4`, context cannot include both `:invocation_id` and `"invocation_id"` keys at the same time.
+For API-level `Jido.Code.Command.invoke/4` and `Jido.Code.Command.dispatch/4`, `params` and `context` reject conflicting normalized keys recursively (including nested maps).
+For API-level `Jido.Code.Command.invoke/4`, when context includes `permissions`, that value must be a permissions object with top-level keys `allow`, `deny`, and `ask`.
+For API-level `Jido.Code.Command.invoke/4`, `opts[:permissions]` must be a permissions object when provided.
+For API-level `Jido.Code.Command.invoke/4`, `opts[:permissions]` rejects conflicting normalized keys recursively when provided as a map.
+For API-level `Jido.Code.Command.invoke/4`, `opts[:permissions]` only accepts top-level keys `allow`, `deny`, and `ask` when provided as a map.
+For API-level `Jido.Code.Command.invoke/4`, each `opts[:permissions]` bucket (`allow`, `deny`, `ask`) must be a list of strings/atoms when provided.
+For API-level `Jido.Code.Command.invoke/4`, permissions bucket values are validated by key presence; `false` is rejected as invalid bucket content.
 
 Dispatcher-enforced execution context fields:
 
@@ -178,22 +178,22 @@ Registry validation rule:
 
 Public API validation rules:
 
-- `JidoCommand.list_commands/1` only accepts keyword options with `:registry`; non-keyword, unknown, or conflicting option keys are rejected.
-- `JidoCommand.list_commands/1` requires `:registry` to be a valid GenServer server reference when provided.
-- `JidoCommand.list_commands/1` returns `{:error, {:registry_unavailable, reason}}` when the selected registry server cannot be reached.
+- `Jido.Code.Command.list_commands/1` only accepts keyword options with `:registry`; non-keyword, unknown, or conflicting option keys are rejected.
+- `Jido.Code.Command.list_commands/1` requires `:registry` to be a valid GenServer server reference when provided.
+- `Jido.Code.Command.list_commands/1` returns `{:error, {:registry_unavailable, reason}}` when the selected registry server cannot be reached.
   For missing registry processes, `reason` is normalized to `:noproc`.
-- `JidoCommand.reload/1` only accepts keyword options with `:registry`; non-keyword, unknown, or conflicting option keys are rejected.
-- `JidoCommand.reload/1` requires `:registry` to be a valid GenServer server reference when provided.
-- `JidoCommand.reload/1` returns `{:error, {:registry_unavailable, reason}}` when the selected registry server cannot be reached.
-- `JidoCommand.register_command/2` requires a non-empty string path and returns `{:error, :invalid_path}` for invalid input
-- `JidoCommand.register_command/2` only accepts keyword options with `:registry`; non-keyword, unknown, or conflicting option keys are rejected.
-- `JidoCommand.register_command/2` requires `:registry` to be a valid GenServer server reference when provided.
-- `JidoCommand.register_command/2` returns `{:error, {:registry_unavailable, reason}}` when the selected registry server cannot be reached.
-- `JidoCommand.unregister_command/2` requires a non-empty string name and returns `{:error, :invalid_name}` for invalid input
-- `JidoCommand.unregister_command/2` only accepts keyword options with `:registry`; non-keyword, unknown, or conflicting option keys are rejected.
-- `JidoCommand.unregister_command/2` requires `:registry` to be a valid GenServer server reference when provided.
-- `JidoCommand.unregister_command/2` returns `{:error, {:registry_unavailable, reason}}` when the selected registry server cannot be reached.
-- `JidoCommand.invoke/4` returns `{:error, {:registry_unavailable, reason}}` when the selected registry server cannot be reached.
+- `Jido.Code.Command.reload/1` only accepts keyword options with `:registry`; non-keyword, unknown, or conflicting option keys are rejected.
+- `Jido.Code.Command.reload/1` requires `:registry` to be a valid GenServer server reference when provided.
+- `Jido.Code.Command.reload/1` returns `{:error, {:registry_unavailable, reason}}` when the selected registry server cannot be reached.
+- `Jido.Code.Command.register_command/2` requires a non-empty string path and returns `{:error, :invalid_path}` for invalid input
+- `Jido.Code.Command.register_command/2` only accepts keyword options with `:registry`; non-keyword, unknown, or conflicting option keys are rejected.
+- `Jido.Code.Command.register_command/2` requires `:registry` to be a valid GenServer server reference when provided.
+- `Jido.Code.Command.register_command/2` returns `{:error, {:registry_unavailable, reason}}` when the selected registry server cannot be reached.
+- `Jido.Code.Command.unregister_command/2` requires a non-empty string name and returns `{:error, :invalid_name}` for invalid input
+- `Jido.Code.Command.unregister_command/2` only accepts keyword options with `:registry`; non-keyword, unknown, or conflicting option keys are rejected.
+- `Jido.Code.Command.unregister_command/2` requires `:registry` to be a valid GenServer server reference when provided.
+- `Jido.Code.Command.unregister_command/2` returns `{:error, {:registry_unavailable, reason}}` when the selected registry server cannot be reached.
+- `Jido.Code.Command.invoke/4` returns `{:error, {:registry_unavailable, reason}}` when the selected registry server cannot be reached.
 
 ## Command hook signals (`jido.hooks.pre`, `jido.hooks.after`)
 
