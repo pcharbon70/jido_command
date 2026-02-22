@@ -6,9 +6,9 @@
 
 ```mermaid
 flowchart TD
-  A["JidoCommand.Supervisor"] --> B["Jido.Signal.Bus"]
-  A --> C["JidoCommand.Extensibility.CommandRegistry"]
-  A --> D["JidoCommand.Extensibility.CommandDispatcher"]
+  A["Jido.Code.Command.Supervisor"] --> B["Jido.Signal.Bus"]
+  A --> C["Jido.Code.Command.Extensibility.CommandRegistry"]
+  A --> D["Jido.Code.Command.Extensibility.CommandDispatcher"]
   D -->|"Subscribes to command.invoke"| B
   C -->|"Publishes registry lifecycle signals"| B
 ```
@@ -17,7 +17,7 @@ flowchart TD
 
 ```mermaid
 flowchart LR
-  U["Caller (CLI/API)"] --> V["JidoCommand Public API"]
+  U["Caller (CLI/API)"] --> V["Jido.Code.Command Public API"]
 
   V -->|"invoke/4"| R["CommandRegistry"]
   R --> M["Compiled Jido.Action module"]
@@ -41,11 +41,11 @@ flowchart LR
 
 ## Important modules
 
-- `JidoCommand`: public API (`list_commands`, `invoke`, `dispatch`, `reload`, `register_command`, `unregister_command`)
-- `JidoCommand.Application`: boot, settings load, supervision
-- `JidoCommand.Config.Loader` / `JidoCommand.Config.Settings`: settings merge + validation
-- `JidoCommand.Extensibility.CommandRegistry`: command catalog and runtime registration
-- `JidoCommand.Extensibility.CommandDispatcher`: `command.invoke` subscriber and async execution queue
-- `JidoCommand.Extensibility.CommandFrontmatter`: command markdown parser + validation
-- `JidoCommand.Extensibility.Command`: compilation to `Jido.Action` modules
-- `JidoCommand.Extensibility.CommandRuntime`: template interpolation, hook emission, permission filtering
+- `Jido.Code.Command`: public API (`list_commands`, `invoke`, `dispatch`, `reload`, `register_command`, `unregister_command`)
+- `Jido.Code.Command.Application`: boot, settings load, supervision
+- `Jido.Code.Command.Config.Loader` / `Jido.Code.Command.Config.Settings`: settings merge + validation
+- `Jido.Code.Command.Extensibility.CommandRegistry`: command catalog and runtime registration
+- `Jido.Code.Command.Extensibility.CommandDispatcher`: `command.invoke` subscriber and async execution queue
+- `Jido.Code.Command.Extensibility.CommandFrontmatter`: command markdown parser + validation
+- `Jido.Code.Command.Extensibility.Command`: compilation to `Jido.Action` modules
+- `Jido.Code.Command.Extensibility.CommandRuntime`: template interpolation, hook emission, permission filtering

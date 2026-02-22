@@ -1,15 +1,15 @@
-defmodule JidoCommand.Extensibility.CommandRegistry do
+defmodule Jido.Code.Command.Extensibility.CommandRegistry do
   @moduledoc """
   Central registry for loaded command modules.
   """
 
   use GenServer
 
+  alias Jido.Code.Command.Config.Loader
+  alias Jido.Code.Command.Extensibility.Command
+  alias Jido.Code.Command.Extensibility.CommandLoader
   alias Jido.Signal
   alias Jido.Signal.Bus
-  alias JidoCommand.Config.Loader
-  alias JidoCommand.Extensibility.Command
-  alias JidoCommand.Extensibility.CommandLoader
 
   @type state :: %{
           bus: atom(),

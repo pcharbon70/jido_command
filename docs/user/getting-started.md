@@ -37,15 +37,15 @@ iex -S mix
 At startup, the application supervises:
 
 - `Jido.Signal.Bus`
-- `JidoCommand.Extensibility.CommandRegistry`
-- `JidoCommand.Extensibility.CommandDispatcher`
+- `Jido.Code.Command.Extensibility.CommandRegistry`
+- `Jido.Code.Command.Extensibility.CommandDispatcher`
 
 ## 5. List commands
 
 From another shell:
 
 ```bash
-mix run -e 'JidoCommand.CLI.main(["list"])'
+mix run -e 'Jido.Code.Command.CLI.main(["list"])'
 ```
 
 You should see `hello` in the output.
@@ -53,13 +53,13 @@ You should see `hello` in the output.
 ## 6. Invoke the command
 
 ```bash
-mix run -e 'JidoCommand.CLI.main(["invoke", "hello", "--params", "{\"name\":\"Pascal\"}"])'
+mix run -e 'Jido.Code.Command.CLI.main(["invoke", "hello", "--params", "{\"name\":\"Pascal\"}"])'
 ```
 
 You can also invoke from Elixir:
 
 ```elixir
-JidoCommand.invoke("hello", %{"name" => "Pascal"})
+Jido.Code.Command.invoke("hello", %{"name" => "Pascal"})
 ```
 
 ## Runtime roots and precedence

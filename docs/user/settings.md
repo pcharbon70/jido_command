@@ -86,7 +86,7 @@ Supported keys:
 
 ## Startup behavior on invalid settings
 
-`JidoCommand.Application` attempts to load settings at boot.
+`Jido.Code.Command.Application` attempts to load settings at boot.
 
 - If settings are valid, they configure bus, registry, dispatcher, and defaults.
 - If settings load/validation fails, runtime logs a warning and falls back to built-in defaults.

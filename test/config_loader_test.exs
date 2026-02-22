@@ -1,8 +1,8 @@
-defmodule JidoCommand.Config.LoaderTest do
+defmodule Jido.Code.Command.Config.LoaderTest do
   use ExUnit.Case, async: true
 
-  alias JidoCommand.Config.Loader
-  alias JidoCommand.Config.Settings
+  alias Jido.Code.Command.Config.Loader
+  alias Jido.Code.Command.Config.Settings
 
   test "loads and merges global and local settings with local precedence" do
     root = tmp_root()

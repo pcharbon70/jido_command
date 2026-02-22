@@ -1,11 +1,11 @@
-defmodule JidoCommand.Extensibility.CommandRuntime do
+defmodule Jido.Code.Command.Extensibility.CommandRuntime do
   @moduledoc """
   Executes command bodies and emits predefined `pre` and `after` hook signals.
   """
 
+  alias Jido.Code.Command.Extensibility.CommandDefinition
   alias Jido.Signal
   alias Jido.Signal.Bus
-  alias JidoCommand.Extensibility.CommandDefinition
 
   @type execute_result :: {:ok, map()} | {:error, term()}
   @pre_hook_signal "jido.hooks.pre"
@@ -317,7 +317,7 @@ defmodule JidoCommand.Extensibility.CommandRuntime do
     Default command executor used until a model/tool runtime is plugged in.
     """
 
-    @behaviour JidoCommand.Extensibility.CommandRuntime
+    @behaviour Jido.Code.Command.Extensibility.CommandRuntime
 
     @impl true
     def execute(definition, prompt, params, context) do

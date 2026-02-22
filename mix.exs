@@ -1,4 +1,4 @@
-defmodule JidoCommand.MixProject do
+defmodule Jido.Code.Command.MixProject do
   use Mix.Project
 
   def project do
@@ -15,7 +15,7 @@ defmodule JidoCommand.MixProject do
   def application do
     [
       extra_applications: [:logger],
-      mod: {JidoCommand.Application, []}
+      mod: {Jido.Code.Command.Application, []}
     ]
   end
 

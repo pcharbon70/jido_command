@@ -1,11 +1,11 @@
-defmodule JidoCommand.Extensibility.CommandCompilerTest do
+defmodule Jido.Code.Command.Extensibility.CommandCompilerTest do
   use ExUnit.Case, async: true
 
-  alias JidoCommand.Extensibility.Command
+  alias Jido.Code.Command.Extensibility.Command
 
   test "uses jido.command_module when provided" do
     unique = System.unique_integer([:positive, :monotonic])
-    module_name = "JidoCommand.TestDynamic.Command#{unique}"
+    module_name = "Jido.Code.Command.TestDynamic.Command#{unique}"
     module_atom = Module.concat([module_name])
 
     file = Path.join(System.tmp_dir!(), "command_compiler_#{unique}.md")

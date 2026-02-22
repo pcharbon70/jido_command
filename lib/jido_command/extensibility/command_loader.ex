@@ -1,9 +1,9 @@
-defmodule JidoCommand.Extensibility.CommandLoader do
+defmodule Jido.Code.Command.Extensibility.CommandLoader do
   @moduledoc """
   Loads markdown command files from command directories.
   """
 
-  alias JidoCommand.Extensibility.Command
+  alias Jido.Code.Command.Extensibility.Command
 
   @type command_index :: %{optional(String.t()) => map()}
 

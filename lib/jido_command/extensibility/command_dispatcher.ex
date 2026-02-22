@@ -1,13 +1,13 @@
-defmodule JidoCommand.Extensibility.CommandDispatcher do
+defmodule Jido.Code.Command.Extensibility.CommandDispatcher do
   @moduledoc """
   Subscribes to `command.invoke` signals and executes registered commands.
   """
 
   use GenServer
 
+  alias Jido.Code.Command.Extensibility.CommandRegistry
   alias Jido.Signal
   alias Jido.Signal.Bus
-  alias JidoCommand.Extensibility.CommandRegistry
 
   @spec start_link(keyword()) :: GenServer.on_start()
   def start_link(opts) do
@@ -18,21 +18,22 @@ defmodule JidoCommand.Extensibility.CommandDispatcher do
   def init(opts) do
     max_concurrent = parse_max_concurrent(Keyword.get(opts, :max_concurrent, 5))
 
-    with {:ok, bus} <- normalize_bus_server(Keyword.get(opts, :bus, :jido_code_bus)) do
-      state = %{
-        bus: bus,
-        registry: Keyword.get(opts, :registry, CommandRegistry),
-        permissions: normalize_permissions(Keyword.get(opts, :permissions, %{})),
-        max_concurrent: max_concurrent,
-        in_flight: 0,
-        queue: :queue.new()
-      }
+    case normalize_bus_server(Keyword.get(opts, :bus, :jido_code_bus)) do
+      {:ok, bus} ->
+        state = %{
+          bus: bus,
+          registry: Keyword.get(opts, :registry, CommandRegistry),
+          permissions: normalize_permissions(Keyword.get(opts, :permissions, %{})),
+          max_concurrent: max_concurrent,
+          in_flight: 0,
+          queue: :queue.new()
+        }
 
-      case subscribe_to_invoke_signals(state.bus, self()) do
-        :ok -> {:ok, state}
-        {:error, reason} -> {:stop, {:subscribe_failed, reason}}
-      end
-    else
+        case subscribe_to_invoke_signals(state.bus, self()) do
+          :ok -> {:ok, state}
+          {:error, reason} -> {:stop, {:subscribe_failed, reason}}
+        end
+
       {:error, reason} ->
         {:stop, {:subscribe_failed, reason}}
     end

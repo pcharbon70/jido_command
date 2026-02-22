@@ -1,9 +1,9 @@
-defmodule JidoCommand.CLITest do
+defmodule Jido.Code.Command.CLITest do
   use ExUnit.Case, async: false
 
   import ExUnit.CaptureIO
 
-  alias JidoCommand.CLI
+  alias Jido.Code.Command.CLI
 
   defmodule RuntimeStub do
     def list_commands do

@@ -1,4 +1,4 @@
-defmodule JidoCommand.Extensibility.CommandDefinition do
+defmodule Jido.Code.Command.Extensibility.CommandDefinition do
   @moduledoc """
   Canonical representation of a markdown-defined command.
   """

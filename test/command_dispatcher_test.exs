@@ -1,13 +1,13 @@
-defmodule JidoCommand.Extensibility.CommandDispatcherTest do
+defmodule Jido.Code.Command.Extensibility.CommandDispatcherTest do
   use ExUnit.Case, async: true
 
+  alias Jido.Code.Command.Extensibility.CommandDispatcher
+  alias Jido.Code.Command.Extensibility.CommandRegistry
   alias Jido.Signal
   alias Jido.Signal.Bus
-  alias JidoCommand.Extensibility.CommandDispatcher
-  alias JidoCommand.Extensibility.CommandRegistry
 
   defmodule ProbeExecutor do
-    @behaviour JidoCommand.Extensibility.CommandRuntime
+    @behaviour Jido.Code.Command.Extensibility.CommandRuntime
 
     @impl true
     def execute(_definition, _prompt, params, context) do
@@ -22,7 +22,7 @@ defmodule JidoCommand.Extensibility.CommandDispatcherTest do
   end
 
   defmodule PermissionsProbeExecutor do
-    @behaviour JidoCommand.Extensibility.CommandRuntime
+    @behaviour Jido.Code.Command.Extensibility.CommandRuntime
 
     @impl true
     def execute(_definition, _prompt, _params, context) do
@@ -33,7 +33,7 @@ defmodule JidoCommand.Extensibility.CommandDispatcherTest do
   end
 
   defmodule ContextProbeExecutor do
-    @behaviour JidoCommand.Extensibility.CommandRuntime
+    @behaviour Jido.Code.Command.Extensibility.CommandRuntime
 
     @impl true
     def execute(_definition, _prompt, _params, context) do
@@ -59,6 +59,8 @@ defmodule JidoCommand.Extensibility.CommandDispatcherTest do
   end
 
   test "start_link returns subscribe_failed noproc when bus is unavailable" do
+    Process.flag(:trap_exit, true)
+
     bus = unique_bus_name()
     dispatcher = unique_dispatcher_name()
     registry = unique_registry_name()
@@ -96,6 +98,8 @@ defmodule JidoCommand.Extensibility.CommandDispatcherTest do
   end
 
   test "start_link rejects empty normalized binary bus names" do
+    Process.flag(:trap_exit, true)
+
     dispatcher = unique_dispatcher_name()
     registry = unique_registry_name()
 
@@ -107,6 +111,8 @@ defmodule JidoCommand.Extensibility.CommandDispatcherTest do
   end
 
   test "start_link normalizes invalid tuple bus target subscription failures" do
+    Process.flag(:trap_exit, true)
+
     missing_registry =
       :"jido_command_missing_registry_#{System.unique_integer([:positive, :monotonic])}"
 

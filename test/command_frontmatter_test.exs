@@ -1,7 +1,7 @@
-defmodule JidoCommand.Extensibility.CommandFrontmatterTest do
+defmodule Jido.Code.Command.Extensibility.CommandFrontmatterTest do
   use ExUnit.Case, async: true
 
-  alias JidoCommand.Extensibility.CommandFrontmatter
+  alias Jido.Code.Command.Extensibility.CommandFrontmatter
 
   test "parses command frontmatter with validated hooks and schema" do
     markdown = """
@@ -13,7 +13,7 @@ defmodule JidoCommand.Extensibility.CommandFrontmatterTest do
       - Read
       - Grep
     jido:
-      command_module: JidoCommand.Commands.CodeReview
+      command_module: Jido.Code.Command.Commands.CodeReview
       hooks:
         pre: true
         after: true
@@ -30,7 +30,7 @@ defmodule JidoCommand.Extensibility.CommandFrontmatterTest do
 
     assert definition.name == "code-review"
     assert definition.description == "Review code"
-    assert definition.command_module == JidoCommand.Commands.CodeReview
+    assert definition.command_module == Jido.Code.Command.Commands.CodeReview
     assert definition.model == "sonnet"
     assert definition.allowed_tools == ["Read", "Grep"]
     assert definition.hooks.pre == true

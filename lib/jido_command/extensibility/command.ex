@@ -1,11 +1,11 @@
-defmodule JidoCommand.Extensibility.Command do
+defmodule Jido.Code.Command.Extensibility.Command do
   @moduledoc """
   Compiles markdown command definitions into runtime `Jido.Action` modules.
   """
 
-  alias JidoCommand.Extensibility.CommandDefinition
-  alias JidoCommand.Extensibility.CommandFrontmatter
-  alias JidoCommand.Extensibility.CommandRuntime
+  alias Jido.Code.Command.Extensibility.CommandDefinition
+  alias Jido.Code.Command.Extensibility.CommandFrontmatter
+  alias Jido.Code.Command.Extensibility.CommandRuntime
 
   @type compiled_command :: %{
           name: String.t(),
@@ -104,7 +104,7 @@ defmodule JidoCommand.Extensibility.Command do
       |> String.replace(~r/[^a-zA-Z0-9_]+/, "_")
       |> Macro.camelize()
 
-    Module.concat([JidoCommand, DynamicCommands, normalized <> "_" <> digest])
+    Module.concat([Jido.Code.Command, DynamicCommands, normalized <> "_" <> digest])
   end
 
   defp purge_module(module) do

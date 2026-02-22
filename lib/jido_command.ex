@@ -1,11 +1,11 @@
-defmodule JidoCommand do
+defmodule Jido.Code.Command do
   @moduledoc """
   Public API for invoking and dispatching markdown-defined Jido commands.
   """
 
+  alias Jido.Code.Command.Extensibility.CommandRegistry
   alias Jido.Signal
   alias Jido.Signal.Bus
-  alias JidoCommand.Extensibility.CommandRegistry
   @invoke_allowed_option_keys [:registry, :bus, :invocation_id, :permissions]
   @dispatch_allowed_option_keys [:bus, :invocation_id]
   @registry_allowed_option_keys [:registry]
