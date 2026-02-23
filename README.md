@@ -77,6 +77,9 @@ mix escript.build
 # shorthand: command params as direct options
 ./command code-review --target-file lib/foo.ex --max-results 10 --dry-run
 
+# force command invocation when name conflicts with a CLI subcommand
+./command -- list --target-file lib/foo.ex
+
 # list commands
 mix run -e 'Jido.Code.Command.CLI.main(["list"])'
 
