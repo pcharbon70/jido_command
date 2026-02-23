@@ -29,6 +29,7 @@ Options:
 - `--params`, `-p`: JSON object (default `{}`)
 - `--context`, `-c`: JSON object (default `{}`)
 - `--invocation-id`: non-empty string
+- `--bus`: non-empty bus target string (for example `:jido_code_bus`)
 
 ### `dispatch`
 
