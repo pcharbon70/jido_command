@@ -66,8 +66,10 @@ defmodule Jido.Code.Command.CLI do
 
   defp parse_top_level_command_options(tokens) when is_list(tokens) do
     do_parse_top_level_command_options(tokens, %{
-      params: %{},
-      context: %{},
+      params_file: %{},
+      params_inline: %{},
+      context_file: %{},
+      context_inline: %{},
       invocation_id: nil,
       bus: nil
     })
@@ -78,7 +80,7 @@ defmodule Jido.Code.Command.CLI do
   defp do_parse_top_level_command_options(["--params" | rest], state) do
     with {:ok, value, remaining} <- take_required_option_value("--params", rest),
          {:ok, params} <- parse_json_option("--params", value) do
-      next_state = %{state | params: Map.merge(state.params, params)}
+      next_state = %{state | params_inline: Map.merge(state.params_inline, params)}
       do_parse_top_level_command_options(remaining, next_state)
     end
   end
@@ -86,7 +88,7 @@ defmodule Jido.Code.Command.CLI do
   defp do_parse_top_level_command_options(["--params-file" | rest], state) do
     with {:ok, value, remaining} <- take_required_option_value("--params-file", rest),
          {:ok, params} <- parse_json_file_option("--params-file", value) do
-      next_state = %{state | params: Map.merge(state.params, params)}
+      next_state = %{state | params_file: Map.merge(state.params_file, params)}
       do_parse_top_level_command_options(remaining, next_state)
     end
   end
@@ -94,21 +96,21 @@ defmodule Jido.Code.Command.CLI do
   defp do_parse_top_level_command_options(["-p" | rest], state) do
     with {:ok, value, remaining} <- take_required_option_value("-p", rest),
          {:ok, params} <- parse_json_option("-p", value) do
-      next_state = %{state | params: Map.merge(state.params, params)}
+      next_state = %{state | params_inline: Map.merge(state.params_inline, params)}
       do_parse_top_level_command_options(remaining, next_state)
     end
   end
 
   defp do_parse_top_level_command_options([<<"--params=", value::binary>> | rest], state) do
     with {:ok, params} <- parse_json_option("--params", value) do
-      next_state = %{state | params: Map.merge(state.params, params)}
+      next_state = %{state | params_inline: Map.merge(state.params_inline, params)}
       do_parse_top_level_command_options(rest, next_state)
     end
   end
 
   defp do_parse_top_level_command_options([<<"--params-file=", value::binary>> | rest], state) do
     with {:ok, params} <- parse_json_file_option("--params-file", value) do
-      next_state = %{state | params: Map.merge(state.params, params)}
+      next_state = %{state | params_file: Map.merge(state.params_file, params)}
       do_parse_top_level_command_options(rest, next_state)
     end
   end
@@ -116,7 +118,7 @@ defmodule Jido.Code.Command.CLI do
   defp do_parse_top_level_command_options(["--context" | rest], state) do
     with {:ok, value, remaining} <- take_required_option_value("--context", rest),
          {:ok, context} <- parse_json_option("--context", value) do
-      next_state = %{state | context: Map.merge(state.context, context)}
+      next_state = %{state | context_inline: Map.merge(state.context_inline, context)}
       do_parse_top_level_command_options(remaining, next_state)
     end
   end
@@ -124,7 +126,7 @@ defmodule Jido.Code.Command.CLI do
   defp do_parse_top_level_command_options(["--context-file" | rest], state) do
     with {:ok, value, remaining} <- take_required_option_value("--context-file", rest),
          {:ok, context} <- parse_json_file_option("--context-file", value) do
-      next_state = %{state | context: Map.merge(state.context, context)}
+      next_state = %{state | context_file: Map.merge(state.context_file, context)}
       do_parse_top_level_command_options(remaining, next_state)
     end
   end
@@ -132,21 +134,21 @@ defmodule Jido.Code.Command.CLI do
   defp do_parse_top_level_command_options(["-c" | rest], state) do
     with {:ok, value, remaining} <- take_required_option_value("-c", rest),
          {:ok, context} <- parse_json_option("-c", value) do
-      next_state = %{state | context: Map.merge(state.context, context)}
+      next_state = %{state | context_inline: Map.merge(state.context_inline, context)}
       do_parse_top_level_command_options(remaining, next_state)
     end
   end
 
   defp do_parse_top_level_command_options([<<"--context=", value::binary>> | rest], state) do
     with {:ok, context} <- parse_json_option("--context", value) do
-      next_state = %{state | context: Map.merge(state.context, context)}
+      next_state = %{state | context_inline: Map.merge(state.context_inline, context)}
       do_parse_top_level_command_options(rest, next_state)
     end
   end
 
   defp do_parse_top_level_command_options([<<"--context-file=", value::binary>> | rest], state) do
     with {:ok, context} <- parse_json_file_option("--context-file", value) do
-      next_state = %{state | context: Map.merge(state.context, context)}
+      next_state = %{state | context_file: Map.merge(state.context_file, context)}
       do_parse_top_level_command_options(rest, next_state)
     end
   end
@@ -179,8 +181,8 @@ defmodule Jido.Code.Command.CLI do
 
   defp do_parse_top_level_command_options([<<"--", raw_option::binary>> | rest], state) do
     with {:ok, key, value, remaining} <- parse_param_option(raw_option, rest) do
-      params = Map.put(state.params, key, value)
-      do_parse_top_level_command_options(remaining, %{state | params: params})
+      params = Map.put(state.params_inline, key, value)
+      do_parse_top_level_command_options(remaining, %{state | params_inline: params})
     end
   end
 
@@ -289,9 +291,21 @@ defmodule Jido.Code.Command.CLI do
 
   defp build_invoke_alias_argv(command, parsed)
        when is_binary(command) and is_map(parsed) do
+    params =
+      Map.merge(
+        Map.get(parsed, :params_file, %{}),
+        Map.get(parsed, :params_inline, %{})
+      )
+
+    context =
+      Map.merge(
+        Map.get(parsed, :context_file, %{}),
+        Map.get(parsed, :context_inline, %{})
+      )
+
     ["invoke", command]
-    |> maybe_put_alias_json_option("--params", Map.get(parsed, :params, %{}))
-    |> maybe_put_alias_json_option("--context", Map.get(parsed, :context, %{}))
+    |> maybe_put_alias_json_option("--params", params)
+    |> maybe_put_alias_json_option("--context", context)
     |> maybe_put_alias_string_option("--invocation-id", Map.get(parsed, :invocation_id))
     |> maybe_put_alias_string_option("--bus", Map.get(parsed, :bus))
   end

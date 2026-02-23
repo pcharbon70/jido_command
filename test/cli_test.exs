@@ -454,6 +454,38 @@ defmodule Jido.Code.Command.CLITest do
     assert %{"ok" => true, "command" => "review"} == Jason.decode!(output)
   end
 
+  test "top-level command name keeps inline params/context precedence regardless option order" do
+    params_path = write_temp_json_file!(~s({"count":1,"shared":"file","file_only":"yes"}))
+    context_path = write_temp_json_file!(~s({"shared":"file","source":"file"}))
+
+    output =
+      capture_io(fn ->
+        assert :ok ==
+                 CLI.main(
+                   [
+                     "review",
+                     "--params",
+                     ~s({"shared":"inline"}),
+                     "--count",
+                     "3",
+                     "--params-file",
+                     params_path,
+                     "--context",
+                     ~s({"shared":"inline"}),
+                     "--context-file",
+                     context_path
+                   ],
+                   fn code -> flunk("unexpected halt with #{code}") end,
+                   RuntimeStub
+                 )
+      end)
+
+    assert_receive {:runtime_invoke, "review", params, context}, 500
+    assert params == %{"count" => 3, "shared" => "inline", "file_only" => "yes"}
+    assert context == %{"shared" => "inline", "source" => "file"}
+    assert %{"ok" => true, "command" => "review"} == Jason.decode!(output)
+  end
+
   test "top-level command name supports invoke runtime options with shorthand params" do
     output =
       capture_io(fn ->
