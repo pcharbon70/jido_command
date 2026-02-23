@@ -108,6 +108,7 @@ mix do escript.build + escript.install
 If needed, add `~/.mix/escripts` to your `PATH` so `jido` is available everywhere.
 Set `JIDO_COMMAND_TZDATA_DIR` if you want a custom timezone data directory for the executable.
 If `JIDO_COMMAND_TZDATA_DIR` is not set, the executable auto-seeds timezone release data from its embedded archive.
+If the configured timezone directory cannot be prepared, the executable falls back to a temp runtime directory.
 
 ## Settings
 
