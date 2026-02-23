@@ -28,6 +28,12 @@ You can also pass command params directly as top-level options:
 ./command code-review --target-file lib/foo.ex --max-results 10 --dry-run
 ```
 
+Or load params/context from JSON files:
+
+```bash
+./command code-review --params-file params.json --context-file context.json
+```
+
 Optional global install:
 
 ```bash
@@ -61,6 +67,12 @@ Equivalent shorthand via escript:
 ./command code-review --params '{"target_file":"lib/foo.ex"}'
 ```
 
+With file inputs:
+
+```bash
+./command code-review --params-file params.json --context-file context.json
+```
+
 Top-level command invocation also accepts command params directly:
 
 ```bash
@@ -80,13 +92,15 @@ Shorthand param rules:
 - bare flags (for example `--dry-run`) become boolean `true`
 - param names normalize `-` to `_` (for example `--target-file` -> `target_file`)
 - values are JSON-decoded when valid JSON (numbers, booleans, objects, arrays, `null`), otherwise treated as strings
-- reserved options remain runtime options: `--params`, `-p`, `--context`, `-c`, `--invocation-id`, `--bus`
+- reserved options remain runtime options: `--params`, `--params-file`, `-p`, `--context`, `--context-file`, `-c`, `--invocation-id`, `--bus`
 - `--` before the command name forces top-level command invocation and bypasses subcommand matching
 
 Options:
 
 - `--params`, `-p`: JSON object (default `{}`)
+- `--params-file`: path to JSON file containing an object; merged before inline `--params` (inline keys win)
 - `--context`, `-c`: JSON object (default `{}`)
+- `--context-file`: path to JSON file containing an object; merged before inline `--context` (inline keys win)
 - `--invocation-id`: non-empty string
 - `--bus`: non-empty bus target string (for example `:jido_code_bus`)
 
@@ -134,6 +148,8 @@ Unregisters one command by name.
 
 - Valid: `{"x":1}`
 - Invalid: `[1,2,3]`
+
+`--params-file` and `--context-file` must reference readable files whose contents decode to JSON objects.
 
 ## Exit behavior
 

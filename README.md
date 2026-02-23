@@ -74,6 +74,9 @@ mix escript.build
 # invoke command through command executable
 ./command code-review --params '{"target_file":"lib/foo.ex"}'
 
+# invoke command using JSON files for params/context
+./command code-review --params-file params.json --context-file context.json
+
 # shorthand: command params as direct options
 ./command code-review --target-file lib/foo.ex --max-results 10 --dry-run
 
@@ -86,11 +89,17 @@ mix run -e 'Jido.Code.Command.CLI.main(["list"])'
 # invoke command
 mix run -e 'Jido.Code.Command.CLI.main(["invoke", "code-review", "--params", "{\"target_file\":\"lib/foo.ex\"}"])'
 
+# invoke command with JSON files for params/context
+mix run -e 'Jido.Code.Command.CLI.main(["invoke", "code-review", "--params-file", "params.json", "--context-file", "context.json"])'
+
 # invoke command with explicit invocation id
 mix run -e 'Jido.Code.Command.CLI.main(["invoke", "code-review", "--invocation-id", "my-invoke-id"])'
 
 # dispatch command.invoke signal
 mix run -e 'Jido.Code.Command.CLI.main(["dispatch", "code-review", "--params", "{\"target_file\":\"lib/foo.ex\"}"])'
+
+# dispatch command.invoke signal with JSON files for params/context
+mix run -e 'Jido.Code.Command.CLI.main(["dispatch", "code-review", "--params-file", "params.json", "--context-file", "context.json"])'
 
 # dispatch command.invoke signal with explicit invocation id
 mix run -e 'Jido.Code.Command.CLI.main(["dispatch", "code-review", "--invocation-id", "my-dispatch-id"])'
