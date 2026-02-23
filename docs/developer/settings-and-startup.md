@@ -48,6 +48,7 @@ Validation is strict:
 - `commands.max_concurrent` -> dispatcher in-flight limit
 - `permissions.allow|deny|ask` -> dispatcher runtime permissions
 - Registry/dispatcher startup bus targets normalize binary names (trim + optional leading `:`) and reject invalid empty-normalized targets
+- Application boot also sets `Application.put_env(:jido_command, :default_bus, settings.signal_bus.name)` so `Jido.Code.Command.invoke/4` and `dispatch/4` inherit the configured bus when callers omit `:bus`
 
 ## Failure fallback
 

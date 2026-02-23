@@ -25,9 +25,10 @@ For API-level `Jido.Code.Command.invoke/4` and `Jido.Code.Command.dispatch/4`, `
 For API-level `Jido.Code.Command.invoke/4` and `Jido.Code.Command.dispatch/4`, tuple bus targets using reserved `:global` position(s) are rejected as invalid bus references.
 For API-level `Jido.Code.Command.invoke/4` and `Jido.Code.Command.dispatch/4`, binary bus names are normalized by trimming whitespace and an optional leading `:`.
 For API-level `Jido.Code.Command.dispatch/4`, `context[:bus]`/`context["bus"]` must be a valid bus server reference when provided.
-For API-level `Jido.Code.Command.dispatch/4`, bus resolution order is: `opts[:bus]` (when provided), then `context[:bus]`/`context["bus"]`, then `:jido_code_bus`.
+For API-level `Jido.Code.Command.dispatch/4`, bus resolution order is: `opts[:bus]` (when provided), then `context[:bus]`/`context["bus"]`, then the configured application default bus (`Application.get_env(:jido_command, :default_bus, :jido_code_bus)`).
 For API-level `Jido.Code.Command.invoke/4`, `context[:bus]`/`context["bus"]` must be a valid bus server reference when provided.
-For API-level `Jido.Code.Command.invoke/4`, bus resolution order is: `opts[:bus]` (when provided), then `context[:bus]`/`context["bus"]`, then `:jido_code_bus`; the resolved value is normalized into `context[:bus]`.
+For API-level `Jido.Code.Command.invoke/4`, bus resolution order is: `opts[:bus]` (when provided), then `context[:bus]`/`context["bus"]`, then the configured application default bus (`Application.get_env(:jido_command, :default_bus, :jido_code_bus)`); the resolved value is normalized into `context[:bus]`.
+For API-level `Jido.Code.Command.invoke/4` and `Jido.Code.Command.dispatch/4`, invalid configured application default bus values fall back to `:jido_code_bus`.
 For API-level `Jido.Code.Command.invoke/4`, `opts[:registry]` must be a valid GenServer server reference when provided.
 For API-level `Jido.Code.Command.invoke/4` and `Jido.Code.Command.dispatch/4`, context cannot include both `:invocation_id` and `"invocation_id"` keys at the same time.
 For API-level `Jido.Code.Command.invoke/4` and `Jido.Code.Command.dispatch/4`, `params` and `context` reject conflicting normalized keys recursively (including nested maps).

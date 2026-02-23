@@ -89,4 +89,5 @@ Supported keys:
 `Jido.Code.Command.Application` attempts to load settings at boot.
 
 - If settings are valid, they configure bus, registry, dispatcher, and defaults.
+- When settings are valid, `signal_bus.name` is also applied as the default bus for `Jido.Code.Command.invoke/4` and `dispatch/4` when `:bus` is omitted.
 - If settings load/validation fails, runtime logs a warning and falls back to built-in defaults.

@@ -6,6 +6,8 @@ defmodule Jido.Code.Command do
   alias Jido.Code.Command.Extensibility.CommandRegistry
   alias Jido.Signal
   alias Jido.Signal.Bus
+
+  @default_bus_env_key :default_bus
   @invoke_allowed_option_keys [:registry, :bus, :invocation_id, :permissions]
   @dispatch_allowed_option_keys [:bus, :invocation_id]
   @registry_allowed_option_keys [:registry]
@@ -42,7 +44,7 @@ defmodule Jido.Code.Command do
          :ok <- validate_context_invocation_id_keys(context),
          :ok <- validate_non_conflicting_keys(params, :invalid_params_conflicting_keys),
          :ok <- validate_non_conflicting_keys(context, :invalid_context_conflicting_keys),
-         :ok <- validate_bus_server_option(Keyword.get(opts, :bus, :jido_code_bus)),
+         :ok <- validate_bus_server_option(bus_option_or_default(opts)),
          :ok <- validate_context_bus(context),
          :ok <- validate_context_permissions(context),
          :ok <- validate_permissions_option(Keyword.get(opts, :permissions)),
@@ -84,7 +86,7 @@ defmodule Jido.Code.Command do
          :ok <- validate_context_invocation_id_keys(context),
          :ok <- validate_non_conflicting_keys(params, :invalid_params_conflicting_keys),
          :ok <- validate_non_conflicting_keys(context, :invalid_context_conflicting_keys),
-         :ok <- validate_bus_server_option(Keyword.get(opts, :bus, :jido_code_bus)),
+         :ok <- validate_bus_server_option(bus_option_or_default(opts)),
          :ok <- validate_context_bus(context) do
       bus = resolve_bus(context, opts)
       invocation_id_option = Keyword.get(opts, :invocation_id)
@@ -474,6 +476,13 @@ defmodule Jido.Code.Command do
   defp normalize_unavailable_exception(%ArgumentError{}), do: :invalid_bus_target
   defp normalize_unavailable_exception(error), do: {:exception, Exception.message(error)}
 
+  defp bus_option_or_default(opts) when is_list(opts) do
+    case Keyword.fetch(opts, :bus) do
+      {:ok, bus} -> bus
+      :error -> default_bus_server()
+    end
+  end
+
   defp resolve_bus(context, opts) when is_map(context) and is_list(opts) do
     case Keyword.fetch(opts, :bus) do
       {:ok, bus} ->
@@ -482,7 +491,7 @@ defmodule Jido.Code.Command do
       :error ->
         case context_bus_option(context) do
           {:present, bus} -> normalize_bus_server(bus)
-          :missing -> :jido_code_bus
+          :missing -> default_bus_server()
         end
     end
   end
@@ -505,6 +514,21 @@ defmodule Jido.Code.Command do
     |> case do
       "" -> nil
       normalized -> normalized
+    end
+  end
+
+  defp default_bus_server do
+    configured =
+      Application.get_env(
+        :jido_command,
+        @default_bus_env_key,
+        :jido_code_bus
+      )
+
+    if valid_bus_server?(configured) do
+      normalize_bus_server(configured)
+    else
+      :jido_code_bus
     end
   end
 

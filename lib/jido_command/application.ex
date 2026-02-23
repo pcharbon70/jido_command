@@ -22,6 +22,8 @@ defmodule Jido.Code.Command.Application do
           %Settings{}
       end
 
+    Application.put_env(:jido_command, :default_bus, settings.bus_name)
+
     children = [
       {Jido.Signal.Bus, Settings.bus_opts(settings)},
       {CommandRegistry,

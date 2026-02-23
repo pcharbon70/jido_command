@@ -167,6 +167,45 @@ defmodule Jido.Code.CommandTest do
     assert data["invocation_id"] == invocation_id
   end
 
+  test "dispatch uses configured application default bus when no bus is provided" do
+    default_bus = unique_bus_name()
+    previous_default_bus = set_default_bus_for_test(default_bus)
+
+    on_exit(fn ->
+      restore_default_bus_for_test(previous_default_bus)
+    end)
+
+    start_supervised!({Bus, name: default_bus})
+
+    {:ok, _subscription} =
+      Bus.subscribe(default_bus, "command.invoke", dispatch: {:pid, target: self()})
+
+    assert {:ok, invocation_id} = Command.dispatch("demo", %{"x" => 1}, %{})
+
+    assert_receive {:signal, %Signal{type: "command.invoke", data: data}}, 1_000
+    assert data["name"] == "demo"
+    assert data["params"] == %{"x" => 1}
+    assert data["invocation_id"] == invocation_id
+  end
+
+  test "dispatch falls back to built-in default bus when configured default bus is invalid" do
+    previous_default_bus = set_default_bus_for_test("   ")
+
+    on_exit(fn ->
+      restore_default_bus_for_test(previous_default_bus)
+    end)
+
+    {:ok, _subscription} =
+      Bus.subscribe(:jido_code_bus, "command.invoke", dispatch: {:pid, target: self()})
+
+    assert {:ok, invocation_id} = Command.dispatch("demo", %{"x" => 1}, %{})
+
+    assert_receive {:signal, %Signal{type: "command.invoke", data: data}}, 1_000
+    assert data["name"] == "demo"
+    assert data["params"] == %{"x" => 1}
+    assert data["invocation_id"] == invocation_id
+  end
+
   test "dispatch accepts colon-prefixed bus option string" do
     option_bus = unique_bus_name()
     option_bus_name = ":" <> Atom.to_string(option_bus)
@@ -939,6 +978,61 @@ defmodule Jido.Code.CommandTest do
     assert data["command"] == "review"
   end
 
+  test "invoke uses configured application default bus when no bus is provided" do
+    root = tmp_root("invoke_default_application_bus")
+    global_root = Path.join(root, "global")
+    local_root = Path.join(root, "local")
+    local_commands_dir = Path.join(local_root, "commands")
+
+    File.mkdir_p!(Path.join(global_root, "commands"))
+    File.mkdir_p!(local_commands_dir)
+
+    File.write!(
+      Path.join(local_commands_dir, "review.md"),
+      """
+      ---
+      name: review
+      description: review command
+      jido:
+        hooks:
+          pre: true
+      ---
+      review
+      """
+    )
+
+    default_bus = unique_bus_name()
+    default_bus_name = ":" <> Atom.to_string(default_bus)
+    previous_default_bus = set_default_bus_for_test(default_bus_name)
+
+    on_exit(fn ->
+      restore_default_bus_for_test(previous_default_bus)
+    end)
+
+    registry = unique_registry_name()
+
+    start_supervised!({Bus, name: default_bus})
+
+    start_supervised!(
+      {CommandRegistry,
+       name: registry, bus: default_bus, global_root: global_root, local_root: local_root}
+    )
+
+    {:ok, _subscription} =
+      Bus.subscribe(default_bus, "jido.hooks.pre", dispatch: {:pid, target: self()})
+
+    assert {:ok, _result} =
+             Command.invoke(
+               "review",
+               %{},
+               %{},
+               registry: registry
+             )
+
+    assert_receive {:signal, %Signal{type: "jido.hooks.pre", data: data}}, 1_000
+    assert data["command"] == "review"
+  end
+
   test "invoke options bus overrides context bus" do
     root = tmp_root("invoke_options_bus_override")
     global_root = Path.join(root, "global")
@@ -1210,6 +1304,25 @@ defmodule Jido.Code.CommandTest do
 
   defp unique_registry_name do
     :"jido_command_test_registry_#{System.unique_integer([:positive, :monotonic])}"
+  end
+
+  defp set_default_bus_for_test(default_bus) do
+    previous =
+      case Application.fetch_env(:jido_command, :default_bus) do
+        {:ok, value} -> {:ok, value}
+        :error -> :error
+      end
+
+    Application.put_env(:jido_command, :default_bus, default_bus)
+    previous
+  end
+
+  defp restore_default_bus_for_test({:ok, default_bus}) do
+    Application.put_env(:jido_command, :default_bus, default_bus)
+  end
+
+  defp restore_default_bus_for_test(:error) do
+    Application.delete_env(:jido_command, :default_bus)
   end
 
   defp tmp_root(suffix) do
