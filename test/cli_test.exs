@@ -250,6 +250,38 @@ defmodule Jido.Code.Command.CLITest do
     assert %{"ok" => true, "command" => "review"} == Jason.decode!(output)
   end
 
+  test "top-level --command alias invokes runtime command execution" do
+    output =
+      capture_io(fn ->
+        assert :ok ==
+                 CLI.main(
+                   ["--command", "review", "--params", ~s({"target":"README.md"})],
+                   fn code -> flunk("unexpected halt with #{code}") end,
+                   RuntimeStub
+                 )
+      end)
+
+    assert_receive {:runtime_invoke, "review", %{"target" => "README.md"}, %{}}, 500
+    assert %{"ok" => true, "command" => "review"} == Jason.decode!(output)
+  end
+
+  test "top-level --command=<name> alias invokes runtime command execution" do
+    output =
+      capture_io(fn ->
+        assert :ok ==
+                 CLI.main(
+                   ["--command=review", "--invocation-id", "invoke-123"],
+                   fn code -> flunk("unexpected halt with #{code}") end,
+                   RuntimeStub
+                 )
+      end)
+
+    assert_receive {:runtime_invoke_with_opts, "review", %{}, %{}, opts}, 500
+    assert opts[:invocation_id] == "invoke-123"
+    assert %{"ok" => true, "command" => "review", "invocation_id" => "invoke-123"} ==
+             Jason.decode!(output)
+  end
+
   test "invoke passes invocation-id option to runtime when available" do
     output =
       capture_io(fn ->
@@ -620,6 +652,28 @@ defmodule Jido.Code.Command.CLITest do
                      catch_throw(
                        CLI.main(
                          ["--unknown-option"],
+                         fn code -> throw({:halt, code}) end,
+                         RuntimeStub
+                       )
+                     )
+          end)
+
+        send(self(), {:stdout, stdout})
+      end)
+
+    assert_receive {:stdout, ""}
+    assert stderr != ""
+  end
+
+  test "top-level --command without a command name halts with parse error" do
+    stderr =
+      capture_io(:stderr, fn ->
+        stdout =
+          capture_io(fn ->
+            assert {:halt, 1} ==
+                     catch_throw(
+                       CLI.main(
+                         ["--command", "   "],
                          fn code -> throw({:halt, code}) end,
                          RuntimeStub
                        )

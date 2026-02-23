@@ -7,7 +7,8 @@ defmodule Jido.Code.Command.MixProject do
       version: "0.1.0",
       elixir: "~> 1.19",
       start_permanent: Mix.env() == :prod,
-      deps: deps()
+      deps: deps(),
+      escript: escript()
     ]
   end
 
@@ -28,6 +29,14 @@ defmodule Jido.Code.Command.MixProject do
       {:yaml_elixir, "~> 2.12"},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:dialyxir, "~> 1.4", only: [:dev], runtime: false}
+    ]
+  end
+
+  defp escript do
+    [
+      main_module: Jido.Code.Command.Escript,
+      name: "jido",
+      app: nil
     ]
   end
 end

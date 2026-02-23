@@ -8,6 +8,29 @@
 mix run -e 'Jido.Code.Command.CLI.main(["list"])'
 ```
 
+## `jido` executable
+
+Build a local `jido` executable:
+
+```bash
+mix escript.build
+```
+
+Then call commands directly:
+
+```bash
+./jido --command code-review --params '{"target_file":"lib/foo.ex"}'
+```
+
+Optional global install:
+
+```bash
+mix do escript.build + escript.install
+```
+
+If needed, add `~/.mix/escripts` to your `PATH`.
+Set `JIDO_COMMAND_TZDATA_DIR` if you want a custom timezone data directory for the executable.
+
 ## Subcommands
 
 ### `list`
@@ -22,6 +45,12 @@ Prints loaded command names, one per line.
 
 ```bash
 mix run -e 'Jido.Code.Command.CLI.main(["invoke", "code-review", "--params", "{\"target_file\":\"lib/foo.ex\"}"])'
+```
+
+Equivalent shorthand via escript:
+
+```bash
+./jido --command code-review --params '{"target_file":"lib/foo.ex"}'
 ```
 
 Options:
