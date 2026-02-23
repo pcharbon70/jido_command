@@ -278,7 +278,97 @@ defmodule Jido.Code.Command.CLITest do
 
     assert_receive {:runtime_invoke_with_opts, "review", %{}, %{}, opts}, 500
     assert opts[:invocation_id] == "invoke-123"
+
     assert %{"ok" => true, "command" => "review", "invocation_id" => "invoke-123"} ==
+             Jason.decode!(output)
+  end
+
+  test "top-level --command maps shorthand options into invoke params" do
+    output =
+      capture_io(fn ->
+        assert :ok ==
+                 CLI.main(
+                   [
+                     "--command",
+                     "review",
+                     "--target-file",
+                     "README.md",
+                     "--max-results",
+                     "10",
+                     "--dry-run",
+                     "--score=0.75",
+                     "--meta",
+                     ~s({"x":1})
+                   ],
+                   fn code -> flunk("unexpected halt with #{code}") end,
+                   RuntimeStub
+                 )
+      end)
+
+    assert_receive {:runtime_invoke, "review", params, %{}}, 500
+    assert params["target_file"] == "README.md"
+    assert params["max_results"] == 10
+    assert params["dry_run"] == true
+    assert params["score"] == 0.75
+    assert params["meta"] == %{"x" => 1}
+    assert %{"ok" => true, "command" => "review"} == Jason.decode!(output)
+  end
+
+  test "top-level --command merges --params with shorthand params in argument order" do
+    output =
+      capture_io(fn ->
+        assert :ok ==
+                 CLI.main(
+                   [
+                     "--command",
+                     "review",
+                     "--count",
+                     "1",
+                     "--params",
+                     ~s({"target_file":"lib/foo.ex","count":2}),
+                     "--count",
+                     "3"
+                   ],
+                   fn code -> flunk("unexpected halt with #{code}") end,
+                   RuntimeStub
+                 )
+      end)
+
+    assert_receive {:runtime_invoke, "review", params, %{}}, 500
+    assert params["target_file"] == "lib/foo.ex"
+    assert params["count"] == 3
+    assert %{"ok" => true, "command" => "review"} == Jason.decode!(output)
+  end
+
+  test "top-level --command supports invoke runtime options with shorthand params" do
+    output =
+      capture_io(fn ->
+        assert :ok ==
+                 CLI.main(
+                   [
+                     "--command",
+                     "review",
+                     "--context",
+                     ~s({"source":"cli"}),
+                     "--bus",
+                     ":custom_bus",
+                     "--invocation-id",
+                     "invoke-321",
+                     "--target-file",
+                     "README.md"
+                   ],
+                   fn code -> flunk("unexpected halt with #{code}") end,
+                   RuntimeStub
+                 )
+      end)
+
+    assert_receive {:runtime_invoke_with_opts, "review", params, context, opts}, 500
+    assert params == %{"target_file" => "README.md"}
+    assert context == %{"source" => "cli"}
+    assert opts[:bus] == ":custom_bus"
+    assert opts[:invocation_id] == "invoke-321"
+
+    assert %{"ok" => true, "command" => "review", "invocation_id" => "invoke-321"} ==
              Jason.decode!(output)
   end
 
@@ -685,6 +775,28 @@ defmodule Jido.Code.Command.CLITest do
 
     assert_receive {:stdout, ""}
     assert stderr != ""
+  end
+
+  test "top-level --command with missing reserved option value halts with parse error" do
+    stderr =
+      capture_io(:stderr, fn ->
+        stdout =
+          capture_io(fn ->
+            assert {:halt, 1} ==
+                     catch_throw(
+                       CLI.main(
+                         ["--command", "review", "--invocation-id"],
+                         fn code -> throw({:halt, code}) end,
+                         RuntimeStub
+                       )
+                     )
+          end)
+
+        send(self(), {:stdout, stdout})
+      end)
+
+    assert_receive {:stdout, ""}
+    assert stderr =~ "invalid --invocation-id: missing value"
   end
 
   test "subcommand parse errors print to stderr and halt with 1" do

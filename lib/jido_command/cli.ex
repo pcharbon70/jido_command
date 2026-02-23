@@ -8,27 +8,242 @@ defmodule Jido.Code.Command.CLI do
   @spec main([String.t()], (integer() -> no_return()), module()) :: :ok | no_return()
   @spec main([String.t()], (integer() -> no_return())) :: :ok | no_return()
   def main(argv, halt \\ &System.halt/1, runtime \\ Jido.Code.Command) do
-    parser = parser_spec()
-    result = Optimus.parse(parser, normalize_top_level_command_alias(argv))
-    handle_parse_result(result, parser, halt, runtime)
+    case normalize_top_level_command_alias(argv) do
+      {:ok, normalized_argv} ->
+        parser = parser_spec()
+        result = Optimus.parse(parser, normalized_argv)
+        handle_parse_result(result, parser, halt, runtime)
+
+      {:error, reason} ->
+        IO.puts(:stderr, reason)
+        halt.(1)
+    end
   end
 
   defp normalize_top_level_command_alias(["--command", command | rest]) do
     case parse_top_level_command_name(command) do
-      {:ok, normalized_command} -> ["invoke", normalized_command | rest]
-      :error -> ["invoke"]
+      {:ok, normalized_command} -> rewrite_top_level_command_alias(normalized_command, rest)
+      :error -> {:ok, ["invoke"]}
     end
   end
 
-  defp normalize_top_level_command_alias([command_option | rest]) when is_binary(command_option) do
+  defp normalize_top_level_command_alias([command_option | rest])
+       when is_binary(command_option) do
     case parse_top_level_command_option(command_option) do
-      {:ok, normalized_command} -> ["invoke", normalized_command | rest]
-      :error -> ["invoke"]
-      :no_alias -> [command_option | rest]
+      {:ok, normalized_command} -> rewrite_top_level_command_alias(normalized_command, rest)
+      :error -> {:ok, ["invoke"]}
+      :no_alias -> {:ok, [command_option | rest]}
     end
   end
 
-  defp normalize_top_level_command_alias(argv), do: argv
+  defp normalize_top_level_command_alias(argv), do: {:ok, argv}
+
+  defp rewrite_top_level_command_alias(command, rest)
+       when is_binary(command) and is_list(rest) do
+    with {:ok, parsed} <- parse_top_level_command_options(rest) do
+      {:ok, build_invoke_alias_argv(command, parsed)}
+    end
+  end
+
+  defp parse_top_level_command_options(tokens) when is_list(tokens) do
+    do_parse_top_level_command_options(tokens, %{
+      params: %{},
+      context: %{},
+      invocation_id: nil,
+      bus: nil
+    })
+  end
+
+  defp do_parse_top_level_command_options([], state), do: {:ok, state}
+
+  defp do_parse_top_level_command_options(["--params" | rest], state) do
+    with {:ok, value, remaining} <- take_required_option_value("--params", rest),
+         {:ok, params} <- parse_json_option("--params", value) do
+      next_state = %{state | params: Map.merge(state.params, params)}
+      do_parse_top_level_command_options(remaining, next_state)
+    end
+  end
+
+  defp do_parse_top_level_command_options(["-p" | rest], state) do
+    with {:ok, value, remaining} <- take_required_option_value("-p", rest),
+         {:ok, params} <- parse_json_option("-p", value) do
+      next_state = %{state | params: Map.merge(state.params, params)}
+      do_parse_top_level_command_options(remaining, next_state)
+    end
+  end
+
+  defp do_parse_top_level_command_options([<<"--params=", value::binary>> | rest], state) do
+    with {:ok, params} <- parse_json_option("--params", value) do
+      next_state = %{state | params: Map.merge(state.params, params)}
+      do_parse_top_level_command_options(rest, next_state)
+    end
+  end
+
+  defp do_parse_top_level_command_options(["--context" | rest], state) do
+    with {:ok, value, remaining} <- take_required_option_value("--context", rest),
+         {:ok, context} <- parse_json_option("--context", value) do
+      next_state = %{state | context: Map.merge(state.context, context)}
+      do_parse_top_level_command_options(remaining, next_state)
+    end
+  end
+
+  defp do_parse_top_level_command_options(["-c" | rest], state) do
+    with {:ok, value, remaining} <- take_required_option_value("-c", rest),
+         {:ok, context} <- parse_json_option("-c", value) do
+      next_state = %{state | context: Map.merge(state.context, context)}
+      do_parse_top_level_command_options(remaining, next_state)
+    end
+  end
+
+  defp do_parse_top_level_command_options([<<"--context=", value::binary>> | rest], state) do
+    with {:ok, context} <- parse_json_option("--context", value) do
+      next_state = %{state | context: Map.merge(state.context, context)}
+      do_parse_top_level_command_options(rest, next_state)
+    end
+  end
+
+  defp do_parse_top_level_command_options(["--invocation-id" | rest], state) do
+    with {:ok, value, remaining} <- take_required_option_value("--invocation-id", rest),
+         {:ok, invocation_id} <- parse_string_option("--invocation-id", value) do
+      do_parse_top_level_command_options(remaining, %{state | invocation_id: invocation_id})
+    end
+  end
+
+  defp do_parse_top_level_command_options([<<"--invocation-id=", value::binary>> | rest], state) do
+    with {:ok, invocation_id} <- parse_string_option("--invocation-id", value) do
+      do_parse_top_level_command_options(rest, %{state | invocation_id: invocation_id})
+    end
+  end
+
+  defp do_parse_top_level_command_options(["--bus" | rest], state) do
+    with {:ok, value, remaining} <- take_required_option_value("--bus", rest),
+         {:ok, bus} <- parse_string_option("--bus", value) do
+      do_parse_top_level_command_options(remaining, %{state | bus: bus})
+    end
+  end
+
+  defp do_parse_top_level_command_options([<<"--bus=", value::binary>> | rest], state) do
+    with {:ok, bus} <- parse_string_option("--bus", value) do
+      do_parse_top_level_command_options(rest, %{state | bus: bus})
+    end
+  end
+
+  defp do_parse_top_level_command_options([<<"--", raw_option::binary>> | rest], state) do
+    with {:ok, key, value, remaining} <- parse_param_option(raw_option, rest) do
+      params = Map.put(state.params, key, value)
+      do_parse_top_level_command_options(remaining, %{state | params: params})
+    end
+  end
+
+  defp do_parse_top_level_command_options([option | _rest], _state) when is_binary(option) do
+    {:error, "invalid --command option: #{option}"}
+  end
+
+  defp take_required_option_value(option, []), do: {:error, "invalid #{option}: missing value"}
+
+  defp take_required_option_value(option, [value | rest])
+       when is_binary(option) and is_binary(value) do
+    if option_boundary_token?(value) do
+      {:error, "invalid #{option}: missing value"}
+    else
+      {:ok, value, rest}
+    end
+  end
+
+  defp parse_json_option(option, value) when is_binary(option) and is_binary(value) do
+    case parse_json_object(value) do
+      {:ok, parsed} -> {:ok, parsed}
+      {:error, reason} -> {:error, "invalid #{option}: #{reason}"}
+    end
+  end
+
+  defp parse_string_option(option, value) when is_binary(option) and is_binary(value) do
+    case parse_nonempty_string(value) do
+      {:ok, parsed} -> {:ok, parsed}
+      {:error, reason} -> {:error, "invalid #{option}: #{reason}"}
+    end
+  end
+
+  defp option_boundary_token?(token) when is_binary(token) do
+    String.starts_with?(token, "--") or token in ["-p", "-c"]
+  end
+
+  defp parse_param_option(raw_option, rest)
+       when is_binary(raw_option) and is_list(rest) do
+    case String.split(raw_option, "=", parts: 2) do
+      [raw_key, raw_value] -> parse_param_with_explicit_value(raw_key, raw_value, rest)
+      [raw_key] -> parse_param_with_optional_value(raw_key, rest)
+    end
+  end
+
+  defp parse_param_with_explicit_value(raw_key, raw_value, rest)
+       when is_binary(raw_key) and is_binary(raw_value) and is_list(rest) do
+    with {:ok, key} <- normalize_param_key(raw_key) do
+      {:ok, key, parse_param_value(raw_value), rest}
+    end
+  end
+
+  defp parse_param_with_optional_value(raw_key, rest)
+       when is_binary(raw_key) and is_list(rest) do
+    with {:ok, key} <- normalize_param_key(raw_key) do
+      {value, remaining} = parse_optional_param_value(rest)
+      {:ok, key, value, remaining}
+    end
+  end
+
+  defp parse_optional_param_value([next | remaining]) when is_binary(next) do
+    if option_boundary_token?(next) do
+      {true, [next | remaining]}
+    else
+      {parse_param_value(next), remaining}
+    end
+  end
+
+  defp parse_optional_param_value(rest) when is_list(rest), do: {true, rest}
+
+  defp normalize_param_key(raw_key) when is_binary(raw_key) do
+    trimmed = String.trim(raw_key)
+
+    if trimmed == "" do
+      {:error, "invalid --command option: --"}
+    else
+      {:ok, String.replace(trimmed, "-", "_")}
+    end
+  end
+
+  defp parse_param_value(value) when is_binary(value) do
+    trimmed = String.trim(value)
+
+    case Jason.decode(trimmed) do
+      {:ok, parsed} -> parsed
+      {:error, _reason} -> trimmed
+    end
+  end
+
+  defp build_invoke_alias_argv(command, parsed)
+       when is_binary(command) and is_map(parsed) do
+    ["invoke", command]
+    |> maybe_put_alias_json_option("--params", Map.get(parsed, :params, %{}))
+    |> maybe_put_alias_json_option("--context", Map.get(parsed, :context, %{}))
+    |> maybe_put_alias_string_option("--invocation-id", Map.get(parsed, :invocation_id))
+    |> maybe_put_alias_string_option("--bus", Map.get(parsed, :bus))
+  end
+
+  defp maybe_put_alias_json_option(argv, _option, map)
+       when is_list(argv) and is_map(map) and map_size(map) == 0,
+       do: argv
+
+  defp maybe_put_alias_json_option(argv, option, map)
+       when is_list(argv) and is_binary(option) and is_map(map) do
+    argv ++ [option, Jason.encode!(map)]
+  end
+
+  defp maybe_put_alias_string_option(argv, _option, nil) when is_list(argv), do: argv
+
+  defp maybe_put_alias_string_option(argv, option, value)
+       when is_list(argv) and is_binary(option) and is_binary(value) do
+    argv ++ [option, value]
+  end
 
   defp parse_top_level_command_option(command_option) when is_binary(command_option) do
     if String.starts_with?(command_option, "--command=") do
@@ -449,6 +664,7 @@ defmodule Jido.Code.Command.CLI do
   end
 
   defp maybe_put_runtime_opt(opts, _key, nil) when is_list(opts), do: opts
+
   defp maybe_put_runtime_opt(opts, key, value) when is_list(opts) and is_atom(key),
     do: Keyword.put(opts, key, value)
 

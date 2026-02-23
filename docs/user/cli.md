@@ -22,6 +22,12 @@ Then call commands directly:
 ./jido --command code-review --params '{"target_file":"lib/foo.ex"}'
 ```
 
+You can also pass command params directly as top-level options:
+
+```bash
+./jido --command code-review --target-file lib/foo.ex --max-results 10 --dry-run
+```
+
 Optional global install:
 
 ```bash
@@ -54,6 +60,21 @@ Equivalent shorthand via escript:
 ```bash
 ./jido --command code-review --params '{"target_file":"lib/foo.ex"}'
 ```
+
+`--command` shorthand also accepts command params directly:
+
+```bash
+./jido --command code-review --target-file lib/foo.ex --include-tests true
+```
+
+Shorthand param rules:
+
+- unknown `--<name>` options are treated as command params
+- `--name value` and `--name=value` are both supported
+- bare flags (for example `--dry-run`) become boolean `true`
+- param names normalize `-` to `_` (for example `--target-file` -> `target_file`)
+- values are JSON-decoded when valid JSON (numbers, booleans, objects, arrays, `null`), otherwise treated as strings
+- reserved options remain runtime options: `--params`, `-p`, `--context`, `-c`, `--invocation-id`, `--bus`
 
 Options:
 

@@ -74,6 +74,9 @@ mix escript.build
 # invoke command through jido executable
 ./jido --command code-review --params '{"target_file":"lib/foo.ex"}'
 
+# shorthand: command params as direct options
+./jido --command code-review --target-file lib/foo.ex --max-results 10 --dry-run
+
 # list commands
 mix run -e 'Jido.Code.Command.CLI.main(["list"])'
 
