@@ -250,12 +250,12 @@ defmodule Jido.Code.Command.CLITest do
     assert %{"ok" => true, "command" => "review"} == Jason.decode!(output)
   end
 
-  test "top-level --command alias invokes runtime command execution" do
+  test "top-level command name invokes runtime command execution" do
     output =
       capture_io(fn ->
         assert :ok ==
                  CLI.main(
-                   ["--command", "review", "--params", ~s({"target":"README.md"})],
+                   ["review", "--params", ~s({"target":"README.md"})],
                    fn code -> flunk("unexpected halt with #{code}") end,
                    RuntimeStub
                  )
@@ -265,12 +265,12 @@ defmodule Jido.Code.Command.CLITest do
     assert %{"ok" => true, "command" => "review"} == Jason.decode!(output)
   end
 
-  test "top-level --command=<name> alias invokes runtime command execution" do
+  test "top-level command name with invoke options invokes runtime command execution" do
     output =
       capture_io(fn ->
         assert :ok ==
                  CLI.main(
-                   ["--command=review", "--invocation-id", "invoke-123"],
+                   ["review", "--invocation-id", "invoke-123"],
                    fn code -> flunk("unexpected halt with #{code}") end,
                    RuntimeStub
                  )
@@ -283,13 +283,12 @@ defmodule Jido.Code.Command.CLITest do
              Jason.decode!(output)
   end
 
-  test "top-level --command maps shorthand options into invoke params" do
+  test "top-level command name maps shorthand options into invoke params" do
     output =
       capture_io(fn ->
         assert :ok ==
                  CLI.main(
                    [
-                     "--command",
                      "review",
                      "--target-file",
                      "README.md",
@@ -314,13 +313,12 @@ defmodule Jido.Code.Command.CLITest do
     assert %{"ok" => true, "command" => "review"} == Jason.decode!(output)
   end
 
-  test "top-level --command merges --params with shorthand params in argument order" do
+  test "top-level command name merges --params with shorthand params in argument order" do
     output =
       capture_io(fn ->
         assert :ok ==
                  CLI.main(
                    [
-                     "--command",
                      "review",
                      "--count",
                      "1",
@@ -340,13 +338,12 @@ defmodule Jido.Code.Command.CLITest do
     assert %{"ok" => true, "command" => "review"} == Jason.decode!(output)
   end
 
-  test "top-level --command supports invoke runtime options with shorthand params" do
+  test "top-level command name supports invoke runtime options with shorthand params" do
     output =
       capture_io(fn ->
         assert :ok ==
                  CLI.main(
                    [
-                     "--command",
                      "review",
                      "--context",
                      ~s({"source":"cli"}),
@@ -755,7 +752,7 @@ defmodule Jido.Code.Command.CLITest do
     assert stderr != ""
   end
 
-  test "top-level --command without a command name halts with parse error" do
+  test "top-level blank command name halts with parse error" do
     stderr =
       capture_io(:stderr, fn ->
         stdout =
@@ -763,7 +760,7 @@ defmodule Jido.Code.Command.CLITest do
             assert {:halt, 1} ==
                      catch_throw(
                        CLI.main(
-                         ["--command", "   "],
+                         ["   "],
                          fn code -> throw({:halt, code}) end,
                          RuntimeStub
                        )
@@ -777,7 +774,7 @@ defmodule Jido.Code.Command.CLITest do
     assert stderr != ""
   end
 
-  test "top-level --command with missing reserved option value halts with parse error" do
+  test "top-level command name with missing reserved option value halts with parse error" do
     stderr =
       capture_io(:stderr, fn ->
         stdout =
@@ -785,7 +782,7 @@ defmodule Jido.Code.Command.CLITest do
             assert {:halt, 1} ==
                      catch_throw(
                        CLI.main(
-                         ["--command", "review", "--invocation-id"],
+                         ["review", "--invocation-id"],
                          fn code -> throw({:halt, code}) end,
                          RuntimeStub
                        )
@@ -797,6 +794,28 @@ defmodule Jido.Code.Command.CLITest do
 
     assert_receive {:stdout, ""}
     assert stderr =~ "invalid --invocation-id: missing value"
+  end
+
+  test "legacy --command entrypoint halts with parse error" do
+    stderr =
+      capture_io(:stderr, fn ->
+        stdout =
+          capture_io(fn ->
+            assert {:halt, 1} ==
+                     catch_throw(
+                       CLI.main(
+                         ["--command", "review"],
+                         fn code -> throw({:halt, code}) end,
+                         RuntimeStub
+                       )
+                     )
+          end)
+
+        send(self(), {:stdout, stdout})
+      end)
+
+    assert_receive {:stdout, ""}
+    assert stderr != ""
   end
 
   test "subcommand parse errors print to stderr and halt with 1" do

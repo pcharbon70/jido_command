@@ -2,13 +2,15 @@ defmodule Jido.Code.Command.CLI do
   @moduledoc """
   Optimus-based CLI for invoking and listing registered commands.
 
-  Supports a top-level shortcut form: `--command <name> [invoke opts]`.
+  Supports default command invocation form: `<command-name> [invoke opts]`.
   """
+
+  @cli_subcommands ~w(list invoke dispatch reload register-command unregister-command)
 
   @spec main([String.t()], (integer() -> no_return()), module()) :: :ok | no_return()
   @spec main([String.t()], (integer() -> no_return())) :: :ok | no_return()
   def main(argv, halt \\ &System.halt/1, runtime \\ Jido.Code.Command) do
-    case normalize_top_level_command_alias(argv) do
+    case normalize_default_command_invocation(argv) do
       {:ok, normalized_argv} ->
         parser = parser_spec()
         result = Optimus.parse(parser, normalized_argv)
@@ -20,23 +22,28 @@ defmodule Jido.Code.Command.CLI do
     end
   end
 
-  defp normalize_top_level_command_alias(["--command", command | rest]) do
-    case parse_top_level_command_name(command) do
-      {:ok, normalized_command} -> rewrite_top_level_command_alias(normalized_command, rest)
-      :error -> {:ok, ["invoke"]}
+  defp normalize_default_command_invocation([first | _rest] = argv) when is_binary(first) do
+    cond do
+      known_cli_subcommand?(first) ->
+        {:ok, argv}
+
+      String.starts_with?(first, "-") ->
+        {:ok, argv}
+
+      true ->
+        case parse_top_level_command_name(first) do
+          {:ok, normalized_command} ->
+            rewrite_top_level_command_alias(normalized_command, tl(argv))
+
+          :error ->
+            {:ok, ["invoke"]}
+        end
     end
   end
 
-  defp normalize_top_level_command_alias([command_option | rest])
-       when is_binary(command_option) do
-    case parse_top_level_command_option(command_option) do
-      {:ok, normalized_command} -> rewrite_top_level_command_alias(normalized_command, rest)
-      :error -> {:ok, ["invoke"]}
-      :no_alias -> {:ok, [command_option | rest]}
-    end
-  end
+  defp normalize_default_command_invocation(argv), do: {:ok, argv}
 
-  defp normalize_top_level_command_alias(argv), do: {:ok, argv}
+  defp known_cli_subcommand?(name) when is_binary(name), do: name in @cli_subcommands
 
   defp rewrite_top_level_command_alias(command, rest)
        when is_binary(command) and is_list(rest) do
@@ -136,7 +143,7 @@ defmodule Jido.Code.Command.CLI do
   end
 
   defp do_parse_top_level_command_options([option | _rest], _state) when is_binary(option) do
-    {:error, "invalid --command option: #{option}"}
+    {:error, "invalid command option: #{option}"}
   end
 
   defp take_required_option_value(option, []), do: {:error, "invalid #{option}: missing value"}
@@ -205,7 +212,7 @@ defmodule Jido.Code.Command.CLI do
     trimmed = String.trim(raw_key)
 
     if trimmed == "" do
-      {:error, "invalid --command option: --"}
+      {:error, "invalid command option: --"}
     else
       {:ok, String.replace(trimmed, "-", "_")}
     end
@@ -243,16 +250,6 @@ defmodule Jido.Code.Command.CLI do
   defp maybe_put_alias_string_option(argv, option, value)
        when is_list(argv) and is_binary(option) and is_binary(value) do
     argv ++ [option, value]
-  end
-
-  defp parse_top_level_command_option(command_option) when is_binary(command_option) do
-    if String.starts_with?(command_option, "--command=") do
-      command_option
-      |> String.trim_leading("--command=")
-      |> parse_top_level_command_name()
-    else
-      :no_alias
-    end
   end
 
   defp parse_top_level_command_name(command) when is_binary(command) do
@@ -306,7 +303,7 @@ defmodule Jido.Code.Command.CLI do
   end
 
   defp handle_parse_result(:version, _parser, halt, _runtime) do
-    IO.puts("jido_command 0.1.0")
+    IO.puts("jidocommand 0.1.0")
     halt.(0)
   end
 
@@ -459,7 +456,7 @@ defmodule Jido.Code.Command.CLI do
 
   defp parser_spec do
     Optimus.new!(
-      name: "jido_command",
+      name: "jidocommand",
       description: "Signal-driven command runtime",
       version: "0.1.0",
       author: "Jido.Code.Command",
