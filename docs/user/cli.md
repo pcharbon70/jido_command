@@ -98,9 +98,9 @@ Shorthand param rules:
 Options:
 
 - `--params`, `-p`: JSON object (default `{}`)
-- `--params-file`: path to JSON file containing an object; merged before inline `--params` (inline keys win)
+- `--params-file`: path to JSON file containing an object; merged before inline `--params` (inline keys win regardless of argument order)
 - `--context`, `-c`: JSON object (default `{}`)
-- `--context-file`: path to JSON file containing an object; merged before inline `--context` (inline keys win)
+- `--context-file`: path to JSON file containing an object; merged before inline `--context` (inline keys win regardless of argument order)
 - `--invocation-id`: non-empty string
 - `--bus`: non-empty bus target string (for example `:jido_code_bus`)
 
