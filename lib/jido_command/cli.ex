@@ -1,14 +1,48 @@
 defmodule Jido.Code.Command.CLI do
   @moduledoc """
   Optimus-based CLI for invoking and listing registered commands.
+
+  Supports a top-level shortcut form: `--command <name> [invoke opts]`.
   """
 
   @spec main([String.t()], (integer() -> no_return()), module()) :: :ok | no_return()
   @spec main([String.t()], (integer() -> no_return())) :: :ok | no_return()
   def main(argv, halt \\ &System.halt/1, runtime \\ Jido.Code.Command) do
     parser = parser_spec()
-    result = Optimus.parse(parser, argv)
+    result = Optimus.parse(parser, normalize_top_level_command_alias(argv))
     handle_parse_result(result, parser, halt, runtime)
+  end
+
+  defp normalize_top_level_command_alias(["--command", command | rest]) do
+    case parse_top_level_command_name(command) do
+      {:ok, normalized_command} -> ["invoke", normalized_command | rest]
+      :error -> ["invoke"]
+    end
+  end
+
+  defp normalize_top_level_command_alias([command_option | rest]) when is_binary(command_option) do
+    case parse_top_level_command_option(command_option) do
+      {:ok, normalized_command} -> ["invoke", normalized_command | rest]
+      :error -> ["invoke"]
+      :no_alias -> [command_option | rest]
+    end
+  end
+
+  defp normalize_top_level_command_alias(argv), do: argv
+
+  defp parse_top_level_command_option(command_option) when is_binary(command_option) do
+    if String.starts_with?(command_option, "--command=") do
+      command_option
+      |> String.trim_leading("--command=")
+      |> parse_top_level_command_name()
+    else
+      :no_alias
+    end
+  end
+
+  defp parse_top_level_command_name(command) when is_binary(command) do
+    trimmed = String.trim(command)
+    if trimmed == "", do: :error, else: {:ok, trimmed}
   end
 
   defp handle_parse_result({:ok, [:list], _result}, _parser, halt, runtime) do

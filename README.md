@@ -68,6 +68,12 @@ Jido.Code.Command.unregister_command("review")
 ## CLI usage
 
 ```bash
+# build local jido executable
+mix escript.build
+
+# invoke command through jido executable
+./jido --command code-review --params '{"target_file":"lib/foo.ex"}'
+
 # list commands
 mix run -e 'Jido.Code.Command.CLI.main(["list"])'
 
@@ -92,6 +98,15 @@ mix run -e 'Jido.Code.Command.CLI.main(["register-command", "commands/review.md"
 # unregister one command by name at runtime
 mix run -e 'Jido.Code.Command.CLI.main(["unregister-command", "review"])'
 ```
+
+Install globally (optional):
+
+```bash
+mix do escript.build + escript.install
+```
+
+If needed, add `~/.mix/escripts` to your `PATH` so `jido` is available everywhere.
+Set `JIDO_COMMAND_TZDATA_DIR` if you want a custom timezone data directory for the executable.
 
 ## Settings
 
