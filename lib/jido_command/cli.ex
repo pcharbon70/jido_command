@@ -303,7 +303,7 @@ defmodule Jido.Code.Command.CLI do
   end
 
   defp handle_parse_result(:version, _parser, halt, _runtime) do
-    IO.puts("jidocommand 0.1.0")
+    IO.puts("command 0.1.0")
     halt.(0)
   end
 
@@ -456,7 +456,7 @@ defmodule Jido.Code.Command.CLI do
 
   defp parser_spec do
     Optimus.new!(
-      name: "jidocommand",
+      name: "command",
       description: "Signal-driven command runtime",
       version: "0.1.0",
       author: "Jido.Code.Command",

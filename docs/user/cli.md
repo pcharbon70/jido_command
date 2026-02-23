@@ -8,9 +8,9 @@
 mix run -e 'Jido.Code.Command.CLI.main(["list"])'
 ```
 
-## `jidocommand` executable
+## `command` executable
 
-Build a local `jidocommand` executable:
+Build a local `command` executable:
 
 ```bash
 mix escript.build
@@ -19,13 +19,13 @@ mix escript.build
 Then call commands directly:
 
 ```bash
-./jidocommand code-review --params '{"target_file":"lib/foo.ex"}'
+./command code-review --params '{"target_file":"lib/foo.ex"}'
 ```
 
 You can also pass command params directly as top-level options:
 
 ```bash
-./jidocommand code-review --target-file lib/foo.ex --max-results 10 --dry-run
+./command code-review --target-file lib/foo.ex --max-results 10 --dry-run
 ```
 
 Optional global install:
@@ -58,13 +58,13 @@ mix run -e 'Jido.Code.Command.CLI.main(["invoke", "code-review", "--params", "{\
 Equivalent shorthand via escript:
 
 ```bash
-./jidocommand code-review --params '{"target_file":"lib/foo.ex"}'
+./command code-review --params '{"target_file":"lib/foo.ex"}'
 ```
 
 Top-level command invocation also accepts command params directly:
 
 ```bash
-./jidocommand code-review --target-file lib/foo.ex --include-tests true
+./command code-review --target-file lib/foo.ex --include-tests true
 ```
 
 Shorthand param rules:

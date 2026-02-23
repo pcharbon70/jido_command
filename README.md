@@ -68,14 +68,14 @@ Jido.Code.Command.unregister_command("review")
 ## CLI usage
 
 ```bash
-# build local jidocommand executable
+# build local command executable
 mix escript.build
 
-# invoke command through jidocommand executable
-./jidocommand code-review --params '{"target_file":"lib/foo.ex"}'
+# invoke command through command executable
+./command code-review --params '{"target_file":"lib/foo.ex"}'
 
 # shorthand: command params as direct options
-./jidocommand code-review --target-file lib/foo.ex --max-results 10 --dry-run
+./command code-review --target-file lib/foo.ex --max-results 10 --dry-run
 
 # list commands
 mix run -e 'Jido.Code.Command.CLI.main(["list"])'
@@ -108,7 +108,7 @@ Install globally (optional):
 mix do escript.build + escript.install
 ```
 
-If needed, add `~/.mix/escripts` to your `PATH` so `jidocommand` is available everywhere.
+If needed, add `~/.mix/escripts` to your `PATH` so `command` is available everywhere.
 Set `JIDO_COMMAND_TZDATA_DIR` if you want a custom timezone data directory for the executable.
 If `JIDO_COMMAND_TZDATA_DIR` is not set, the executable auto-seeds timezone release data from its embedded archive.
 If the configured timezone directory cannot be prepared, the executable falls back to a temp runtime directory.

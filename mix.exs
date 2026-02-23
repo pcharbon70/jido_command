@@ -35,7 +35,7 @@ defmodule Jido.Code.Command.MixProject do
   defp escript do
     [
       main_module: Jido.Code.Command.Escript,
-      name: "jidocommand",
+      name: "command",
       app: nil,
       include_priv_for: [:tzdata]
     ]
