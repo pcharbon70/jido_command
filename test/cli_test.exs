@@ -268,6 +268,25 @@ defmodule Jido.Code.Command.CLITest do
              Jason.decode!(output)
   end
 
+  test "invoke passes bus option to runtime when available" do
+    output =
+      capture_io(fn ->
+        assert :ok ==
+                 CLI.main(
+                   ["invoke", "review", "--bus", ":custom_bus"],
+                   fn code -> flunk("unexpected halt with #{code}") end,
+                   RuntimeStub
+                 )
+      end)
+
+    assert_receive {:runtime_invoke_with_opts, "review", %{}, %{}, opts}, 500
+    assert opts[:bus] == ":custom_bus"
+    assert opts[:invocation_id] == nil
+
+    assert %{"ok" => true, "command" => "review", "invocation_id" => nil} ==
+             Jason.decode!(output)
+  end
+
   test "invoke invalid response prints error and halts with 1" do
     stderr =
       capture_io(:stderr, fn ->
@@ -347,6 +366,23 @@ defmodule Jido.Code.Command.CLITest do
     assert_receive {:runtime_dispatch_with_opts, "demo", %{}, %{}, opts}, 500
     assert opts[:invocation_id] == "dispatch-123"
     assert %{"invocation_id" => "dispatch-123"} == Jason.decode!(output)
+  end
+
+  test "dispatch passes bus option to runtime when available" do
+    output =
+      capture_io(fn ->
+        assert :ok ==
+                 CLI.main(
+                   ["dispatch", "demo", "--bus", ":custom_bus"],
+                   fn code -> flunk("unexpected halt with #{code}") end,
+                   RuntimeStub
+                 )
+      end)
+
+    assert_receive {:runtime_dispatch_with_opts, "demo", %{}, %{}, opts}, 500
+    assert opts[:bus] == ":custom_bus"
+    assert opts[:invocation_id] == nil
+    assert %{"invocation_id" => "invocation-123"} == Jason.decode!(output)
   end
 
   test "dispatch invalid response prints error and halts with 1" do
@@ -617,5 +653,27 @@ defmodule Jido.Code.Command.CLITest do
 
     assert_receive {:stdout, ""}
     assert stderr =~ "invalid JSON"
+  end
+
+  test "subcommand parse errors for blank bus values print to stderr and halt with 1" do
+    stderr =
+      capture_io(:stderr, fn ->
+        stdout =
+          capture_io(fn ->
+            assert {:halt, 1} ==
+                     catch_throw(
+                       CLI.main(
+                         ["dispatch", "review", "--bus", "   "],
+                         fn code -> throw({:halt, code}) end,
+                         RuntimeStub
+                       )
+                     )
+          end)
+
+        send(self(), {:stdout, stdout})
+      end)
+
+    assert_receive {:stdout, ""}
+    assert stderr =~ "must be a non-empty string"
   end
 end

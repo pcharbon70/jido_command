@@ -76,9 +76,10 @@ defmodule Jido.Code.Command.CLI do
     params = result.options.params || %{}
     context = result.options.context || %{}
     invocation_id = result.options.invocation_id
+    bus = result.options.bus
 
     case safe_runtime_call("invoke", halt, fn ->
-           invoke_runtime(runtime, command_name, params, context, invocation_id)
+           invoke_runtime(runtime, command_name, params, context, invocation_id, bus)
          end) do
       {:ok, value} ->
         print_json_or_fail("invoke", value, halt)
@@ -122,9 +123,10 @@ defmodule Jido.Code.Command.CLI do
     params = result.options.params || %{}
     context = result.options.context || %{}
     invocation_id = result.options.invocation_id
+    bus = result.options.bus
 
     case safe_runtime_call("dispatch", halt, fn ->
-           dispatch_runtime(runtime, command_name, params, context, invocation_id)
+           dispatch_runtime(runtime, command_name, params, context, invocation_id, bus)
          end) do
       {:ok, invocation_id} when is_binary(invocation_id) ->
         print_json_or_fail("dispatch", %{"invocation_id" => invocation_id}, halt)
@@ -256,6 +258,13 @@ defmodule Jido.Code.Command.CLI do
               help: "Optional invocation id override",
               required: false,
               parser: &parse_nonempty_string/1
+            ],
+            bus: [
+              value_name: "BUS",
+              long: "--bus",
+              help: "Optional bus target override",
+              required: false,
+              parser: &parse_nonempty_string/1
             ]
           ]
         ],
@@ -293,6 +302,13 @@ defmodule Jido.Code.Command.CLI do
               value_name: "ID",
               long: "--invocation-id",
               help: "Optional invocation id override",
+              required: false,
+              parser: &parse_nonempty_string/1
+            ],
+            bus: [
+              value_name: "BUS",
+              long: "--bus",
+              help: "Optional bus target override",
               required: false,
               parser: &parse_nonempty_string/1
             ]
@@ -350,29 +366,62 @@ defmodule Jido.Code.Command.CLI do
 
   defp parse_nonempty_string(_), do: {:error, "must be a non-empty string"}
 
-  defp invoke_runtime(runtime, command_name, params, context, nil) do
-    runtime.invoke(command_name, params, context)
-  end
+  defp invoke_runtime(runtime, command_name, params, context, invocation_id, bus) do
+    runtime_opts =
+      []
+      |> maybe_put_runtime_opt(:invocation_id, invocation_id)
+      |> maybe_put_runtime_opt(:bus, bus)
 
-  defp invoke_runtime(runtime, command_name, params, context, invocation_id) do
-    if function_exported?(runtime, :invoke, 4) do
-      runtime.invoke(command_name, params, context, invocation_id: invocation_id)
-    else
-      runtime.invoke(command_name, params, Map.put(context, :invocation_id, invocation_id))
+    case runtime_opts do
+      [] ->
+        runtime.invoke(command_name, params, context)
+
+      opts ->
+        if function_exported?(runtime, :invoke, 4) do
+          runtime.invoke(command_name, params, context, opts)
+        else
+          legacy_context =
+            context
+            |> maybe_put_context_key(:invocation_id, invocation_id)
+            |> maybe_put_context_key(:bus, bus)
+
+          runtime.invoke(command_name, params, legacy_context)
+        end
     end
   end
 
-  defp dispatch_runtime(runtime, command_name, params, context, nil) do
-    runtime.dispatch(command_name, params, context)
-  end
+  defp dispatch_runtime(runtime, command_name, params, context, invocation_id, bus) do
+    runtime_opts =
+      []
+      |> maybe_put_runtime_opt(:invocation_id, invocation_id)
+      |> maybe_put_runtime_opt(:bus, bus)
 
-  defp dispatch_runtime(runtime, command_name, params, context, invocation_id) do
-    if function_exported?(runtime, :dispatch, 4) do
-      runtime.dispatch(command_name, params, context, invocation_id: invocation_id)
-    else
-      runtime.dispatch(command_name, params, Map.put(context, :invocation_id, invocation_id))
+    case runtime_opts do
+      [] ->
+        runtime.dispatch(command_name, params, context)
+
+      opts ->
+        if function_exported?(runtime, :dispatch, 4) do
+          runtime.dispatch(command_name, params, context, opts)
+        else
+          legacy_context =
+            context
+            |> maybe_put_context_key(:invocation_id, invocation_id)
+            |> maybe_put_context_key(:bus, bus)
+
+          runtime.dispatch(command_name, params, legacy_context)
+        end
     end
   end
+
+  defp maybe_put_runtime_opt(opts, _key, nil) when is_list(opts), do: opts
+  defp maybe_put_runtime_opt(opts, key, value) when is_list(opts) and is_atom(key),
+    do: Keyword.put(opts, key, value)
+
+  defp maybe_put_context_key(context, _key, nil) when is_map(context), do: context
+
+  defp maybe_put_context_key(context, key, value) when is_map(context) and is_atom(key),
+    do: Map.put(context, key, value)
 
   defp valid_command_name_list?(commands) when is_list(commands) do
     Enum.all?(commands, fn
