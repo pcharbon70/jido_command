@@ -36,7 +36,8 @@ defmodule Jido.Code.Command.MixProject do
     [
       main_module: Jido.Code.Command.Escript,
       name: "jido",
-      app: nil
+      app: nil,
+      include_priv_for: [:tzdata]
     ]
   end
 end
