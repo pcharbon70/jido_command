@@ -34,6 +34,16 @@ defmodule Jido.Code.Command.CLI do
     end
   end
 
+  defp normalize_default_command_invocation(["--command" | _rest]) do
+    {:error,
+     "legacy --command entrypoint is not supported; use: command <command-name> [options]"}
+  end
+
+  defp normalize_default_command_invocation([<<"--command=", _value::binary>> | _rest]) do
+    {:error,
+     "legacy --command entrypoint is not supported; use: command <command-name> [options]"}
+  end
+
   defp normalize_default_command_invocation([first | _rest] = argv) when is_binary(first) do
     cond do
       known_cli_subcommand?(first) ->
