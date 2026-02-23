@@ -152,7 +152,25 @@ defmodule Jido.Code.Command.Escript do
 
   defp release_ets_file?(path) when is_binary(path) do
     String.starts_with?(path, @tzdata_release_ets_prefix) and
-      String.ends_with?(path, ".ets")
+      release_ets_filename?(Path.basename(path))
+  end
+
+  @doc false
+  @spec tzdata_release_file_version() :: pos_integer()
+  def tzdata_release_file_version do
+    if function_exported?(Tzdata.EtsHolder, :file_version, 0) do
+      Tzdata.EtsHolder.file_version()
+    else
+      2
+    end
+  end
+
+  defp expected_release_ets_suffix do
+    ".v#{tzdata_release_file_version()}.ets"
+  end
+
+  defp release_ets_filename?(filename) when is_binary(filename) do
+    String.ends_with?(filename, expected_release_ets_suffix())
   end
 
   defp validate_copied_release_files(copied_count)
@@ -166,7 +184,7 @@ defmodule Jido.Code.Command.Escript do
 
     case File.ls(release_ets_dir) do
       {:ok, files} ->
-        Enum.any?(files, &String.ends_with?(&1, ".ets"))
+        Enum.any?(files, &release_ets_filename?/1)
 
       {:error, _reason} ->
         false
