@@ -83,6 +83,14 @@ defmodule Jido.Code.Command.CLI do
     end
   end
 
+  defp do_parse_top_level_command_options(["--params-file" | rest], state) do
+    with {:ok, value, remaining} <- take_required_option_value("--params-file", rest),
+         {:ok, params} <- parse_json_file_option("--params-file", value) do
+      next_state = %{state | params: Map.merge(state.params, params)}
+      do_parse_top_level_command_options(remaining, next_state)
+    end
+  end
+
   defp do_parse_top_level_command_options(["-p" | rest], state) do
     with {:ok, value, remaining} <- take_required_option_value("-p", rest),
          {:ok, params} <- parse_json_option("-p", value) do
@@ -98,9 +106,24 @@ defmodule Jido.Code.Command.CLI do
     end
   end
 
+  defp do_parse_top_level_command_options([<<"--params-file=", value::binary>> | rest], state) do
+    with {:ok, params} <- parse_json_file_option("--params-file", value) do
+      next_state = %{state | params: Map.merge(state.params, params)}
+      do_parse_top_level_command_options(rest, next_state)
+    end
+  end
+
   defp do_parse_top_level_command_options(["--context" | rest], state) do
     with {:ok, value, remaining} <- take_required_option_value("--context", rest),
          {:ok, context} <- parse_json_option("--context", value) do
+      next_state = %{state | context: Map.merge(state.context, context)}
+      do_parse_top_level_command_options(remaining, next_state)
+    end
+  end
+
+  defp do_parse_top_level_command_options(["--context-file" | rest], state) do
+    with {:ok, value, remaining} <- take_required_option_value("--context-file", rest),
+         {:ok, context} <- parse_json_file_option("--context-file", value) do
       next_state = %{state | context: Map.merge(state.context, context)}
       do_parse_top_level_command_options(remaining, next_state)
     end
@@ -116,6 +139,13 @@ defmodule Jido.Code.Command.CLI do
 
   defp do_parse_top_level_command_options([<<"--context=", value::binary>> | rest], state) do
     with {:ok, context} <- parse_json_option("--context", value) do
+      next_state = %{state | context: Map.merge(state.context, context)}
+      do_parse_top_level_command_options(rest, next_state)
+    end
+  end
+
+  defp do_parse_top_level_command_options([<<"--context-file=", value::binary>> | rest], state) do
+    with {:ok, context} <- parse_json_file_option("--context-file", value) do
       next_state = %{state | context: Map.merge(state.context, context)}
       do_parse_top_level_command_options(rest, next_state)
     end
@@ -176,10 +206,28 @@ defmodule Jido.Code.Command.CLI do
     end
   end
 
+  defp parse_json_file_option(option, path) when is_binary(option) and is_binary(path) do
+    with {:ok, normalized_path} <- parse_string_option(option, path),
+         {:ok, content} <- read_json_file(option, normalized_path) do
+      parse_json_option(option, content)
+    end
+  end
+
   defp parse_string_option(option, value) when is_binary(option) and is_binary(value) do
     case parse_nonempty_string(value) do
       {:ok, parsed} -> {:ok, parsed}
       {:error, reason} -> {:error, "invalid #{option}: #{reason}"}
+    end
+  end
+
+  defp read_json_file(option, path) when is_binary(option) and is_binary(path) do
+    case File.read(path) do
+      {:ok, content} ->
+        {:ok, content}
+
+      {:error, reason} ->
+        reason_text = reason |> :file.format_error() |> List.to_string()
+        {:error, "invalid #{option}: unable to read #{path}: #{reason_text}"}
     end
   end
 
@@ -331,26 +379,18 @@ defmodule Jido.Code.Command.CLI do
 
   defp handle_invoke(result, halt, runtime) do
     command_name = result.args.command
-    params = result.options.params || %{}
-    context = result.options.context || %{}
     invocation_id = result.options.invocation_id
     bus = result.options.bus
 
-    case safe_runtime_call("invoke", halt, fn ->
-           invoke_runtime(runtime, command_name, params, context, invocation_id, bus)
-         end) do
-      {:ok, value} ->
-        print_json_or_fail("invoke", value, halt)
-
-      {:error, reason} ->
-        IO.puts(:stderr, "invoke failed: #{inspect(reason)}")
-        halt.(1)
-
+    case resolve_params_and_context("invoke", result.options, halt) do
       :halted ->
         :ok
 
-      other ->
-        invalid_runtime_response("invoke", other, halt)
+      {:ok, params, context} ->
+        safe_runtime_call("invoke", halt, fn ->
+          invoke_runtime(runtime, command_name, params, context, invocation_id, bus)
+        end)
+        |> handle_invoke_result(halt)
     end
   end
 
@@ -378,29 +418,18 @@ defmodule Jido.Code.Command.CLI do
 
   defp handle_dispatch(result, halt, runtime) do
     command_name = result.args.command
-    params = result.options.params || %{}
-    context = result.options.context || %{}
     invocation_id = result.options.invocation_id
     bus = result.options.bus
 
-    case safe_runtime_call("dispatch", halt, fn ->
-           dispatch_runtime(runtime, command_name, params, context, invocation_id, bus)
-         end) do
-      {:ok, invocation_id} when is_binary(invocation_id) ->
-        print_json_or_fail("dispatch", %{"invocation_id" => invocation_id}, halt)
-
-      {:ok, _invocation_id} = other ->
-        invalid_runtime_response("dispatch", other, halt)
-
-      {:error, reason} ->
-        IO.puts(:stderr, "dispatch failed: #{inspect(reason)}")
-        halt.(1)
-
+    case resolve_params_and_context("dispatch", result.options, halt) do
       :halted ->
         :ok
 
-      other ->
-        invalid_runtime_response("dispatch", other, halt)
+      {:ok, params, context} ->
+        safe_runtime_call("dispatch", halt, fn ->
+          dispatch_runtime(runtime, command_name, params, context, invocation_id, bus)
+        end)
+        |> handle_dispatch_result(halt)
     end
   end
 
@@ -501,6 +530,13 @@ defmodule Jido.Code.Command.CLI do
               parser: &parse_json_object/1,
               default: %{}
             ],
+            params_file: [
+              value_name: "PATH",
+              long: "--params-file",
+              help: "Path to JSON file with command params",
+              required: false,
+              parser: &parse_nonempty_string/1
+            ],
             context: [
               value_name: "JSON",
               long: "--context",
@@ -509,6 +545,13 @@ defmodule Jido.Code.Command.CLI do
               required: false,
               parser: &parse_json_object/1,
               default: %{}
+            ],
+            context_file: [
+              value_name: "PATH",
+              long: "--context-file",
+              help: "Path to JSON file with invoke context",
+              required: false,
+              parser: &parse_nonempty_string/1
             ],
             invocation_id: [
               value_name: "ID",
@@ -547,6 +590,13 @@ defmodule Jido.Code.Command.CLI do
               parser: &parse_json_object/1,
               default: %{}
             ],
+            params_file: [
+              value_name: "PATH",
+              long: "--params-file",
+              help: "Path to JSON file with command params",
+              required: false,
+              parser: &parse_nonempty_string/1
+            ],
             context: [
               value_name: "JSON",
               long: "--context",
@@ -555,6 +605,13 @@ defmodule Jido.Code.Command.CLI do
               required: false,
               parser: &parse_json_object/1,
               default: %{}
+            ],
+            context_file: [
+              value_name: "PATH",
+              long: "--context-file",
+              help: "Path to JSON file with dispatch context",
+              required: false,
+              parser: &parse_nonempty_string/1
             ],
             invocation_id: [
               value_name: "ID",
@@ -623,6 +680,78 @@ defmodule Jido.Code.Command.CLI do
   end
 
   defp parse_nonempty_string(_), do: {:error, "must be a non-empty string"}
+
+  defp resolve_params_and_context(command, options, halt)
+       when is_binary(command) and is_map(options) do
+    params =
+      resolve_json_option_with_file(
+        command,
+        options.params || %{},
+        options.params_file,
+        "--params-file",
+        halt
+      )
+
+    context =
+      resolve_json_option_with_file(
+        command,
+        options.context || %{},
+        options.context_file,
+        "--context-file",
+        halt
+      )
+
+    if params == :halted or context == :halted do
+      :halted
+    else
+      {:ok, params, context}
+    end
+  end
+
+  defp resolve_json_option_with_file(_command, inline_value, nil, _file_option, _halt)
+       when is_map(inline_value),
+       do: inline_value
+
+  defp resolve_json_option_with_file(command, inline_value, file_path, file_option, halt)
+       when is_binary(command) and is_map(inline_value) and is_binary(file_path) do
+    case parse_json_file_option(file_option, file_path) do
+      {:ok, from_file} ->
+        Map.merge(from_file, inline_value)
+
+      {:error, reason} ->
+        IO.puts(:stderr, "#{command} failed: #{reason}")
+        _ = halt.(1)
+        :halted
+    end
+  end
+
+  defp handle_invoke_result({:ok, value}, halt), do: print_json_or_fail("invoke", value, halt)
+
+  defp handle_invoke_result({:error, reason}, halt) do
+    IO.puts(:stderr, "invoke failed: #{inspect(reason)}")
+    halt.(1)
+  end
+
+  defp handle_invoke_result(:halted, _halt), do: :ok
+
+  defp handle_invoke_result(other, halt), do: invalid_runtime_response("invoke", other, halt)
+
+  defp handle_dispatch_result({:ok, invocation_id}, halt) when is_binary(invocation_id) do
+    print_json_or_fail("dispatch", %{"invocation_id" => invocation_id}, halt)
+  end
+
+  defp handle_dispatch_result({:ok, _invocation_id} = other, halt) do
+    invalid_runtime_response("dispatch", other, halt)
+  end
+
+  defp handle_dispatch_result({:error, reason}, halt) do
+    IO.puts(:stderr, "dispatch failed: #{inspect(reason)}")
+    halt.(1)
+  end
+
+  defp handle_dispatch_result(:halted, _halt), do: :ok
+
+  defp handle_dispatch_result(other, halt), do: invalid_runtime_response("dispatch", other, halt)
 
   defp invoke_runtime(runtime, command_name, params, context, invocation_id, bus) do
     runtime_opts =

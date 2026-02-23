@@ -151,6 +151,17 @@ defmodule Jido.Code.Command.CLITest do
     def unregister_command(_command_name), do: raise("unregister boom")
   end
 
+  defp write_temp_json_file!(content) when is_binary(content) do
+    path =
+      Path.join(
+        System.tmp_dir!(),
+        "jido_command_cli_#{System.unique_integer([:positive, :monotonic])}.json"
+      )
+
+    File.write!(path, content)
+    path
+  end
+
   test "list prints loaded command names" do
     output =
       capture_io(fn ->
@@ -235,6 +246,37 @@ defmodule Jido.Code.Command.CLITest do
     assert %{"invocation_id" => "invocation-123"} == Jason.decode!(output)
   end
 
+  test "dispatch supports params/context file options with inline overrides" do
+    params_path = write_temp_json_file!(~s({"x":1,"shared":"file"}))
+    context_path = write_temp_json_file!(~s({"source":"file","shared":"file"}))
+
+    output =
+      capture_io(fn ->
+        assert :ok ==
+                 CLI.main(
+                   [
+                     "dispatch",
+                     "demo",
+                     "--params-file",
+                     params_path,
+                     "--params",
+                     ~s({"shared":"inline"}),
+                     "--context-file",
+                     context_path,
+                     "--context",
+                     ~s({"shared":"inline"})
+                   ],
+                   fn code -> flunk("unexpected halt with #{code}") end,
+                   RuntimeStub
+                 )
+      end)
+
+    assert_receive {:runtime_dispatch, "demo", params, context}, 500
+    assert params == %{"x" => 1, "shared" => "inline"}
+    assert context == %{"source" => "file", "shared" => "inline"}
+    assert %{"invocation_id" => "invocation-123"} == Jason.decode!(output)
+  end
+
   test "invoke uses runtime module injection" do
     output =
       capture_io(fn ->
@@ -247,6 +289,37 @@ defmodule Jido.Code.Command.CLITest do
       end)
 
     assert_receive {:runtime_invoke, "review", %{"target" => "README.md"}, %{}}, 500
+    assert %{"ok" => true, "command" => "review"} == Jason.decode!(output)
+  end
+
+  test "invoke supports params/context file options with inline overrides" do
+    params_path = write_temp_json_file!(~s({"target":"from-file.md","shared":"file"}))
+    context_path = write_temp_json_file!(~s({"source":"file","shared":"file"}))
+
+    output =
+      capture_io(fn ->
+        assert :ok ==
+                 CLI.main(
+                   [
+                     "invoke",
+                     "review",
+                     "--params-file",
+                     params_path,
+                     "--params",
+                     ~s({"shared":"inline"}),
+                     "--context-file",
+                     context_path,
+                     "--context",
+                     ~s({"shared":"inline"})
+                   ],
+                   fn code -> flunk("unexpected halt with #{code}") end,
+                   RuntimeStub
+                 )
+      end)
+
+    assert_receive {:runtime_invoke, "review", params, context}, 500
+    assert params == %{"target" => "from-file.md", "shared" => "inline"}
+    assert context == %{"source" => "file", "shared" => "inline"}
     assert %{"ok" => true, "command" => "review"} == Jason.decode!(output)
   end
 
@@ -350,6 +423,34 @@ defmodule Jido.Code.Command.CLITest do
     assert_receive {:runtime_invoke, "review", params, %{}}, 500
     assert params["target_file"] == "lib/foo.ex"
     assert params["count"] == 3
+    assert %{"ok" => true, "command" => "review"} == Jason.decode!(output)
+  end
+
+  test "top-level command name supports params/context file options with long equals syntax" do
+    params_path = write_temp_json_file!(~s({"target_file":"from-file.md","count":1}))
+    context_path = write_temp_json_file!(~s({"source":"file","trace":"file"}))
+
+    output =
+      capture_io(fn ->
+        assert :ok ==
+                 CLI.main(
+                   [
+                     "review",
+                     "--params-file=#{params_path}",
+                     "--count",
+                     "3",
+                     "--context-file=#{context_path}",
+                     "--context",
+                     ~s({"trace":"inline"})
+                   ],
+                   fn code -> flunk("unexpected halt with #{code}") end,
+                   RuntimeStub
+                 )
+      end)
+
+    assert_receive {:runtime_invoke, "review", params, context}, 500
+    assert params == %{"target_file" => "from-file.md", "count" => 3}
+    assert context == %{"source" => "file", "trace" => "inline"}
     assert %{"ok" => true, "command" => "review"} == Jason.decode!(output)
   end
 
@@ -467,6 +568,30 @@ defmodule Jido.Code.Command.CLITest do
       end)
 
     assert stderr =~ "invoke failed: runtime throw: {:throw, :invoke_boom}"
+  end
+
+  test "invoke params-file read failure prints error and halts with 1" do
+    missing_path =
+      Path.join(
+        System.tmp_dir!(),
+        "jido_command_cli_missing_#{System.unique_integer([:positive, :monotonic])}.json"
+      )
+
+    stderr =
+      capture_io(:stderr, fn ->
+        assert {:halt, 1} ==
+                 catch_throw(
+                   CLI.main(
+                     ["invoke", "review", "--params-file", missing_path],
+                     fn code -> throw({:halt, code}) end,
+                     RuntimeStub
+                   )
+                 )
+      end)
+
+    assert stderr =~ "invoke failed: invalid --params-file: unable to read #{missing_path}:"
+    refute_receive {:runtime_invoke, _, _, _}
+    refute_receive {:runtime_invoke_with_opts, _, _, _, _}
   end
 
   test "dispatch failure prints error and halts with 1" do
