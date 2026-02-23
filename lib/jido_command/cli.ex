@@ -3,6 +3,7 @@ defmodule Jido.Code.Command.CLI do
   Optimus-based CLI for invoking and listing registered commands.
 
   Supports default command invocation form: `<command-name> [invoke opts]`.
+  Use `-- <command-name> ...` to disambiguate names that match CLI subcommands.
   """
 
   @cli_subcommands ~w(list invoke dispatch reload register-command unregister-command)
@@ -19,6 +20,17 @@ defmodule Jido.Code.Command.CLI do
       {:error, reason} ->
         IO.puts(:stderr, reason)
         halt.(1)
+    end
+  end
+
+  defp normalize_default_command_invocation(["--"]) do
+    {:error, "invalid command invocation: missing command name after --"}
+  end
+
+  defp normalize_default_command_invocation(["--", command | rest]) when is_binary(command) do
+    case parse_top_level_command_name(command) do
+      {:ok, normalized_command} -> rewrite_top_level_command_alias(normalized_command, rest)
+      :error -> {:error, "invalid command invocation: missing command name after --"}
     end
   end
 

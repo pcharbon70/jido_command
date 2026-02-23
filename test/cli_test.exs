@@ -283,6 +283,21 @@ defmodule Jido.Code.Command.CLITest do
              Jason.decode!(output)
   end
 
+  test "top-level -- disambiguates command names that match CLI subcommands" do
+    output =
+      capture_io(fn ->
+        assert :ok ==
+                 CLI.main(
+                   ["--", "list", "--target-file", "README.md"],
+                   fn code -> flunk("unexpected halt with #{code}") end,
+                   RuntimeStub
+                 )
+      end)
+
+    assert_receive {:runtime_invoke, "list", %{"target_file" => "README.md"}, %{}}, 500
+    assert %{"ok" => true, "command" => "list"} == Jason.decode!(output)
+  end
+
   test "top-level command name maps shorthand options into invoke params" do
     output =
       capture_io(fn ->
@@ -816,6 +831,28 @@ defmodule Jido.Code.Command.CLITest do
 
     assert_receive {:stdout, ""}
     assert stderr != ""
+  end
+
+  test "top-level -- without command name halts with parse error" do
+    stderr =
+      capture_io(:stderr, fn ->
+        stdout =
+          capture_io(fn ->
+            assert {:halt, 1} ==
+                     catch_throw(
+                       CLI.main(
+                         ["--"],
+                         fn code -> throw({:halt, code}) end,
+                         RuntimeStub
+                       )
+                     )
+          end)
+
+        send(self(), {:stdout, stdout})
+      end)
+
+    assert_receive {:stdout, ""}
+    assert stderr =~ "invalid command invocation: missing command name after --"
   end
 
   test "subcommand parse errors print to stderr and halt with 1" do

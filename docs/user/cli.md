@@ -67,6 +67,12 @@ Top-level command invocation also accepts command params directly:
 ./command code-review --target-file lib/foo.ex --include-tests true
 ```
 
+When a command name conflicts with a CLI subcommand, use `--` to force command invocation:
+
+```bash
+./command -- list --target-file lib/foo.ex
+```
+
 Shorthand param rules:
 
 - unknown `--<name>` options are treated as command params
@@ -75,6 +81,7 @@ Shorthand param rules:
 - param names normalize `-` to `_` (for example `--target-file` -> `target_file`)
 - values are JSON-decoded when valid JSON (numbers, booleans, objects, arrays, `null`), otherwise treated as strings
 - reserved options remain runtime options: `--params`, `-p`, `--context`, `-c`, `--invocation-id`, `--bus`
+- `--` before the command name forces top-level command invocation and bypasses subcommand matching
 
 Options:
 
