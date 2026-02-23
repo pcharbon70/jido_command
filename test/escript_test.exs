@@ -86,6 +86,27 @@ defmodule Jido.Code.Command.EscriptTest do
     refute File.exists?(Path.join([tmp_dir, "release_ets", incompatible_name]))
   end
 
+  test "seed_tzdata_release_files returns error when release target directory is invalid" do
+    tmp_dir = unique_tmp_dir("invalid_release_target")
+    on_exit(fn -> File.rm_rf(tmp_dir) end)
+
+    file_version = Escript.tzdata_release_file_version()
+    release_file_name = "2025z.v#{file_version}.ets"
+    script_path = Path.join(tmp_dir, "invalid_release_target.escript")
+    archive_path = String.to_charlist("tzdata/priv/release_ets/#{release_file_name}")
+
+    File.mkdir_p!(tmp_dir)
+
+    assert :ok =
+             :escript.create(String.to_charlist(script_path), [
+               :shebang,
+               {:archive, [{archive_path, "release-data"}], []}
+             ])
+
+    assert {:error, {:release_dir_unavailable, :enotdir}} =
+             Escript.seed_tzdata_release_files("/dev/null", script_path)
+  end
+
   defp unique_tmp_dir(suffix) do
     Path.join(
       System.tmp_dir!(),
