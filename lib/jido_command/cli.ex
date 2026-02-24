@@ -3,7 +3,6 @@ defmodule Jido.Code.Command.CLI do
   Optimus-based CLI for invoking and listing registered commands.
 
   Supports default command invocation form: `<command-name> [invoke opts]`.
-  Use `-- <command-name> ...` to disambiguate names that match CLI subcommands.
   """
 
   @cli_subcommands ~w(list invoke dispatch reload register-command unregister-command)
@@ -34,25 +33,6 @@ defmodule Jido.Code.Command.CLI do
     end
   end
 
-  defp normalize_default_command_invocation(["--command", command | _rest])
-       when is_binary(command) do
-    case parse_top_level_command_name(command) do
-      {:ok, normalized_command} -> {:error, legacy_command_entrypoint_error(normalized_command)}
-      :error -> {:error, legacy_command_entrypoint_error()}
-    end
-  end
-
-  defp normalize_default_command_invocation(["--command" | _rest]) do
-    {:error, legacy_command_entrypoint_error()}
-  end
-
-  defp normalize_default_command_invocation([<<"--command=", value::binary>> | _rest]) do
-    case parse_top_level_command_name(value) do
-      {:ok, normalized_command} -> {:error, legacy_command_entrypoint_error(normalized_command)}
-      :error -> {:error, legacy_command_entrypoint_error()}
-    end
-  end
-
   defp normalize_default_command_invocation([first | _rest] = argv) when is_binary(first) do
     cond do
       known_cli_subcommand?(first) ->
@@ -75,25 +55,6 @@ defmodule Jido.Code.Command.CLI do
   defp normalize_default_command_invocation(argv), do: {:ok, argv}
 
   defp known_cli_subcommand?(name) when is_binary(name), do: name in @cli_subcommands
-
-  defp legacy_command_entrypoint_error do
-    "legacy --command entrypoint is not supported; use: command <command-name> [options]"
-  end
-
-  defp legacy_command_entrypoint_error(command_name) when is_binary(command_name) do
-    replacement =
-      if legacy_command_name_needs_disambiguation?(command_name) do
-        "command -- #{command_name} [options]"
-      else
-        "command #{command_name} [options]"
-      end
-
-    "legacy --command entrypoint is not supported; use: #{replacement}"
-  end
-
-  defp legacy_command_name_needs_disambiguation?(command_name) when is_binary(command_name) do
-    known_cli_subcommand?(command_name) or String.starts_with?(command_name, "-")
-  end
 
   defp rewrite_top_level_command_alias(command, rest)
        when is_binary(command) and is_list(rest) do
