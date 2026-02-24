@@ -989,7 +989,31 @@ defmodule Jido.Code.Command.CLITest do
     assert_receive {:stdout, ""}
 
     assert stderr =~
-             "legacy --command entrypoint is not supported; use: command <command-name> [options]"
+             "legacy --command entrypoint is not supported; use: command review [options]"
+  end
+
+  test "legacy --command=<name> entrypoint halts with command-specific parse guidance" do
+    stderr =
+      capture_io(:stderr, fn ->
+        stdout =
+          capture_io(fn ->
+            assert {:halt, 1} ==
+                     catch_throw(
+                       CLI.main(
+                         ["--command=review"],
+                         fn code -> throw({:halt, code}) end,
+                         RuntimeStub
+                       )
+                     )
+          end)
+
+        send(self(), {:stdout, stdout})
+      end)
+
+    assert_receive {:stdout, ""}
+
+    assert stderr =~
+             "legacy --command entrypoint is not supported; use: command review [options]"
   end
 
   test "top-level -- without command name halts with parse error" do
