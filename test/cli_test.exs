@@ -887,6 +887,22 @@ defmodule Jido.Code.Command.CLITest do
     assert stderr =~ "unregister-command failed: runtime exception: unregister boom"
   end
 
+  test "--version prints current project version and halts with 0" do
+    output =
+      capture_io(fn ->
+        assert {:halt, 0} ==
+                 catch_throw(
+                   CLI.main(
+                     ["--version"],
+                     fn code -> throw({:halt, code}) end,
+                     RuntimeStub
+                   )
+                 )
+      end)
+
+    assert output == "command #{Mix.Project.config()[:version]}\n"
+  end
+
   test "top-level parse errors print to stderr and halt with 1" do
     stderr =
       capture_io(:stderr, fn ->
