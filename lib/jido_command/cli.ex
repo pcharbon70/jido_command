@@ -22,17 +22,6 @@ defmodule Jido.Code.Command.CLI do
     end
   end
 
-  defp normalize_default_command_invocation(["--"]) do
-    {:error, "invalid command invocation: missing command name after --"}
-  end
-
-  defp normalize_default_command_invocation(["--", command | rest]) when is_binary(command) do
-    case parse_top_level_command_name(command) do
-      {:ok, normalized_command} -> rewrite_top_level_command_alias(normalized_command, rest)
-      :error -> {:error, "invalid command invocation: missing command name after --"}
-    end
-  end
-
   defp normalize_default_command_invocation([first | _rest] = argv) when is_binary(first) do
     cond do
       known_cli_subcommand?(first) ->
@@ -777,16 +766,7 @@ defmodule Jido.Code.Command.CLI do
         runtime.invoke(command_name, params, context)
 
       opts ->
-        if function_exported?(runtime, :invoke, 4) do
-          runtime.invoke(command_name, params, context, opts)
-        else
-          legacy_context =
-            context
-            |> maybe_put_context_key(:invocation_id, invocation_id)
-            |> maybe_put_context_key(:bus, bus)
-
-          runtime.invoke(command_name, params, legacy_context)
-        end
+        runtime.invoke(command_name, params, context, opts)
     end
   end
 
@@ -801,16 +781,7 @@ defmodule Jido.Code.Command.CLI do
         runtime.dispatch(command_name, params, context)
 
       opts ->
-        if function_exported?(runtime, :dispatch, 4) do
-          runtime.dispatch(command_name, params, context, opts)
-        else
-          legacy_context =
-            context
-            |> maybe_put_context_key(:invocation_id, invocation_id)
-            |> maybe_put_context_key(:bus, bus)
-
-          runtime.dispatch(command_name, params, legacy_context)
-        end
+        runtime.dispatch(command_name, params, context, opts)
     end
   end
 
@@ -818,11 +789,6 @@ defmodule Jido.Code.Command.CLI do
 
   defp maybe_put_runtime_opt(opts, key, value) when is_list(opts) and is_atom(key),
     do: Keyword.put(opts, key, value)
-
-  defp maybe_put_context_key(context, _key, nil) when is_map(context), do: context
-
-  defp maybe_put_context_key(context, key, value) when is_map(context) and is_atom(key),
-    do: Map.put(context, key, value)
 
   defp valid_command_name_list?(commands) when is_list(commands) do
     Enum.all?(commands, fn
