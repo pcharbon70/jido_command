@@ -242,7 +242,7 @@ Failure data fields:
 - `status` = `"error"`
 - `error` (string)
 
-## Command FrontMatter contract (Phase 3)
+## Command FrontMatter contract
 
 Markdown command declarations must include YAML frontmatter with these required keys:
 
