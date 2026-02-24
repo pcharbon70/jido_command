@@ -80,9 +80,6 @@ mix escript.build
 # shorthand: command params as direct options
 ./command code-review --target-file lib/foo.ex --max-results 10 --dry-run
 
-# force command invocation when name conflicts with a CLI subcommand
-./command -- list --target-file lib/foo.ex
-
 # list commands
 mix run -e 'Jido.Code.Command.CLI.main(["list"])'
 
@@ -113,9 +110,6 @@ mix run -e 'Jido.Code.Command.CLI.main(["register-command", "commands/review.md"
 # unregister one command by name at runtime
 mix run -e 'Jido.Code.Command.CLI.main(["unregister-command", "review"])'
 ```
-
-Legacy `--command` invocation is intentionally unsupported; use `command <command-name> [options]`.
-If the command name conflicts with a CLI subcommand (for example `list`), use `command -- <command-name> [options]`.
 
 When both inline JSON (`--params`/`--context`) and file JSON (`--params-file`/`--context-file`) are provided, inline keys take precedence regardless of argument order.
 
