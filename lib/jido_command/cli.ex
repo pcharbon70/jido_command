@@ -81,7 +81,18 @@ defmodule Jido.Code.Command.CLI do
   end
 
   defp legacy_command_entrypoint_error(command_name) when is_binary(command_name) do
-    "legacy --command entrypoint is not supported; use: command #{command_name} [options]"
+    replacement =
+      if legacy_command_name_needs_disambiguation?(command_name) do
+        "command -- #{command_name} [options]"
+      else
+        "command #{command_name} [options]"
+      end
+
+    "legacy --command entrypoint is not supported; use: #{replacement}"
+  end
+
+  defp legacy_command_name_needs_disambiguation?(command_name) when is_binary(command_name) do
+    known_cli_subcommand?(command_name) or String.starts_with?(command_name, "-")
   end
 
   defp rewrite_top_level_command_alias(command, rest)

@@ -95,6 +95,7 @@ Shorthand param rules:
 - reserved options remain runtime options: `--params`, `--params-file`, `-p`, `--context`, `--context-file`, `-c`, `--invocation-id`, `--bus`
 - `--` before the command name forces top-level command invocation and bypasses subcommand matching
 - legacy `--command` is intentionally unsupported; use `command <command-name> [options]`
+- if the command name conflicts with a CLI subcommand (for example `list`), use `command -- <command-name> [options]`
 
 Options:
 
