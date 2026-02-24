@@ -1,34 +1,34 @@
-defmodule Jido.Code.Command.Extensibility.CommandRuntimeTest do
+defmodule Jido.Code.Command.RuntimeTest do
   use ExUnit.Case, async: true
 
-  alias Jido.Code.Command.Extensibility.CommandDefinition
-  alias Jido.Code.Command.Extensibility.CommandRuntime
+  alias Jido.Code.Command.Definition, as: CommandDefinition
+  alias Jido.Code.Command.Runtime, as: CommandRuntime
   alias Jido.Signal
   alias Jido.Signal.Bus
 
   defmodule FailingExecutor do
-    @behaviour Jido.Code.Command.Extensibility.CommandRuntime
+    @behaviour Jido.Code.Command.Runtime
 
     @impl true
     def execute(_definition, _prompt, _params, _context), do: {:error, :boom}
   end
 
   defmodule RaisingExecutor do
-    @behaviour Jido.Code.Command.Extensibility.CommandRuntime
+    @behaviour Jido.Code.Command.Runtime
 
     @impl true
     def execute(_definition, _prompt, _params, _context), do: raise("boom")
   end
 
   defmodule InvalidResponseExecutor do
-    @behaviour Jido.Code.Command.Extensibility.CommandRuntime
+    @behaviour Jido.Code.Command.Runtime
 
     @impl true
     def execute(_definition, _prompt, _params, _context), do: :ok
   end
 
   defmodule ContextProbeExecutor do
-    @behaviour Jido.Code.Command.Extensibility.CommandRuntime
+    @behaviour Jido.Code.Command.Runtime
 
     @impl true
     def execute(_definition, _prompt, _params, context) do
@@ -318,7 +318,9 @@ defmodule Jido.Code.Command.Extensibility.CommandRuntimeTest do
     }
 
     assert {:error, :invalid_params} = CommandRuntime.execute(definition, [1], %{})
-    assert {:error, :invalid_params} = CommandRuntime.execute(definition, [{:bad, :tuple, :shape}], %{})
+
+    assert {:error, :invalid_params} =
+             CommandRuntime.execute(definition, [{:bad, :tuple, :shape}], %{})
   end
 
   test "does not emit hooks when both hook flags are disabled" do

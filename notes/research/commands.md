@@ -115,7 +115,7 @@ You are an expert Elixir code reviewer.
 ### Command registry and loader
 
 ```elixir
-defmodule Jido.Code.Command.Extensibility.CommandRegistry do
+defmodule Jido.Code.Command.Registry do
   @moduledoc """
   Central registry for loaded command modules.
   """
@@ -139,7 +139,7 @@ end
 ### Action-based slash command implementation
 
 ```elixir
-defmodule Jido.Code.Command.Extensibility.Command do
+defmodule Jido.Code.Command.Compiler do
   @moduledoc """
   Slash commands implemented as Jido Actions with markdown configuration.
   Only two predefined hooks are supported: pre and after.
@@ -197,14 +197,14 @@ end
 ### Command dispatch loop via signal bus topics
 
 ```elixir
-defmodule Jido.Code.Command.Extensibility.CommandDispatcher do
+defmodule Jido.Code.Command.Dispatcher do
   @moduledoc """
   Listens for command invocation signals and executes registered commands.
   """
 
   alias Jido.Signal
   alias Jido.Signal.Bus
-  alias Jido.Code.Command.Extensibility.CommandRegistry
+  alias Jido.Code.Command.Registry
 
   def init do
     Bus.subscribe(:jido_code_bus, "command.invoke", dispatch: {:pid, target: self()})
@@ -239,11 +239,11 @@ defmodule Jido.Code.Command.Application do
         name: :jido_code_bus,
         middleware: [{Jido.Signal.Bus.Middleware.Logger, level: :debug}]
       ]},
-      {Jido.Code.Command.Extensibility.CommandRegistry, [
+      {Jido.Code.Command.Registry, [
         global_path: Path.expand("~/.jido_code"),
         local_path: ".jido_code"
       ]},
-      Jido.Code.Command.Extensibility.CommandDispatcher
+      Jido.Code.Command.Dispatcher
     ]
 
     Supervisor.start_link(children, strategy: :one_for_one, name: Jido.Code.Command.Supervisor)

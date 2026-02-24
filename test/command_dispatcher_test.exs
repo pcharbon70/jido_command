@@ -1,13 +1,13 @@
-defmodule Jido.Code.Command.Extensibility.CommandDispatcherTest do
+defmodule Jido.Code.Command.DispatcherTest do
   use ExUnit.Case, async: true
 
-  alias Jido.Code.Command.Extensibility.CommandDispatcher
-  alias Jido.Code.Command.Extensibility.CommandRegistry
+  alias Jido.Code.Command.Dispatcher, as: CommandDispatcher
+  alias Jido.Code.Command.Registry, as: CommandRegistry
   alias Jido.Signal
   alias Jido.Signal.Bus
 
   defmodule ProbeExecutor do
-    @behaviour Jido.Code.Command.Extensibility.CommandRuntime
+    @behaviour Jido.Code.Command.Runtime
 
     @impl true
     def execute(_definition, _prompt, params, context) do
@@ -22,7 +22,7 @@ defmodule Jido.Code.Command.Extensibility.CommandDispatcherTest do
   end
 
   defmodule PermissionsProbeExecutor do
-    @behaviour Jido.Code.Command.Extensibility.CommandRuntime
+    @behaviour Jido.Code.Command.Runtime
 
     @impl true
     def execute(_definition, _prompt, _params, context) do
@@ -33,7 +33,7 @@ defmodule Jido.Code.Command.Extensibility.CommandDispatcherTest do
   end
 
   defmodule ContextProbeExecutor do
-    @behaviour Jido.Code.Command.Extensibility.CommandRuntime
+    @behaviour Jido.Code.Command.Runtime
 
     @impl true
     def execute(_definition, _prompt, _params, context) do

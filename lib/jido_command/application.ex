@@ -7,8 +7,8 @@ defmodule Jido.Code.Command.Application do
 
   alias Jido.Code.Command.Config.Loader
   alias Jido.Code.Command.Config.Settings
-  alias Jido.Code.Command.Extensibility.CommandDispatcher
-  alias Jido.Code.Command.Extensibility.CommandRegistry
+  alias Jido.Code.Command.Dispatcher, as: CommandDispatcher
+  alias Jido.Code.Command.Registry, as: CommandRegistry
 
   @impl true
   def start(_type, _args) do

@@ -7,8 +7,8 @@
 ```mermaid
 flowchart TD
   A["Jido.Code.Command.Supervisor"] --> B["Jido.Signal.Bus"]
-  A --> C["Jido.Code.Command.Extensibility.CommandRegistry"]
-  A --> D["Jido.Code.Command.Extensibility.CommandDispatcher"]
+  A --> C["Jido.Code.Command.Registry"]
+  A --> D["Jido.Code.Command.Dispatcher"]
   D -->|"Subscribes to command.invoke"| B
   C -->|"Publishes registry lifecycle signals"| B
 ```
@@ -44,8 +44,8 @@ flowchart LR
 - `Jido.Code.Command`: public API (`list_commands`, `invoke`, `dispatch`, `reload`, `register_command`, `unregister_command`)
 - `Jido.Code.Command.Application`: boot, settings load, supervision
 - `Jido.Code.Command.Config.Loader` / `Jido.Code.Command.Config.Settings`: settings merge + validation
-- `Jido.Code.Command.Extensibility.CommandRegistry`: command catalog and runtime registration
-- `Jido.Code.Command.Extensibility.CommandDispatcher`: `command.invoke` subscriber and async execution queue
-- `Jido.Code.Command.Extensibility.CommandFrontmatter`: command markdown parser + validation
-- `Jido.Code.Command.Extensibility.Command`: compilation to `Jido.Action` modules
-- `Jido.Code.Command.Extensibility.CommandRuntime`: template interpolation, hook emission, permission filtering
+- `Jido.Code.Command.Registry`: command catalog and runtime registration
+- `Jido.Code.Command.Dispatcher`: `command.invoke` subscriber and async execution queue
+- `Jido.Code.Command.Frontmatter`: command markdown parser + validation
+- `Jido.Code.Command.Compiler`: compilation to `Jido.Action` modules
+- `Jido.Code.Command.Runtime`: template interpolation, hook emission, permission filtering

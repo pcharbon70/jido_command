@@ -37,8 +37,8 @@ iex -S mix
 At startup, the application supervises:
 
 - `Jido.Signal.Bus`
-- `Jido.Code.Command.Extensibility.CommandRegistry`
-- `Jido.Code.Command.Extensibility.CommandDispatcher`
+- `Jido.Code.Command.Registry`
+- `Jido.Code.Command.Dispatcher`
 
 ## 5. List commands
 
