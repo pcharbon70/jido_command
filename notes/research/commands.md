@@ -1,8 +1,8 @@
-# Jido.Code.Command Runtime Design (Jido v2)
+# Jido.Code.Command Runtime Design
 
 **A command-only architecture with two optional FrontMatter hook signals**
 
-This design keeps extensibility focused strictly on markdown-defined commands and Jido Signal Bus pub/sub.
+This design is focused strictly on markdown-defined commands and Jido Signal Bus pub/sub.
 
 Hooks are exactly two predefined signal hooks declared per command in FrontMatter:
 
@@ -257,12 +257,3 @@ end
 - **Exactly two predefined hooks exist**: `pre` and `after`, both declared optionally in command FrontMatter.
 - **Hook transport is signal-only**: hooks emit `Jido.Signal` events on `Jido.Signal.Bus`.
 - **No extension layer or manifest exists in this architecture**.
-
-## Jido v1 to v2 notes for this design
-
-| Aspect | Jido v1 | Jido v2 |
-|--------|---------|---------|
-| Routing style | Pattern-based (`"topic.**"`) | Topic-based (`"command.invoke"`) |
-| Command schema | NimbleOptions | Zoi schemas |
-| Signal format | Custom | CloudEvents v1.0.2 |
-| Dependencies | Monolithic | Modular (`jido`, `jido_action`, `jido_signal`) |

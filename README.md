@@ -1,6 +1,6 @@
 # Jido.Code.Command
 
-Jido.Code.Command is a command-only extensibility runtime built on `jido`, `jido_action`, and `jido_signal`.
+Jido.Code.Command is a command-only runtime built on `jido`, `jido_action`, and `jido_signal`.
 
 It supports:
 
@@ -164,18 +164,4 @@ Signal contracts are documented in:
 ```bash
 mix deps.get
 mix test
-```
-
-## Pre-commit Hook
-
-This repo ships a managed Git hook at `.githooks/pre-commit` that blocks commits unless all checks pass:
-
-- `mix test`
-- `mix credo --strict`
-- `mix dialyzer`
-
-Enable it locally with:
-
-```bash
-git config core.hooksPath .githooks
 ```
