@@ -157,7 +157,7 @@ Dispatcher-managed execution injects normalized permissions into command context
 
 Signal contracts are documented in:
 
-- `/Users/Pascal/code/jido/jido_command/docs/architecture/contracts.md`
+- `docs/architecture/contracts.md`
 
 ## Development
 
