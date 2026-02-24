@@ -987,7 +987,9 @@ defmodule Jido.Code.Command.CLITest do
       end)
 
     assert_receive {:stdout, ""}
-    assert stderr != ""
+
+    assert stderr =~
+             "legacy --command entrypoint is not supported; use: command <command-name> [options]"
   end
 
   test "top-level -- without command name halts with parse error" do

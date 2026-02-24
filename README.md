@@ -114,6 +114,8 @@ mix run -e 'Jido.Code.Command.CLI.main(["register-command", "commands/review.md"
 mix run -e 'Jido.Code.Command.CLI.main(["unregister-command", "review"])'
 ```
 
+Legacy `--command` invocation is intentionally unsupported; use `command <command-name> [options]`.
+
 When both inline JSON (`--params`/`--context`) and file JSON (`--params-file`/`--context-file`) are provided, inline keys take precedence regardless of argument order.
 
 Install globally (optional):

@@ -94,6 +94,7 @@ Shorthand param rules:
 - values are JSON-decoded when valid JSON (numbers, booleans, objects, arrays, `null`), otherwise treated as strings
 - reserved options remain runtime options: `--params`, `--params-file`, `-p`, `--context`, `--context-file`, `-c`, `--invocation-id`, `--bus`
 - `--` before the command name forces top-level command invocation and bypasses subcommand matching
+- legacy `--command` is intentionally unsupported; use `command <command-name> [options]`
 
 Options:
 
