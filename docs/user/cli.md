@@ -37,7 +37,7 @@ Or load params/context from JSON files:
 Optional global install:
 
 ```bash
-mix do escript.build + escript.install
+mix do escript.build, escript.install
 ```
 
 If needed, add `~/.mix/escripts` to your `PATH`.

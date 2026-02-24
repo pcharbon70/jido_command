@@ -116,7 +116,7 @@ When both inline JSON (`--params`/`--context`) and file JSON (`--params-file`/`-
 Install globally (optional):
 
 ```bash
-mix do escript.build + escript.install
+mix do escript.build, escript.install
 ```
 
 If needed, add `~/.mix/escripts` to your `PATH` so `command` is available everywhere.
@@ -157,7 +157,7 @@ Dispatcher-managed execution injects normalized permissions into command context
 
 Signal contracts are documented in:
 
-- `/Users/Pascal/code/jido/jido_command/docs/architecture/contracts.md`
+- `docs/architecture/contracts.md`
 
 ## Development
 
