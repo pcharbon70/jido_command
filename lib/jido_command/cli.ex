@@ -34,14 +34,23 @@ defmodule Jido.Code.Command.CLI do
     end
   end
 
-  defp normalize_default_command_invocation(["--command" | _rest]) do
-    {:error,
-     "legacy --command entrypoint is not supported; use: command <command-name> [options]"}
+  defp normalize_default_command_invocation(["--command", command | _rest])
+       when is_binary(command) do
+    case parse_top_level_command_name(command) do
+      {:ok, normalized_command} -> {:error, legacy_command_entrypoint_error(normalized_command)}
+      :error -> {:error, legacy_command_entrypoint_error()}
+    end
   end
 
-  defp normalize_default_command_invocation([<<"--command=", _value::binary>> | _rest]) do
-    {:error,
-     "legacy --command entrypoint is not supported; use: command <command-name> [options]"}
+  defp normalize_default_command_invocation(["--command" | _rest]) do
+    {:error, legacy_command_entrypoint_error()}
+  end
+
+  defp normalize_default_command_invocation([<<"--command=", value::binary>> | _rest]) do
+    case parse_top_level_command_name(value) do
+      {:ok, normalized_command} -> {:error, legacy_command_entrypoint_error(normalized_command)}
+      :error -> {:error, legacy_command_entrypoint_error()}
+    end
   end
 
   defp normalize_default_command_invocation([first | _rest] = argv) when is_binary(first) do
@@ -66,6 +75,14 @@ defmodule Jido.Code.Command.CLI do
   defp normalize_default_command_invocation(argv), do: {:ok, argv}
 
   defp known_cli_subcommand?(name) when is_binary(name), do: name in @cli_subcommands
+
+  defp legacy_command_entrypoint_error do
+    "legacy --command entrypoint is not supported; use: command <command-name> [options]"
+  end
+
+  defp legacy_command_entrypoint_error(command_name) when is_binary(command_name) do
+    "legacy --command entrypoint is not supported; use: command #{command_name} [options]"
+  end
 
   defp rewrite_top_level_command_alias(command, rest)
        when is_binary(command) and is_list(rest) do
