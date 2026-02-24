@@ -1,7 +1,7 @@
-defmodule Jido.Code.Command.Extensibility.CommandRegistryTest do
+defmodule Jido.Code.Command.RegistryTest do
   use ExUnit.Case, async: true
 
-  alias Jido.Code.Command.Extensibility.CommandRegistry
+  alias Jido.Code.Command.Registry, as: CommandRegistry
   alias Jido.Signal
   alias Jido.Signal.Bus
 
@@ -116,10 +116,7 @@ defmodule Jido.Code.Command.Extensibility.CommandRegistryTest do
 
     start_supervised!(
       {CommandRegistry,
-       name: registry,
-       bus: bus_name,
-       global_root: global_root,
-       local_root: local_root}
+       name: registry, bus: bus_name, global_root: global_root, local_root: local_root}
     )
 
     assert :ok = CommandRegistry.reload(registry)

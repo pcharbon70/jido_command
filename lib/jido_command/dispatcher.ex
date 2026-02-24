@@ -1,11 +1,11 @@
-defmodule Jido.Code.Command.Extensibility.CommandDispatcher do
+defmodule Jido.Code.Command.Dispatcher do
   @moduledoc """
   Subscribes to `command.invoke` signals and executes registered commands.
   """
 
   use GenServer
 
-  alias Jido.Code.Command.Extensibility.CommandRegistry
+  alias Jido.Code.Command.Registry, as: CommandRegistry
   alias Jido.Signal
   alias Jido.Signal.Bus
 

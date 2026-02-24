@@ -2,7 +2,7 @@ defmodule Jido.Code.CommandTest do
   use ExUnit.Case
 
   alias Jido.Code.Command, as: Command
-  alias Jido.Code.Command.Extensibility.CommandRegistry
+  alias Jido.Code.Command.Registry, as: CommandRegistry
   alias Jido.Signal
   alias Jido.Signal.Bus
 
@@ -47,9 +47,7 @@ defmodule Jido.Code.CommandTest do
       Bus.subscribe(bus, "command.invoke", dispatch: {:pid, target: self()})
 
     assert {:ok, invocation_id} =
-             Command.dispatch("demo", %{"x" => 1}, %{"invocation_id" => "context-id"},
-               bus: bus
-             )
+             Command.dispatch("demo", %{"x" => 1}, %{"invocation_id" => "context-id"}, bus: bus)
 
     assert invocation_id == "context-id"
 

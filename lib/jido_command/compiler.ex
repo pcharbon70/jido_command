@@ -1,11 +1,11 @@
-defmodule Jido.Code.Command.Extensibility.Command do
+defmodule Jido.Code.Command.Compiler do
   @moduledoc """
   Compiles markdown command definitions into runtime `Jido.Action` modules.
   """
 
-  alias Jido.Code.Command.Extensibility.CommandDefinition
-  alias Jido.Code.Command.Extensibility.CommandFrontmatter
-  alias Jido.Code.Command.Extensibility.CommandRuntime
+  alias Jido.Code.Command.Definition, as: CommandDefinition
+  alias Jido.Code.Command.Frontmatter, as: CommandFrontmatter
+  alias Jido.Code.Command.Runtime, as: CommandRuntime
 
   @type compiled_command :: %{
           name: String.t(),

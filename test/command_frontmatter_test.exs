@@ -1,7 +1,7 @@
-defmodule Jido.Code.Command.Extensibility.CommandFrontmatterTest do
+defmodule Jido.Code.Command.FrontmatterTest do
   use ExUnit.Case, async: true
 
-  alias Jido.Code.Command.Extensibility.CommandFrontmatter
+  alias Jido.Code.Command.Frontmatter, as: CommandFrontmatter
 
   test "parses command frontmatter with validated hooks and schema" do
     markdown = """

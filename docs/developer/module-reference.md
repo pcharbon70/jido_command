@@ -21,13 +21,13 @@ Quick mapping of implementation modules to responsibilities.
 
 | Module | Responsibility |
 |---|---|
-| `Jido.Code.Command.Extensibility.CommandRegistry` | In-memory command catalog and manual registration lifecycle |
-| `Jido.Code.Command.Extensibility.CommandDispatcher` | Subscribe to `command.invoke`, validate payloads, execute async, emit result signals |
-| `Jido.Code.Command.Extensibility.CommandLoader` | Load command files from a directory |
-| `Jido.Code.Command.Extensibility.CommandFrontmatter` | Parse/validate command markdown FrontMatter |
-| `Jido.Code.Command.Extensibility.CommandDefinition` | Canonical struct for parsed command declarations |
-| `Jido.Code.Command.Extensibility.Command` | Compile command definitions into `Jido.Action` modules |
-| `Jido.Code.Command.Extensibility.CommandRuntime` | Execute command body with hooks/interpolation/tool filtering |
+| `Jido.Code.Command.Registry` | In-memory command catalog and manual registration lifecycle |
+| `Jido.Code.Command.Dispatcher` | Subscribe to `command.invoke`, validate payloads, execute async, emit result signals |
+| `Jido.Code.Command.Loader` | Load command files from a directory |
+| `Jido.Code.Command.Frontmatter` | Parse/validate command markdown FrontMatter |
+| `Jido.Code.Command.Definition` | Canonical struct for parsed command declarations |
+| `Jido.Code.Command.Compiler` | Compile command definitions into `Jido.Action` modules |
+| `Jido.Code.Command.Runtime` | Execute command body with hooks/interpolation/tool filtering |
 
 ## Where to change what
 

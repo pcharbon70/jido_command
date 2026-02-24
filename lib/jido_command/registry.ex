@@ -1,13 +1,13 @@
-defmodule Jido.Code.Command.Extensibility.CommandRegistry do
+defmodule Jido.Code.Command.Registry do
   @moduledoc """
   Central registry for loaded command modules.
   """
 
   use GenServer
 
-  alias Jido.Code.Command.Config.Loader
-  alias Jido.Code.Command.Extensibility.Command
-  alias Jido.Code.Command.Extensibility.CommandLoader
+  alias Jido.Code.Command.Compiler, as: Command
+  alias Jido.Code.Command.Config.Loader, as: ConfigLoader
+  alias Jido.Code.Command.Loader, as: CommandLoader
   alias Jido.Signal
   alias Jido.Signal.Bus
 
@@ -57,8 +57,8 @@ defmodule Jido.Code.Command.Extensibility.CommandRegistry do
 
   @impl true
   def init(opts) do
-    global_root = Keyword.get(opts, :global_root, Loader.default_global_root())
-    local_root = Keyword.get(opts, :local_root, Loader.default_local_root())
+    global_root = Keyword.get(opts, :global_root, ConfigLoader.default_global_root())
+    local_root = Keyword.get(opts, :local_root, ConfigLoader.default_local_root())
     raw_bus = Keyword.get(opts, :bus, :jido_code_bus)
     default_model = parse_default_model(Keyword.get(opts, :default_model))
 

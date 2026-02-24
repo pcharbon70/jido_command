@@ -3,7 +3,7 @@ defmodule Jido.Code.Command do
   Public API for invoking and dispatching markdown-defined Jido commands.
   """
 
-  alias Jido.Code.Command.Extensibility.CommandRegistry
+  alias Jido.Code.Command.Registry, as: CommandRegistry
   alias Jido.Signal
   alias Jido.Signal.Bus
 
@@ -269,7 +269,9 @@ defmodule Jido.Code.Command do
   # Jido.Signal.Bus treats 2-tuples as {name, registry}; reject reserved tuple forms
   # that are commonly mistaken for generic GenServer server references.
   defp valid_bus_server?({:global, _name}), do: false
-  defp valid_bus_server?({name, registry}) when is_atom(registry), do: valid_bus_name?(name) and valid_bus_registry?(registry)
+
+  defp valid_bus_server?({name, registry}) when is_atom(registry),
+    do: valid_bus_name?(name) and valid_bus_registry?(registry)
 
   defp valid_bus_server?(_server), do: false
 
@@ -504,7 +506,9 @@ defmodule Jido.Code.Command do
 
   defp normalize_bus_server(name), do: name
 
-  defp normalize_bus_name_or_passthrough(name) when is_binary(name), do: normalize_bus_name(name) || name
+  defp normalize_bus_name_or_passthrough(name) when is_binary(name),
+    do: normalize_bus_name(name) || name
+
   defp normalize_bus_name_or_passthrough(name), do: name
 
   defp normalize_bus_name(name) when is_binary(name) do

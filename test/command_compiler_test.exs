@@ -1,7 +1,7 @@
-defmodule Jido.Code.Command.Extensibility.CommandCompilerTest do
+defmodule Jido.Code.Command.CompilerTest do
   use ExUnit.Case, async: true
 
-  alias Jido.Code.Command.Extensibility.Command
+  alias Jido.Code.Command.Compiler, as: Command
 
   test "uses jido.command_module when provided" do
     unique = System.unique_integer([:positive, :monotonic])
