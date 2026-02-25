@@ -1,12 +1,16 @@
 defmodule Jido.Code.Command.MixProject do
   use Mix.Project
+  @source_url "https://github.com/pcharbon70/jido_command"
 
   def project do
     [
       app: :jido_command,
       version: "0.1.0",
+      description: description(),
       elixir: "~> 1.19",
       start_permanent: Mix.env() == :prod,
+      package: package(),
+      source_url: @source_url,
       deps: deps(),
       escript: escript()
     ]
@@ -23,7 +27,7 @@ defmodule Jido.Code.Command.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      {:jido, git: "https://github.com/agentjido/jido"},
+      {:jido, "~> 2.0"},
       {:optimus, "0.6.1"},
       {:jason, "~> 1.4"},
       {:yaml_elixir, "~> 2.12"},
@@ -38,6 +42,27 @@ defmodule Jido.Code.Command.MixProject do
       name: "command",
       app: nil,
       include_priv_for: [:tzdata]
+    ]
+  end
+
+  defp description do
+    "Command-only runtime built on Jido actions and signal bus primitives."
+  end
+
+  defp package do
+    [
+      licenses: ["Apache-2.0"],
+      links: %{
+        "GitHub" => @source_url
+      },
+      files: [
+        "lib",
+        "docs",
+        ".formatter.exs",
+        "mix.exs",
+        "README.md",
+        "LICENSE"
+      ]
     ]
   end
 end
