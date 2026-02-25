@@ -6,6 +6,7 @@ defmodule Jido.Code.Command.CLI do
   """
 
   @cli_subcommands ~w(list invoke dispatch reload register-command unregister-command)
+  @version Mix.Project.config() |> Keyword.fetch!(:version) |> to_string()
 
   @spec main([String.t()], (integer() -> no_return()), module()) :: :ok | no_return()
   @spec main([String.t()], (integer() -> no_return())) :: :ok | no_return()
@@ -365,7 +366,7 @@ defmodule Jido.Code.Command.CLI do
   end
 
   defp handle_parse_result(:version, _parser, halt, _runtime) do
-    IO.puts("command 0.1.0")
+    IO.puts("command #{@version}")
     halt.(0)
   end
 
@@ -501,7 +502,7 @@ defmodule Jido.Code.Command.CLI do
     Optimus.new!(
       name: "command",
       description: "Signal-driven command runtime",
-      version: "0.1.0",
+      version: @version,
       author: "Jido.Code.Command",
       about: "Invoke markdown-defined commands",
       allow_unknown_args: false,
